@@ -83,11 +83,8 @@
         <button type="button" class="header-btn-login" id="headerLoginBtn" style="display: none;">로그인</button>
         <button class="header-icon-btn profile-toggle" id="profileToggle" aria-label="내 주문 보기" title="내 주문 보기">
           <svg class="header-icon profile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <line x1="10" y1="9" x2="8" y2="9"/>
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
           </svg>
         </button>
         <button class="header-icon-btn cart-toggle" id="cartToggle" aria-label="장바구니 열기">
@@ -105,7 +102,6 @@
     <main class="main">
       <!-- Category Section -->
       <section class="category-section">
-        <p class="category-notice" id="categoryNotice">※ 1가지 카테고리에서만 주문이 가능합니다.</p>
         <div class="category-tabs" id="categoryTabs">
           <!-- 동적으로 로드 -->
         </div>
@@ -139,7 +135,6 @@
         <div class="cart-items" id="cartItems"></div>
       </div>
       <div class="cart-footer" id="cartFooter" style="display: none;">
-        <p class="cart-min-order-notice" id="cartMinOrderNotice">※ 최소 주문 금액은 100원 입니다.</p>
         <div class="cart-total">
           <span>총 금액</span>
           <strong id="cartTotal">0원</strong>
@@ -174,7 +169,15 @@
         <div class="profile-logout-wrap">
           <hr class="profile-logout-divider">
           <div class="profile-logout-row">
-            <span class="profile-user-email" id="profileUserEmail" aria-hidden="true"></span>
+            <div class="profile-email-and-settings">
+              <span class="profile-user-email" id="profileUserEmail" aria-hidden="true"></span>
+              <button type="button" class="profile-settings-btn" id="profileSettingsBtn" aria-label="설정" title="설정">
+              <svg class="profile-settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+            </div>
             <button type="button" class="profile-hamburger-btn" id="profileHamburgerBtn" aria-label="메뉴" aria-expanded="false">
               <svg class="profile-hamburger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -210,6 +213,43 @@
       </div>
     </aside>
 
+    <!-- Profile Settings Page -->
+    <div class="settings-page" id="settingsPage" aria-hidden="true" style="display: none;">
+      <div class="settings-header">
+        <button type="button" class="settings-back" id="settingsBack" aria-label="뒤로">←</button>
+        <h2 class="settings-title">프로필 설정</h2>
+      </div>
+      <div class="settings-content">
+        <form class="settings-form" id="settingsForm" novalidate>
+          <div class="form-row">
+            <label class="form-label" for="settingsStoreName">매장명 <span class="required">*</span></label>
+            <input type="text" id="settingsStoreName" class="form-input" placeholder="매장명 입력" autocomplete="organization" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="settingsBizNumber">사업자등록번호 <span class="required">*</span></label>
+            <input type="text" id="settingsBizNumber" class="form-input" placeholder="사업자등록번호 입력" inputmode="numeric" maxlength="10" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="settingsName">이름 <span class="required">*</span></label>
+            <input type="text" id="settingsName" class="form-input" placeholder="이름 입력" autocomplete="name" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="settingsContact">비상연락처 <span class="required">*</span></label>
+            <input type="tel" id="settingsContact" class="form-input" placeholder="비상연락처 입력" autocomplete="tel" inputmode="numeric" maxlength="11" required>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="settingsAddress">기본배송주소 <span class="required">*</span></label>
+            <input type="text" id="settingsAddress" class="form-input form-input-address" placeholder="클릭하여 주소 검색" autocomplete="street-address" readonly tabindex="0">
+          </div>
+          <div class="form-row settings-detail-address-row" id="settingsDetailAddressRow" style="display: none;">
+            <label class="form-label" for="settingsDetailAddress">상세 주소</label>
+            <input type="text" id="settingsDetailAddress" class="form-input" placeholder="동, 호수, 상세 주소 입력">
+          </div>
+          <button type="submit" class="btn-settings-save" id="settingsSubmit">저장</button>
+        </form>
+      </div>
+    </div>
+
     <!-- Checkout Modal -->
     <div class="modal-overlay" id="checkoutModal" aria-hidden="true">
       <div class="modal checkout-modal">
@@ -236,8 +276,7 @@
               </dl>
             </div>
             <div class="bank-notice">
-              <p>※ 주문자명, 비상 연락처를 정확히 입력해 주세요.</p>
-              <p>※ 배송 희망 날짜는 6일후 ~ 45일후 기간 내에서만 선택 가능합니다.</p>
+              <p>※ 주문자명, 비상 연락처를 확인하세요.</p>
             </div>
           </div>
           <div class="order-summary-wrap">
@@ -251,34 +290,6 @@
                   <div class="form-field">
                     <label class="form-label" for="inputContact">비상 연락처</label>
                     <input type="tel" id="inputContact" class="form-input" placeholder="비상 연락처 입력" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11">
-                  </div>
-                </div>
-                <div class="form-row form-row-inline form-row-delivery-datetime">
-                  <div class="form-field">
-                    <label class="form-label" for="inputDeliveryDate">배송희망날짜</label>
-                    <div class="delivery-date-picker">
-                      <input type="hidden" id="inputDeliveryDate" value="">
-                      <div class="delivery-date-picker-display" id="deliveryDatePickerDisplay" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">날짜 선택</div>
-                      <div class="delivery-date-picker-panel" id="deliveryDatePickerPanel" role="dialog" aria-label="배송 희망일 선택"></div>
-                    </div>
-                  </div>
-                  <div class="form-field">
-                    <label class="form-label" for="inputDeliveryTime">배송희망시간</label>
-                    <select id="inputDeliveryTime" class="form-input form-select">
-                      <option value="">선택</option>
-                      <option value="09:00-10:00">09:00-10:00</option>
-                      <option value="10:00-11:00">10:00-11:00</option>
-                      <option value="11:00-12:00">11:00-12:00</option>
-                      <option value="12:00-13:00">12:00-13:00</option>
-                      <option value="13:00-14:00">13:00-14:00</option>
-                      <option value="14:00-15:00">14:00-15:00</option>
-                      <option value="15:00-16:00">15:00-16:00</option>
-                      <option value="16:00-17:00">16:00-17:00</option>
-                      <option value="17:00-18:00">17:00-18:00</option>
-                      <option value="18:00-19:00">18:00-19:00</option>
-                      <option value="19:00-20:00">19:00-20:00</option>
-                      <option value="20:00-21:00">20:00-21:00</option>
-                    </select>
                   </div>
                 </div>
                 <div class="form-row form-row-delivery-address">

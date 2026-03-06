@@ -131,8 +131,8 @@ module.exports = async (req, res) => {
       if (status === 'submitted') unacceptedCount++;
       if (status === 'payment_link_issued') unpaidCount++;
 
-      const deliveryDate = (o.delivery_date || '').toString().trim().slice(0, 10);
-      if (deliveryDate) byDeliveryDate[deliveryDate] = (byDeliveryDate[deliveryDate] || 0) + 1;
+      const orderDate = (o.created_at || '').toString().trim().slice(0, 10);
+      if (orderDate) byDeliveryDate[orderDate] = (byDeliveryDate[orderDate] || 0) + 1;
 
       const items = o.order_items || o.orderItems || [];
       const isPaid = ['payment_completed', 'shipping', 'delivery_completed'].includes(status);

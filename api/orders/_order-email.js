@@ -110,8 +110,6 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const totalAmount = Number(order.total_amount ?? order.totalAmount) || 0;
   const depositor = escapeHtml(order.depositor || '—');
   const contact = escapeHtml(order.contact || '—');
-  const deliveryDate = escapeHtml(order.delivery_date || order.deliveryDate || '—');
-  const deliveryTime = escapeHtml(order.delivery_time || order.deliveryTime || '');
   const deliveryAddress = escapeHtml(order.delivery_address || order.deliveryAddress || '—');
   const detailAddress = escapeHtml(order.detail_address || order.detailAddress || '');
   const orderId = escapeHtml(order.id || '');
@@ -169,7 +167,6 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
       <tr><td style="padding:10px 12px; width:120px; border-bottom:1px solid #eee;">주문번호</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">#${orderId}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문일시</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${createdAt}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문자명</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${depositor}</td></tr>
-      <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">배송 희망일</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${deliveryDate} ${deliveryTime}</td></tr>
       <tr><td style="padding:10px 12px;">배송 주소</td><td style="padding:10px 12px;">${deliveryAddress}</td></tr>
     </table>
 

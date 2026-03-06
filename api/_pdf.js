@@ -122,14 +122,13 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     y += 20;
 
     const orderBoxY = y;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, 90).stroke('#ccc').fill('#fafafa');
+    doc.rect(MARGIN, y, CONTENT_WIDTH, 72).stroke('#ccc').fill('#fafafa');
     doc.fillColor('#000').fontSize(10);
     y += 14;
     doc.text(`주문번호: #${order.id}`, MARGIN + 12, y);
     doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
-    doc.text(`배송희망일: ${order.delivery_date || '—'} ${order.delivery_time || ''}`, MARGIN + 12, y + 36);
-    doc.text(`배송주소: ${order.delivery_address || '—'} ${order.detail_address || ''}`, MARGIN + 12, y + 54);
-    y = orderBoxY + 90 + 20;
+    doc.text(`배송주소: ${order.delivery_address || '—'} ${order.detail_address || ''}`, MARGIN + 12, y + 36);
+    y = orderBoxY + 72 + 20;
 
     // ===== 3. 기타 안내 사항 =====
     doc.fontSize(12);
@@ -140,10 +139,8 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     const notices = [
       '· 본 주문서는 주문자의 신청에 따른 주문 내용 확인용 문서이며, 최종 결제 완료 후 주문이 확정됩니다.',
-      '· 배송 희망일 최소 6일전 결제 링크가 생성되고, 등록하신 연락처로 안내 메세지를 보내드립니다.',
+      '· 주문 접수 시 해당 매장에 배송 목록이 전달됩니다.',
       '· 홈페이지 \'내 주문 보기\'에서 해당 주문의 [결제 진행하기] 버튼을 누르시고 결제를 진행하시면 됩니다.',
-      '· 배송 희망일 4일전까지 결제 완료 필수이며, 기한 내 결제되지 않은 주문은 자동 취소됩니다.',
-      '· 결제 취소는 배송 희망일 4일전까지만 허용되며, 이후에는 취소 및 환불이 불가합니다.',
     ];
     doc.rect(MARGIN, y, CONTENT_WIDTH, notices.length * 22 + 16).stroke('#ccc').fill('#fcfcfc');
     doc.fillColor('#000').fontSize(9);

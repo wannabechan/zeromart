@@ -1,14 +1,15 @@
 /**
  * GET /api/admin/settlement?date=YYYY-MM-DD
- * 해당 날짜에 배송완료된 주문을 브랜드별로 집계 (admin 전용)
+ * 해당 날짜에 주문된 건 중 배송완료된 주문을 브랜드별로 집계 (admin 전용)
+ * zeromart: 배송희망일 없음 → 주문일(created_at) 기준
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 
-/** delivery_date 문자열을 YYYY-MM-DD로 정규화 */
-function normalizeDeliveryDate(str) {
+/** 날짜 문자열을 YYYY-MM-DD로 정규화 */
+function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
   const s = String(str).trim().replace(/\D/g, '');
   if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
@@ -38,10 +39,11 @@ module.exports = async (req, res) => {
     const orders = await getAllOrders() || [];
     const stores = await getStores() || [];
 
-    const targetDate = normalizeDeliveryDate(dateStr);
+    const targetDate = normalizeDate(dateStr);
     const filtered = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
-      return normalizeDeliveryDate(o.delivery_date) === targetDate;
+      const orderDate = (o.created_at || '').toString().slice(0, 10);
+      return normalizeDate(orderDate) === targetDate;
     });
 
     const bySlug = {};

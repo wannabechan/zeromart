@@ -36,7 +36,10 @@ function verifyToken(token) {
  */
 function getUserLevel(email) {
   const normalized = (email || '').toLowerCase().trim();
-  const adminEmail = (process.env.EMAIL_ADMIN || '').toLowerCase().trim();
+  let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
+  if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
+  if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
+  adminEmail = adminEmail.toLowerCase().trim();
   if (adminEmail && normalized === adminEmail) return 'admin';
   return 'user';
 }

@@ -81,6 +81,17 @@ async function updateUserLogin(email) {
   return { ...user, is_first_login: isFirstLogin };
 }
 
+/** 환경 변수 EMAIL_ADMIN 변경 시 기존 사용자 레벨 동기화 */
+async function updateUserLevel(email, level) {
+  const redis = getRedis();
+  const raw = await redis.get(`user:${email}`);
+  if (!raw) return null;
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  user.level = level;
+  await redis.set(`user:${email}`, JSON.stringify(user));
+  return user;
+}
+
 function getYymmddKST() {
   const d = new Date();
   const formatter = new Intl.DateTimeFormat('ko-KR', {
@@ -363,12 +374,40 @@ async function getMenuDataForApp() {
   return result;
 }
 
+const PROFILE_SETTINGS_KEY_PREFIX = 'profile_settings:';
+
+async function getProfileSettings(email) {
+  if (!email || typeof email !== 'string') return null;
+  const redis = getRedis();
+  const key = PROFILE_SETTINGS_KEY_PREFIX + email.trim().toLowerCase();
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  return typeof raw === 'string' ? JSON.parse(raw) : raw;
+}
+
+async function setProfileSettings(email, data) {
+  if (!email || typeof email !== 'string') return false;
+  const redis = getRedis();
+  const key = PROFILE_SETTINGS_KEY_PREFIX + email.trim().toLowerCase();
+  const payload = {
+    storeName: (data.storeName || '').trim(),
+    bizNumber: String(data.bizNumber || '').replace(/\D/g, '').slice(0, 10),
+    name: (data.name || '').trim(),
+    contact: (data.contact || '').trim().replace(/\D/g, '').slice(0, 11),
+    address: (data.address || '').trim(),
+    detailAddress: (data.detailAddress || '').trim(),
+  };
+  await redis.set(key, JSON.stringify(payload));
+  return true;
+}
+
 module.exports = {
   saveAuthCode,
   getAndDeleteAuthCode,
   getUser,
   createUser,
   updateUserLogin,
+  updateUserLevel,
   createOrder,
   getOrdersByUser,
   getOrderById,
@@ -387,4 +426,6 @@ module.exports = {
   saveStoresAndMenus,
   getMenuDataForApp,
   getRedis,
+  getProfileSettings,
+  setProfileSettings,
 };

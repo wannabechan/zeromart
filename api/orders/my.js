@@ -51,8 +51,6 @@ module.exports = async (req, res) => {
         status,
         statusLabel,
         createdAt: o.created_at,
-        deliveryDate: o.delivery_date,
-        deliveryTime: o.delivery_time,
         deliveryAddress: o.delivery_address || null,
         detailAddress: o.detail_address || null,
         totalAmount: o.total_amount,

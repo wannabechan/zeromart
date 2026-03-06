@@ -35,7 +35,6 @@ let pendingQty = {};
 
 // DOM 요소
 const categoryTabs = document.getElementById('categoryTabs');
-const categoryNotice = document.getElementById('categoryNotice');
 const menuSectionTitle = document.getElementById('menuSectionTitle');
 const menuGrid = document.getElementById('menuGrid');
 const cartToggle = document.getElementById('cartToggle');
@@ -47,7 +46,6 @@ const cartEmpty = document.getElementById('cartEmpty');
 const cartItems = document.getElementById('cartItems');
 const cartFooter = document.getElementById('cartFooter');
 const cartTotal = document.getElementById('cartTotal');
-const cartMinOrderNotice = document.getElementById('cartMinOrderNotice');
 const btnCheckout = document.getElementById('btnCheckout');
 const checkoutModal = document.getElementById('checkoutModal');
 const checkoutClose = document.getElementById('checkoutClose');
@@ -56,8 +54,6 @@ const checkoutOrderTime = document.getElementById('checkoutOrderTime');
 const inputDepositor = document.getElementById('inputDepositor');
 const inputContact = document.getElementById('inputContact');
 const checkoutForm = document.getElementById('checkoutForm');
-const inputDeliveryDate = document.getElementById('inputDeliveryDate');
-const inputDeliveryTime = document.getElementById('inputDeliveryTime');
 const inputDeliveryAddress = document.getElementById('inputDeliveryAddress');
 const detailAddressRow = document.getElementById('detailAddressRow');
 const inputDetailAddress = document.getElementById('inputDetailAddress');
@@ -70,6 +66,10 @@ const profileToggle = document.getElementById('profileToggle');
 const profileOverlay = document.getElementById('profileOverlay');
 const profileDrawer = document.getElementById('profileDrawer');
 const profileClose = document.getElementById('profileClose');
+const profileSettingsBtn = document.getElementById('profileSettingsBtn');
+const settingsPage = document.getElementById('settingsPage');
+const settingsBack = document.getElementById('settingsBack');
+const settingsForm = document.getElementById('settingsForm');
 const profileEmpty = document.getElementById('profileEmpty');
 const profileOrders = document.getElementById('profileOrders');
 const profileIncludeCancelledEl = document.getElementById('profileIncludeCancelled');
@@ -142,25 +142,6 @@ function formatOrderDate(isoStr) {
   return `${y}년 ${m}월 ${day}일 | ${h}시 ${min}분`;
 }
 
-// 유틸: 배송희망일 날짜만 (yy년 mm월 dd일)
-function formatDeliveryDateOnly(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  const y = String(d.getFullYear()).slice(-2);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}년 ${m}월 ${day}일`;
-}
-
-// 유틸: 입금기한 표시용 (mm월 dd일 hh시 mm분)
-function formatDeadlineShort(date) {
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  return `${m}월 ${d}일 ${h}시 ${min}분`;
-}
-
 // 유틸: 아이콘 이모지 (플레이스홀더)
 function getCategoryEmoji(category) {
   const emojis = { bento: '🍱', side: '🥗', salad: '🥬', beverage: '🥤', dessert: '🍰' };
@@ -225,70 +206,6 @@ function isBusinessDay(dateStr, categorySlug) {
   return days.includes(dayOfWeek);
 }
 
-const DELIVERY_TIME_SLOTS = ['09:00-10:00', '10:00-11:00', '11:00-12:00', '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00', '17:00-18:00', '18:00-19:00', '19:00-20:00', '20:00-21:00'];
-
-function setDeliveryTimeOptions(allowedSlots) {
-  if (!inputDeliveryTime) return;
-  const allowedSet = (allowedSlots && Array.isArray(allowedSlots) && allowedSlots.length > 0) ? new Set(allowedSlots) : null;
-  const options = ['<option value="">선택</option>', ...DELIVERY_TIME_SLOTS.map((slot) => {
-    const isAllowed = allowedSet === null || allowedSet.has(slot);
-    if (isAllowed) return `<option value="${slot}">${slot}</option>`;
-    return `<option value="" disabled>${slot}</option>`;
-  })];
-  inputDeliveryTime.innerHTML = options.join('');
-}
-
-function formatDeliveryDateDisplay(dateStr) {
-  if (!dateStr) return '날짜 선택';
-  const [y, m, d] = dateStr.split('-');
-  return `${y}. ${parseInt(m, 10)}. ${parseInt(d, 10)}.`;
-}
-
-function renderDeliveryDatePickerPanel(panelEl, categorySlug) {
-  const minStr = getMinDeliveryDate();
-  const maxStr = getMaxDeliveryDate();
-  const minDate = new Date(minStr + 'T12:00:00');
-  const maxDate = new Date(maxStr + 'T12:00:00');
-  const businessDays = (MENU_DATA[categorySlug]?.businessDays && Array.isArray(MENU_DATA[categorySlug].businessDays))
-    ? MENU_DATA[categorySlug].businessDays
-    : [0, 1, 2, 3, 4, 5, 6];
-  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-  let html = '<div class="delivery-date-picker-grid">';
-  weekdays.forEach((w) => { html += `<div class="delivery-date-picker-weekday">${w}</div>`; });
-  const start = new Date(minDate);
-  start.setDate(start.getDate() - start.getDay());
-  const end = new Date(maxDate);
-  end.setDate(end.getDate() + (6 - end.getDay()));
-  let lastMonth = -1;
-  let lastYear = -1;
-  for (let t = start.getTime(); t <= end.getTime(); t += 86400000) {
-    const d = new Date(t);
-    const y = d.getFullYear();
-    const monthNum = d.getMonth();
-    const m = String(monthNum + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${day}`;
-    const dayNum = d.getDate();
-    if (monthNum !== lastMonth || y !== lastYear) {
-      lastMonth = monthNum;
-      lastYear = y;
-      html += `<div class="delivery-date-picker-month" style="grid-column: 1 / -1;">${y}년 ${monthNum + 1}월</div>`;
-    }
-    const inRange = d >= minDate && d <= maxDate;
-    const isBusiness = businessDays.includes(d.getDay());
-    const enabled = inRange && isBusiness;
-    if (enabled) {
-      html += `<button type="button" class="delivery-date-cell delivery-date-cell--enabled" data-date="${dateStr}">${dayNum}</button>`;
-    } else if (inRange) {
-      html += `<span class="delivery-date-cell delivery-date-cell--disabled">${dayNum}</span>`;
-    } else {
-      html += `<span class="delivery-date-cell delivery-date-cell--disabled" aria-hidden="true">${dayNum}</span>`;
-    }
-  }
-  html += '</div>';
-  panelEl.innerHTML = html;
-}
-
 // 장바구니에 포함된 첫 매장의 결제정보
 function getPaymentForCart() {
   const itemIds = Object.keys(cart).filter((id) => cart[id] > 0);
@@ -326,15 +243,10 @@ function updateCartQty(itemId, delta) {
   renderCartItems();
 }
 
-// 담기: 카드에 설정한 수량만큼 장바구니에 추가 (1카테고리만 허용)
+// 담기: 카드에 설정한 수량만큼 장바구니에 추가 (여러 카테고리 허용)
 function addToCartFromPending(itemId) {
   const qty = pendingQty[itemId] || 0;
   if (qty <= 0) return;
-  const cartCategory = getCartCategory();
-  const itemCategory = getCategoryForItem(itemId);
-  if (cartCategory !== null && itemCategory !== cartCategory) {
-    return; // 다른 카테고리 담기 불가
-  }
   cart[itemId] = (cart[itemId] || 0) + qty;
   delete pendingQty[itemId];
   updateCartCount();
@@ -384,46 +296,30 @@ function renderMenuCards() {
   const emoji = getCategoryEmoji(category);
 
   const items = data.items || [];
-  const cartCategory = getCartCategory();
-  const canAddFromCategory = cartCategory === null || category === cartCategory;
-
   menuGrid.innerHTML = items
     .map((item) => {
-      const qty = canAddFromCategory ? (pendingQty[item.id] || 0) : 0;
-      const addDisabled = canAddFromCategory ? qty === 0 : false;
-      const qtyDisabled = !canAddFromCategory;
+      const qty = pendingQty[item.id] || 0;
+      const addDisabled = qty === 0;
+      const qtyDisabled = false;
       const idEsc = escapeHtml(item.id);
       const nameEsc = escapeHtml(item.name);
-      const descEsc = escapeHtml(item.description || '상세 설명이 없습니다.');
-      const imgSrc = safeImageUrl(item.imageUrl);
-      const imgContent = imgSrc
-        ? `<div class="menu-card-image"><img src="${escapeHtml(imgSrc)}" alt="" class="menu-card-img" onerror="this.outerHTML='<span class=\\'menu-card-emoji\\'>${emoji}</span>'"></div>`
-        : `<div class="menu-card-image">${emoji}</div>`;
       return `
-        <article class="menu-card" data-id="${idEsc}">
-          <div class="menu-card-image-wrapper" role="button" tabindex="0" aria-label="상세 정보 보기">
-            ${imgContent}
-            <div class="menu-info-overlay" data-id="${idEsc}">
-              <p>${descEsc}</p>
+        <article class="menu-card menu-card-row" data-id="${idEsc}">
+          <div class="menu-card-cell menu-card-cell-name">${nameEsc}</div>
+          <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}</div>
+          <div class="menu-card-cell menu-card-cell-actions">
+            <div class="menu-qty-controls">
+              <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
+              <span class="menu-qty-value">${qty}</span>
+              <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
             </div>
-          </div>
-          <div class="menu-card-body">
-            <h3 class="menu-card-name">${nameEsc}</h3>
-            <p class="menu-card-price">${formatPrice(item.price)}</p>
-            <div class="menu-card-actions">
-              <div class="menu-qty-controls">
-                <button type="button" class="menu-qty-btn${qtyDisabled ? ' menu-qty-btn--other-category' : ''}" data-action="decrease" data-id="${idEsc}" ${!qtyDisabled && qty === 0 ? 'disabled' : ''}>−</button>
-                <span class="menu-qty-value">${qty}</span>
-                <button type="button" class="menu-qty-btn${qtyDisabled ? ' menu-qty-btn--other-category' : ''}" data-action="increase" data-id="${idEsc}" ${qtyDisabled ? '' : ''}>+</button>
-              </div>
-              <button class="menu-add-btn ${!canAddFromCategory ? 'menu-add-btn-other-category' : ''}" data-id="${idEsc}" ${addDisabled && canAddFromCategory ? 'disabled' : ''} aria-label="장바구니 담기">
-                <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                  <line x1="3" y1="6" x2="21" y2="6"/>
-                  <path d="M16 10a4 4 0 0 1-8 0"/>
-                </svg>
-              </button>
-            </div>
+            <button class="menu-add-btn" data-id="${idEsc}" ${addDisabled ? 'disabled' : ''} aria-label="장바구니 담기">
+              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+            </button>
           </div>
         </article>
       `;
@@ -460,13 +356,10 @@ function renderCartItems() {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
 
-  const TOTAL_MIN = 100;
   const categoryTotals = {};
   for (const slug of Object.keys(byCategory)) {
     categoryTotals[slug] = byCategory[slug].reduce((sum, { item, qty }) => sum + item.price * qty, 0);
   }
-  const totalMeetMin = total >= TOTAL_MIN;
-  btnCheckout.classList.toggle('below-minimum', !totalMeetMin);
 
   const renderCartItem = ({ itemId, qty, item }) => `
     <div class="cart-item" data-id="${escapeHtml(itemId)}">
@@ -493,8 +386,7 @@ function renderCartItems() {
     .map((slug) => {
       const categoryTitle = escapeHtml(MENU_DATA[slug]?.title || slug);
       const catTotal = categoryTotals[slug] || 0;
-      const meetMin = catTotal >= TOTAL_MIN;
-      const totalClass = meetMin ? 'cart-category-total met' : 'cart-category-total below';
+      const totalClass = 'cart-category-total met';
       const itemsHtml = byCategory[slug].map(renderCartItem).join('');
       return `
         <div class="cart-category-group">
@@ -522,18 +414,6 @@ function closeCart() {
   cartOverlay.classList.remove('visible');
   cartOverlay.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
-}
-
-// 6일 후 ~ 45일 후 날짜 (배송희망날짜용)
-function getMinDeliveryDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
-}
-function getMaxDeliveryDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + 45);
-  return d.toISOString().slice(0, 10);
 }
 
 function renderOrderSummaryList(entries) {
@@ -625,16 +505,9 @@ function openCheckoutModal() {
 
   inputDepositor.value = '';
   inputContact.value = '';
-  inputDeliveryDate.value = '';
-  const cartCategory = getCartCategory();
-  const businessHours = cartCategory != null && MENU_DATA[cartCategory]?.businessHours ? MENU_DATA[cartCategory].businessHours : null;
-  setDeliveryTimeOptions(businessHours);
-  inputDeliveryTime.value = '';
   inputDeliveryAddress.value = '';
   detailAddressRow.style.display = 'none';
   inputDetailAddress.value = '';
-  const deliveryDatePickerDisplay = document.getElementById('deliveryDatePickerDisplay');
-  if (deliveryDatePickerDisplay) deliveryDatePickerDisplay.textContent = formatDeliveryDateDisplay(inputDeliveryDate.value);
   btnOrderSubmit.textContent = '주문 신청';
   btnOrderSubmit.disabled = true;
 
@@ -760,10 +633,6 @@ function handleOrderCancelClick(order) {
 }
 
 function handlePaymentCancelClick(order) {
-  if (isPastPaymentDeadline(order)) {
-    alert('배송 준비중입니다. 결제 취소가 불가합니다.');
-    return;
-  }
   const modal = document.getElementById('orderDetailPaymentCancelModal');
   if (!modal) return;
   const backBtn = modal.querySelector('.order-detail-payment-cancel-modal-btn.back');
@@ -834,28 +703,6 @@ function canCancelOrder(status) {
   return status !== 'cancelled' && ['submitted', 'order_accepted', 'payment_link_issued'].includes(status);
 }
 
-/** 배송 희망일 4일 전 23:59 KST를 지났는지 (결제 취소 불가 시점) */
-function isPastPaymentDeadline(order) {
-  const raw = order.delivery_date || order.deliveryDate || '';
-  const s = String(raw).trim();
-  let y, m, d;
-  if (/^\d{8}$/.test(s)) {
-    y = parseInt(s.slice(0, 4), 10);
-    m = parseInt(s.slice(4, 6), 10) - 1;
-    d = parseInt(s.slice(6, 8), 10);
-  } else {
-    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!match) return false;
-    y = parseInt(match[1], 10);
-    m = parseInt(match[2], 10) - 1;
-    d = parseInt(match[3], 10);
-  }
-  const date = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
-  date.setUTCDate(date.getUTCDate() - 4);
-  date.setUTCHours(14, 59, 0, 0); // 23:59 KST
-  return Date.now() > date.getTime();
-}
-
 function renderProfileOrdersList() {
   const orders = profileIncludeCancelled ? profileAllOrders : profileAllOrders.filter((o) => o.status !== 'cancelled');
   const visible = orders.slice(0, profileVisibleCount);
@@ -909,7 +756,7 @@ function renderProfileOrdersList() {
             </div>
             <span class="profile-order-status ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${escapeHtml(o.statusLabel || '')}</span>
           </div>
-          <div class="profile-order-date">주문일시 : ${formatOrderDate(o.createdAt)}<br>배송희망일 : ${formatDeliveryDateOnly(o.deliveryDate)}</div>
+          <div class="profile-order-date">주문일시 : ${formatOrderDate(o.createdAt)}</div>
           <div class="profile-order-status-steps">${stepsHtml}</div>
           <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(o.totalAmount || 0)}</div>
         </div>
@@ -1119,17 +966,6 @@ function handleMenuGridClick(e) {
       return;
     }
     const id = qtyBtn.dataset.id;
-    const cartCategory = getCartCategory();
-    const itemCategory = getCategoryForItem(id);
-    if (cartCategory !== null && itemCategory !== cartCategory) {
-      if (categoryNotice) {
-        categoryNotice.classList.remove('notice-blink');
-        void categoryNotice.offsetWidth;
-        categoryNotice.classList.add('notice-blink');
-        setTimeout(() => categoryNotice.classList.remove('notice-blink'), 1200);
-      }
-      return;
-    }
     const action = qtyBtn.dataset.action;
     setPendingQty(id, action === 'increase' ? 1 : -1);
     return;
@@ -1141,17 +977,6 @@ function handleMenuGridClick(e) {
       return;
     }
     const itemId = addBtn.dataset.id;
-    const cartCategory = getCartCategory();
-    const itemCategory = getCategoryForItem(itemId);
-    if (cartCategory !== null && itemCategory !== cartCategory) {
-      if (categoryNotice) {
-        categoryNotice.classList.remove('notice-blink');
-        void categoryNotice.offsetWidth;
-        categoryNotice.classList.add('notice-blink');
-        setTimeout(() => categoryNotice.classList.remove('notice-blink'), 1200);
-      }
-      return;
-    }
     addToCartFromPending(itemId);
     return;
   }
@@ -1201,6 +1026,215 @@ function init() {
   profileOverlay.addEventListener('click', (e) => {
     if (e.target === profileOverlay) closeProfile();
   });
+
+  const mainContent = document.querySelector('.main');
+
+  async function showSettingsPage() {
+    if (!settingsPage || !mainContent) return;
+    mainContent.style.display = 'none';
+    settingsPage.style.display = 'flex';
+    settingsPage.setAttribute('aria-hidden', 'false');
+    const storeNameEl = document.getElementById('settingsStoreName');
+    const bizNumberEl = document.getElementById('settingsBizNumber');
+    const nameEl = document.getElementById('settingsName');
+    const contactEl = document.getElementById('settingsContact');
+    const addressEl = document.getElementById('settingsAddress');
+    const detailRow = document.getElementById('settingsDetailAddressRow');
+    const detailEl = document.getElementById('settingsDetailAddress');
+    if (storeNameEl) storeNameEl.value = '';
+    if (bizNumberEl) bizNumberEl.value = '';
+    if (nameEl) nameEl.value = '';
+    if (contactEl) contactEl.value = '';
+    if (addressEl) addressEl.value = '';
+    if (detailEl) detailEl.value = '';
+    if (detailRow) detailRow.style.display = 'none';
+    const token = window.BzCatAuth?.getToken();
+    if (token) {
+      try {
+        const res = await fetch('/api/profile/settings', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json().catch(() => ({}));
+        const data = res.ok && json.settings ? json.settings : {};
+        if (storeNameEl) storeNameEl.value = data.storeName || '';
+        if (bizNumberEl) bizNumberEl.value = data.bizNumber || '';
+        if (nameEl) nameEl.value = data.name || '';
+        if (contactEl) contactEl.value = data.contact || '';
+        if (addressEl) addressEl.value = data.address || '';
+        if (detailEl) detailEl.value = data.detailAddress || '';
+        if (detailRow && (data.address || '').trim()) detailRow.style.display = '';
+      } catch (_) {}
+    }
+  }
+
+  function hideSettingsPage() {
+    if (!settingsPage || !mainContent) return;
+    settingsPage.style.display = 'none';
+    settingsPage.setAttribute('aria-hidden', 'true');
+    mainContent.style.display = '';
+  }
+
+  function applySettingsRoute() {
+    const hash = (window.location.hash || '').toLowerCase();
+    if (hash === '#settings') {
+      showSettingsPage();
+    } else {
+      hideSettingsPage();
+    }
+  }
+
+  if (profileSettingsBtn) {
+    profileSettingsBtn.addEventListener('click', () => {
+      closeProfile();
+      window.location.hash = '#settings';
+      applySettingsRoute();
+    });
+  }
+  if (settingsBack) {
+    settingsBack.addEventListener('click', () => {
+      window.location.hash = '';
+      applySettingsRoute();
+    });
+  }
+  window.addEventListener('hashchange', applySettingsRoute);
+
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const storeNameEl = document.getElementById('settingsStoreName');
+      const bizNumberEl = document.getElementById('settingsBizNumber');
+      const nameEl = document.getElementById('settingsName');
+      const contactEl = document.getElementById('settingsContact');
+      const addressEl = document.getElementById('settingsAddress');
+      const detailEl = document.getElementById('settingsDetailAddress');
+      const storeName = (storeNameEl?.value || '').trim();
+      const bizNumber = (bizNumberEl?.value || '').trim().replace(/\D/g, '');
+      const name = (nameEl?.value || '').trim();
+      const contact = (contactEl?.value || '').trim().replace(/\D/g, '');
+      const address = (addressEl?.value || '').trim();
+      const detailAddress = (detailEl?.value || '').trim();
+      if (!storeName) {
+        alert('매장명을 입력해 주세요.');
+        storeNameEl?.focus();
+        return;
+      }
+      if (!bizNumber || bizNumber.length !== 10) {
+        alert('사업자등록번호 10자리를 입력해 주세요.');
+        bizNumberEl?.focus();
+        return;
+      }
+      if (!name) {
+        alert('이름을 입력해 주세요.');
+        nameEl?.focus();
+        return;
+      }
+      if (!contact) {
+        alert('비상연락처를 입력해 주세요.');
+        contactEl?.focus();
+        return;
+      }
+      if (!address) {
+        alert('기본배송주소를 입력해 주세요. 주소 입력란을 눌러 주소를 검색하세요.');
+        addressEl?.focus();
+        return;
+      }
+      const token = window.BzCatAuth?.getToken();
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+      const submitBtn = document.getElementById('settingsSubmit');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '저장 중...';
+      }
+      try {
+        const res = await fetch('/api/profile/settings', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            storeName,
+            bizNumber,
+            name,
+            contact,
+            address,
+            detailAddress,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(json.error || '저장에 실패했습니다.');
+          return;
+        }
+        alert('저장되었습니다.');
+        window.location.hash = '';
+        applySettingsRoute();
+      } catch (err) {
+        console.error(err);
+        alert('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '저장';
+        }
+      }
+    });
+  }
+
+  const settingsAddressInput = document.getElementById('settingsAddress');
+  const settingsDetailAddressRow = document.getElementById('settingsDetailAddressRow');
+  const settingsDetailAddressInput = document.getElementById('settingsDetailAddress');
+
+  function openSettingsPostcode() {
+    if (typeof daum === 'undefined' || !daum.Postcode) {
+      alert('주소 검색 API를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    const postcodeOverlay = document.getElementById('postcodeOverlay');
+    const postcodeLayer = document.getElementById('postcodeLayer');
+    if (!postcodeOverlay || !postcodeLayer || !settingsAddressInput) return;
+    postcodeLayer.innerHTML = '';
+    postcodeOverlay.classList.add('visible');
+    postcodeOverlay.setAttribute('aria-hidden', 'false');
+    new daum.Postcode({
+      oncomplete: function (data) {
+        let addr = '';
+        if (data.userSelectedType === 'R') {
+          addr = data.roadAddress || data.autoRoadAddress || data.address || '';
+        } else {
+          addr = data.jibunAddress || data.autoJibunAddress || data.address || '';
+        }
+        if (!addr) addr = data.address || data.roadAddress || data.jibunAddress || '';
+        settingsAddressInput.value = addr;
+        postcodeOverlay.classList.remove('visible');
+        postcodeOverlay.setAttribute('aria-hidden', 'true');
+        if (settingsDetailAddressRow) settingsDetailAddressRow.style.display = '';
+        if (settingsDetailAddressInput) {
+          settingsDetailAddressInput.value = '';
+          setTimeout(() => settingsDetailAddressInput.focus(), 100);
+        }
+      },
+      onresize: function (size) {
+        postcodeLayer.style.height = size.height + 'px';
+      },
+      width: '100%',
+      height: '100%',
+    }).embed(postcodeLayer);
+  }
+
+  if (settingsAddressInput) {
+    settingsAddressInput.addEventListener('click', openSettingsPostcode);
+    settingsAddressInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openSettingsPostcode();
+      }
+    });
+  }
   if (profileIncludeCancelledEl) {
     profileIncludeCancelledEl.addEventListener('change', () => {
       profileIncludeCancelled = profileIncludeCancelledEl.checked;
@@ -1263,15 +1297,6 @@ function init() {
     }
   });
   btnCheckout.addEventListener('click', (e) => {
-    const total = calculateTotal();
-    const TOTAL_MIN = 100;
-    if (total < TOTAL_MIN) {
-      cartMinOrderNotice.classList.remove('notice-blink');
-      cartMinOrderNotice.offsetHeight;
-      cartMinOrderNotice.classList.add('notice-blink');
-      setTimeout(() => cartMinOrderNotice.classList.remove('notice-blink'), 1200);
-      return;
-    }
     closeCart();
     openCheckoutModal();
   });
@@ -1302,12 +1327,10 @@ function init() {
   function updateOrderSubmitButton() {
     const hasName = (inputDepositor.value || '').trim().length > 0;
     const hasContact = (inputContact.value || '').trim().length > 0;
-    const hasDate = (inputDeliveryDate.value || '').trim().length > 0;
-    const hasTime = (inputDeliveryTime.value || '').trim().length > 0;
     const hasAddress = (inputDeliveryAddress.value || '').trim().length > 0;
     const detailRowVisible = detailAddressRow.style.display !== 'none';
     const hasDetailAddress = !detailRowVisible || (inputDetailAddress.value || '').trim().length > 0;
-    btnOrderSubmit.disabled = !(hasName && hasContact && hasDate && hasTime && hasAddress && hasDetailAddress);
+    btnOrderSubmit.disabled = !(hasName && hasContact && hasAddress && hasDetailAddress);
   }
   inputDepositor.addEventListener('input', updateOrderSubmitButton);
   inputDepositor.addEventListener('change', updateOrderSubmitButton);
@@ -1316,42 +1339,6 @@ function init() {
     updateOrderSubmitButton();
   });
   inputContact.addEventListener('change', updateOrderSubmitButton);
-  const deliveryDatePickerDisplay = document.getElementById('deliveryDatePickerDisplay');
-  const deliveryDatePickerPanel = document.getElementById('deliveryDatePickerPanel');
-  function openDeliveryDatePicker() {
-    const category = getCartCategory() || Object.keys(MENU_DATA)[0];
-    if (deliveryDatePickerPanel) {
-      renderDeliveryDatePickerPanel(deliveryDatePickerPanel, category);
-      deliveryDatePickerPanel.classList.add('open');
-      deliveryDatePickerDisplay?.setAttribute('aria-expanded', 'true');
-      setTimeout(() => document.addEventListener('click', closeDeliveryDatePickerOnOutside), 0);
-    }
-  }
-  function closeDeliveryDatePicker() {
-    if (deliveryDatePickerPanel) {
-      deliveryDatePickerPanel.classList.remove('open');
-      deliveryDatePickerDisplay?.setAttribute('aria-expanded', 'false');
-      document.removeEventListener('click', closeDeliveryDatePickerOnOutside);
-    }
-  }
-  function closeDeliveryDatePickerOnOutside(e) {
-    if (deliveryDatePickerPanel?.classList.contains('open') && !deliveryDatePickerPanel.contains(e.target) && !deliveryDatePickerDisplay?.contains(e.target)) {
-      closeDeliveryDatePicker();
-    }
-  }
-  deliveryDatePickerDisplay?.addEventListener('click', (e) => { e.stopPropagation(); openDeliveryDatePicker(); });
-  deliveryDatePickerDisplay?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDeliveryDatePicker(); } });
-  deliveryDatePickerPanel?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.delivery-date-cell--enabled');
-    if (btn && btn.dataset.date) {
-      inputDeliveryDate.value = btn.dataset.date;
-      if (deliveryDatePickerDisplay) deliveryDatePickerDisplay.textContent = formatDeliveryDateDisplay(btn.dataset.date);
-      closeDeliveryDatePicker();
-      updateOrderSubmitButton();
-    }
-  });
-  inputDeliveryTime.addEventListener('input', updateOrderSubmitButton);
-  inputDeliveryTime.addEventListener('change', updateOrderSubmitButton);
   const postcodeOverlay = document.getElementById('postcodeOverlay');
   const postcodeLayer = document.getElementById('postcodeLayer');
   const postcodeClose = document.getElementById('postcodeClose');
@@ -1451,8 +1438,6 @@ function init() {
         contact: inputContact.value.trim(),
         expenseType: 'none',
         expenseDoc: null,
-        deliveryDate: inputDeliveryDate.value,
-        deliveryTime: inputDeliveryTime.value,
         deliveryAddress: inputDeliveryAddress.value.trim(),
         detailAddress: inputDetailAddress.value.trim() || null,
         orderItems: orderItems,
@@ -1597,6 +1582,9 @@ function init() {
   if (hash === '#orders' || hash === '#profile') {
     openProfile();
   }
+
+  // 프로필 설정 페이지: #settings 일 때 메인 대신 설정 화면 표시
+  applySettingsRoute();
 }
 
 init();

@@ -4,7 +4,7 @@
  */
 
 const { generateToken, getUserLevel, apiResponse } = require('../_utils');
-const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin } = require('../_redis');
+const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel } = require('../_redis');
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -35,15 +35,16 @@ module.exports = async (req, res) => {
     let userData = await getUser(normalizedEmail);
     let isFirstLogin = false;
 
+    const level = getUserLevel(normalizedEmail);
     if (!userData) {
       // 신규 사용자 생성
-      const level = getUserLevel(normalizedEmail);
       userData = await createUser(normalizedEmail, level);
       isFirstLogin = true;
     } else {
-      // 기존 사용자 - 로그인 업데이트
+      // 기존 사용자 - 로그인 업데이트 + EMAIL_ADMIN 기준으로 레벨 동기화
       isFirstLogin = userData.is_first_login === true;
       await updateUserLogin(normalizedEmail);
+      if (userData.level !== level) await updateUserLevel(normalizedEmail, level);
       userData = await getUser(normalizedEmail);
     }
 

@@ -72,8 +72,6 @@ module.exports = async (req, res) => {
     return apiResponse(res, 200, {
       success: true,
       message: '인증 코드가 발송되었습니다.',
-      // 개발 모드에서만 코드 노출 (테스트용)
-      ...(process.env.NODE_ENV !== 'production' && { devCode: code }),
     });
 
   } catch (error) {

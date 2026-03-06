@@ -111,6 +111,10 @@
     .admin-business-hour { display: flex; align-items: center; gap: 8px; font-size: 0.9375rem; cursor: pointer; }
     .admin-business-hour input { width: 18px; height: 18px; flex-shrink: 0; }
     .admin-section-title { font-size: 0.875rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 10px; }
+    .admin-section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .admin-section-title-row .admin-section-title { margin-bottom: 0; }
+    .admin-btn-sort-abc { background: none; border: none; padding: 0; font-size: 0.875rem; color: var(--color-text-secondary); cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+    .admin-btn-sort-abc:hover { color: var(--color-primary); }
     .admin-form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
     .admin-form-row:last-child { margin-bottom: 0; }
     .admin-form-field { flex: 1; min-width: 150px; }
@@ -348,7 +352,7 @@
             </div>
           </div>
           <div class="admin-modal-panel" id="adminSettingsPanelBusinessDays">
-            <p class="admin-modal-hint">배송 희망일 선택 시 이 요일만 선택 가능합니다.</p>
+            <p class="admin-modal-hint">매장 운영 요일 (참고용)</p>
             <div class="admin-business-days" id="adminApiSettingsBusinessDays">
               <label class="admin-business-day"><input type="checkbox" data-day="0" value="0"> 일</label>
               <label class="admin-business-day"><input type="checkbox" data-day="1" value="1"> 월</label>
@@ -360,7 +364,7 @@
             </div>
           </div>
           <div class="admin-modal-panel" id="adminSettingsPanelBusinessHours">
-            <p class="admin-modal-hint">배송 희망시간 선택 시 이 시간대만 선택 가능합니다.</p>
+            <p class="admin-modal-hint">매장 운영 시간대 (참고용)</p>
             <div class="admin-business-hours" id="adminApiSettingsBusinessHours">
               <label class="admin-business-hour"><input type="checkbox" data-slot="09:00-10:00"> 09:00-10:00</label>
               <label class="admin-business-hour"><input type="checkbox" data-slot="10:00-11:00"> 10:00-11:00</label>

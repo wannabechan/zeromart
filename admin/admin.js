@@ -9,8 +9,8 @@ const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
 let adminPaymentOrders = [];
 let adminPaymentTotal = 0;
-let adminPaymentSortBy = 'created_at'; // 'created_at' | 'delivery_date'
-let adminPaymentSortDir = { created_at: 'desc', delivery_date: 'desc' }; // 'asc' = 오래된순(↑), 'desc' = 최신순(↓)
+let adminPaymentSortBy = 'created_at';
+let adminPaymentSortDir = { created_at: 'desc' };
 let adminPaymentSubFilter = 'all'; // 'all' | 'new' | 'payment_wait' | 'delivery_wait' | 'shipping' | 'delivery_completed'
 let adminStoresMap = {};
 let adminStoreOrder = []; // slug order for order detail
@@ -206,7 +206,10 @@ function renderStore(store, menus) {
           </div>
         </div>
         <div class="admin-section">
-          <div class="admin-section-title">메뉴</div>
+          <div class="admin-section-title-row admin-section-title-row--menu">
+            <span class="admin-section-title">메뉴</span>
+            <button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
+          </div>
           <div class="admin-menu-list" data-store-id="${storeIdEsc}">
             ${items.map((item, i) => renderMenuItem(store.id, item, i)).join('')}
           </div>
@@ -396,16 +399,8 @@ function isOverdueForAccept(order) {
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
   const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  if (sortBy === 'created_at') {
-    copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
-  } else {
-    copy.sort((a, b) => {
-      const da = (a.delivery_date || '') + ' ' + (a.delivery_time || '00:00');
-      const db = (b.delivery_date || '') + ' ' + (b.delivery_time || '00:00');
-      return asc(new Date(da), new Date(db));
-    });
-  }
-  if (dir === 'desc') copy.reverse();
+  copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
+  if ((dir || 'desc') === 'desc') copy.reverse();
   return copy;
 }
 
@@ -443,8 +438,7 @@ function renderPaymentList() {
   const sortBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-sort-btns">
-        <button type="button" class="admin-payment-sort-btn ${sortBy === 'created_at' ? 'active' : ''}" data-sort="created_at">주문시간${arrow('created_at')}</button>
-        <button type="button" class="admin-payment-sort-btn ${sortBy === 'delivery_date' ? 'active' : ''}" data-sort="delivery_date">배송희망일시${arrow('delivery_date')}</button>
+        <button type="button" class="admin-payment-sort-btn active" data-sort="created_at">주문시간${arrow('created_at')}</button>
       </div>
     </div>
     <div class="admin-payment-subfilter">
@@ -462,14 +456,8 @@ function renderPaymentList() {
   `;
 
   const ordersHtml = sorted.map(order => {
-    const deliveryDate = new Date(order.delivery_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const daysUntilDelivery = Math.ceil((deliveryDate - today) / (1000 * 60 * 60 * 24));
-    const dDayText = daysUntilDelivery < 0 ? 'D+' + Math.abs(daysUntilDelivery) : 'D-' + daysUntilDelivery;
-    const dDayClass = daysUntilDelivery < 0 ? 'admin-days-overdue' : (daysUntilDelivery <= 7 ? 'admin-days-urgent' : '');
     const isCancelled = order.status === 'cancelled';
-    const isUrgent = !isCancelled && daysUntilDelivery <= 7 && !(order.payment_link && String(order.payment_link).trim());
+    const isUrgent = false;
     const isPaymentDone = order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed';
     const paymentLinkRowDisabled = isCancelled || isPaymentDone || order.status === 'submitted' || !!(order.payment_link && String(order.payment_link).trim());
     const shippingRowDisabled = order.status !== 'payment_completed';
@@ -495,7 +483,6 @@ function renderPaymentList() {
         </div>
         <div class="admin-payment-order-info">
           <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
-          <div>배송희망: ${escapeHtml(order.delivery_date || '')} ${escapeHtml(order.delivery_time || '')}${isCancelled ? '' : ` <span class="${dDayClass}">(${dDayText})</span>`}</div>
           <div>배송주소: ${deliveryAddressEsc}</div>
           <div>주문자: ${escapeHtml(order.depositor || '—')} / ${escapeHtml(order.contact || '—')}</div>
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
@@ -1731,6 +1718,31 @@ async function init() {
         const item = btn.closest('.admin-menu-item');
         const fileInput = item?.querySelector('[data-upload-input]');
         if (fileInput) fileInput.click();
+      }
+      if (e.target.closest('[data-sort-menu-abc]')) {
+        const storeId = e.target.closest('[data-sort-menu-abc]').dataset.sortMenuAbc;
+        const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
+        if (list) {
+          const items = [];
+          list.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
+            const nameInput = itemEl.querySelector('input[data-field="name"]');
+            const priceInput = itemEl.querySelector('input[data-field="price"]');
+            const descInput = itemEl.querySelector('textarea[data-field="description"]');
+            const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
+            items.push({
+              id: itemEl.dataset.menuId || generateId(storeId),
+              name: nameInput?.value?.trim() || '',
+              price: parseInt(priceInput?.value || '0', 10) || 0,
+              description: descInput?.value?.trim() || '',
+              imageUrl: imageInput?.value?.trim() || '',
+            });
+          });
+          items.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+          list.innerHTML = items.map((item, i) => renderMenuItem(storeId, item, i)).join('');
+          list.querySelectorAll('.admin-menu-item').forEach((el, i) => {
+            el.dataset.menuId = items[i].id;
+          });
+        }
       }
       if (e.target.closest('[data-add-menu]')) {
         const storeId = e.target.closest('[data-add-menu]').dataset.addMenu;

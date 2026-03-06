@@ -7,7 +7,8 @@ const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 
-function normalizeDeliveryDate(str) {
+/** 날짜 문자열 YYYY-MM-DD 정규화. zeromart: 주문일(created_at) 기준 */
+function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
   const s = String(str).trim().replace(/\D/g, '');
   if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
@@ -42,7 +43,7 @@ module.exports = async (req, res) => {
 
     const filtered = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
-      const d = normalizeDeliveryDate(o.delivery_date);
+      const d = normalizeDate((o.created_at || '').toString().slice(0, 10));
       if (d < startStr || d > endStr) return false;
       const store = getStoreForOrder(o, stores);
       const s = (store?.slug || store?.id || '').toString().toLowerCase();
@@ -56,7 +57,7 @@ module.exports = async (req, res) => {
 
     const byDate = {};
     filtered.forEach((o) => {
-      const d = normalizeDeliveryDate(o.delivery_date);
+      const d = normalizeDate((o.created_at || '').toString().slice(0, 10));
       if (!byDate[d]) byDate[d] = { date: d, orderCount: 0, totalAmount: 0 };
       byDate[d].orderCount += 1;
       byDate[d].totalAmount += Number(o.total_amount) || 0;

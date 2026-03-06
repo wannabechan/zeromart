@@ -40,8 +40,6 @@ module.exports = async (req, res) => {
       contact,
       expenseType,
       expenseDoc,
-      deliveryDate,
-      deliveryTime,
       deliveryAddress,
       detailAddress,
       orderItems,
@@ -50,7 +48,7 @@ module.exports = async (req, res) => {
     } = req.body;
 
     // 필수 필드 검증
-    if (!depositor || !contact || !deliveryDate || !deliveryTime || !deliveryAddress || !orderItems || !totalAmount) {
+    if (!depositor || !contact || !deliveryAddress || !orderItems || !totalAmount) {
       return apiResponse(res, 400, { error: '필수 정보를 모두 입력해 주세요.' });
     }
 
@@ -71,22 +69,13 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 최소 주문 금액 검증 (테스트용 100원)
-    const TOTAL_MIN = 100;
-    const orderTotal = Number(totalAmount) || 0;
-    if (orderTotal < TOTAL_MIN) {
-      return apiResponse(res, 400, { error: '최소 주문 금액은 100원입니다.' });
-    }
-
-    // 주문 생성 (Redis)
+    // 주문 생성 (Redis) — zeromart: 배송희망일/시간 없음, 주문 시 매장에 배송 목록 전달
     const order = await createOrder({
       user_email: user.email,
       depositor,
       contact,
       expense_type: expenseType || 'none',
       expense_doc: expenseDoc || null,
-      delivery_date: deliveryDate,
-      delivery_time: deliveryTime,
       delivery_address: deliveryAddress,
       detail_address: detailAddress || null,
       order_items: orderItems,

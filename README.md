@@ -55,13 +55,13 @@ RESEND_FROM_EMAIL=인증한_발신_이메일  (도메인 인증 후, 선택)
 
 Upstash Redis를 Vercel Storage에 연결합니다. Redis는 스키마 초기화가 필요 없습니다.
 
-### 4. 개발 서버 실행
+### 4. 개발 서버 실행 (로컬 테스트)
 
 ```bash
-npm run dev
+npm run local
 ```
 
-브라우저에서 `http://localhost:3000` 접속
+브라우저에서 `http://localhost:3000` 접속 (`vercel dev` 사용)
 
 ## Vercel 배포
 

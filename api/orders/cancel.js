@@ -2,14 +2,13 @@
  * POST /api/orders/cancel
  * 주문 취소
  * - 결제 완료 전: 항상 취소 가능 → 취소 사유 '고객취소'
- * - 결제 완료 후: 배송 희망일 4일 전 23:59(KST)까지만 취소 가능 → 취소 사유 '결제취소'
- *   이 경우 토스페이먼츠 결제 취소 API 호출 후 주문 취소 처리
+ * - 결제 완료 후: 결제 취소 가능 → 취소 사유 '결제취소' (토스페이먼츠 취소 API 호출)
  * 취소 시 주문서 PDF 재생성 (주문 취소건 표시)
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById } = require('../_redis');
-const { cancelOrderAndRegeneratePdf, isPastPaymentDeadline } = require('../_orderCancel');
+const { cancelOrderAndRegeneratePdf } = require('../_orderCancel');
 const { getTossSecretKeyForOrder } = require('../payment/_helpers');
 
 const CANCELABLE_BEFORE_PAYMENT = ['submitted', 'pending', 'order_accepted', 'payment_link_issued'];
@@ -67,11 +66,6 @@ module.exports = async (req, res) => {
     }
 
     if (status === 'payment_completed') {
-      if (isPastPaymentDeadline(order)) {
-        return apiResponse(res, 400, {
-          error: '배송 희망일 4일 전 23:59 이후에는 결제 취소가 불가합니다.',
-        });
-      }
       const paymentKey = order.toss_payment_key || order.payment_key || '';
       if (!paymentKey.trim()) {
         const adminEmail = process.env.EMAIL_ADMIN || '고객센터';

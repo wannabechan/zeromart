@@ -1,7 +1,6 @@
 /**
  * GET /api/cron/auto-cancel-orders
- * 배송 희망일 4일 전 23:59까지 결제 완료되지 않은 주문 자동 취소
- * Vercel Cron 또는 외부 스케줄러에서 호출 (CRON_SECRET 필요)
+ * zeromart: 배송희망일 없음 — isPastPaymentDeadline 항상 false로 자동 취소 없음. CRON_SECRET 필요.
  */
 
 const { getAllOrders } = require('../_redis');

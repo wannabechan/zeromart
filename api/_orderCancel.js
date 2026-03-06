@@ -1,38 +1,15 @@
 /**
  * 주문 취소 + 주문서 PDF 재생성 공통 로직
- * 배송 희망일 4일 전 23:59 (KST) 기준일 계산
+ * zeromart: 배송희망일 없음 — 결제 마감/자동취소 기준 미사용
  */
 
 const { put } = require('@vercel/blob');
 const { getOrderById, updateOrderStatus, updateOrderCancelReason, updateOrderPdfUrl, getStores } = require('./_redis');
 const { generateOrderPdf } = require('./_pdf');
-/** 배송 희망일 문자열을 (배송일 - 4일) 23:59 KST Date로 변환 */
-function getPaymentDeadline(deliveryDateStr) {
-  if (!deliveryDateStr || typeof deliveryDateStr !== 'string') return null;
-  const s = deliveryDateStr.trim();
-  let y, m, d;
-  if (/^\d{8}$/.test(s)) {
-    y = parseInt(s.slice(0, 4), 10);
-    m = parseInt(s.slice(4, 6), 10) - 1;
-    d = parseInt(s.slice(6, 8), 10);
-  } else {
-    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!match) return null;
-    y = parseInt(match[1], 10);
-    m = parseInt(match[2], 10) - 1;
-    d = parseInt(match[3], 10);
-  }
-  const date = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
-  date.setUTCDate(date.getUTCDate() - 4);
-  date.setUTCHours(14, 59, 0, 0); // 23:59 KST = 14:59 UTC
-  return date;
-}
 
-/** 현재 시각이 결제 마감(배송 희망일 4일 전 23:59 KST)을 지났는지 */
+/** zeromart: 배송희망일 없음. 자동취소 대상이 되지 않도록 항상 false */
 function isPastPaymentDeadline(order) {
-  const deadline = getPaymentDeadline(order.delivery_date);
-  if (!deadline) return false;
-  return Date.now() > deadline.getTime();
+  return false;
 }
 
 /** 주문 취소 처리 + 취소 주문서 PDF 재생성 및 URL 갱신. cancelReason: 고객취소 | 관리자취소 | 결제기한만료 | 결제실패 */
@@ -63,7 +40,6 @@ async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
 }
 
 module.exports = {
-  getPaymentDeadline,
   isPastPaymentDeadline,
   cancelOrderAndRegeneratePdf,
 };

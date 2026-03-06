@@ -1,13 +1,13 @@
 /**
  * GET /api/manager/settlement?date=YYYY-MM-DD
- * 해당 날짜에 배송완료된 주문을 브랜드별로 집계 (매장 담당자 전용 - 담당 매장만)
+ * 해당 날짜에 주문된 건 중 배송완료된 주문 집계 (매장 담당자 전용). zeromart: 주문일(created_at) 기준
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder, getStoreEmailForOrder } = require('../orders/_order-email');
 
-function normalizeDeliveryDate(str) {
+function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
   const s = String(str).trim().replace(/\D/g, '');
   if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
@@ -40,11 +40,12 @@ module.exports = async (req, res) => {
 
     const orders = await getAllOrders() || [];
     const stores = await getStores() || [];
-    const targetDate = normalizeDeliveryDate(dateStr);
+    const targetDate = normalizeDate(dateStr);
 
     const filtered = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
-      if (normalizeDeliveryDate(o.delivery_date) !== targetDate) return false;
+      const orderDate = normalizeDate((o.created_at || '').toString().slice(0, 10));
+      if (orderDate !== targetDate) return false;
       const storeEmail = getStoreEmailForOrder(o, stores);
       return storeEmail && storeEmail.trim().toLowerCase() === managerEmail;
     });
