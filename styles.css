@@ -7,16 +7,23 @@
   padding: 0;
 }
 
+/* Zero Mart 컬러 테이블: 키 컬러 차콜 블랙 + 배색 */
 :root {
-  --color-bg: #fafafa;
+  --color-charcoal: #2C2C2C;
+  --color-bg: #F5F5F5;
   --color-surface: #ffffff;
-  --color-text: #202124;
-  --color-text-secondary: #5f6368;
-  --color-border: #e0e0e0;
-  --color-primary: #e67b19;
-  --color-primary-hover: #d66d10;
-  --color-accent: #feb449;
-  --color-accent-light: #fef3e0;
+  --color-text: #2C2C2C;
+  --color-text-secondary: #5C5C5C;
+  --color-text-muted: #8C8C8C;
+  --color-border: #DADADA;
+  --color-primary: #2C2C2C;
+  --color-primary-hover: #1A1A1A;
+  --color-accent: #6B6560;
+  --color-accent-light: #F2F0ED;
+  --color-primary-muted: rgba(44, 44, 44, 0.12);
+  --color-focus-ring: rgba(44, 44, 44, 0.2);
+  --color-error: #c5221f;
+  --color-error-bg: #FFEBEE;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 2px 6px 2px rgba(0, 0, 0, 0.12);
   --radius: 8px;
@@ -57,7 +64,7 @@ body {
   width: 40px;
   height: 40px;
   border: 3px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--color-primary, #e67b19);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: initial-load-spin 0.8s linear infinite;
 }
@@ -151,7 +158,7 @@ body {
 .login-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(230, 123, 25, 0.2);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 .login-btn {
@@ -204,7 +211,7 @@ body {
 }
 
 .login-code-timer.expiring {
-  color: #d32f2f;
+  color: var(--color-error);
 }
 
 .login-dev-code {
@@ -270,7 +277,7 @@ body {
   margin: 0 0 6px;
   font-size: 0.75rem;
   line-height: 1.5;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   font-weight: 300;
 }
 
@@ -382,7 +389,7 @@ body {
 
 .header-btn-login:hover {
   background: var(--color-accent);
-  color: var(--color-primary-hover);
+  color: white;
 }
 
 .header-icon,
@@ -393,7 +400,7 @@ body {
 }
 
 .profile-toggle.has-pending-orders .profile-icon {
-  color: #e67b19;
+  color: var(--color-primary);
 }
 
 .cart-count {
@@ -436,7 +443,7 @@ body {
 
 .menu-section-madeby {
   margin-left: 5px;
-  color: #9e9e9e;
+  color: var(--color-text-muted);
   font-weight: 400;
 }
 
@@ -447,7 +454,7 @@ body {
 
 .category-notice {
   font-size: 0.75rem;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   margin: 0 0 12px;
   line-height: 1.5;
 }
@@ -542,7 +549,7 @@ body {
 }
 
 .category-tab:hover {
-  background: #f8f9fa;
+  background: var(--color-bg);
 }
 
 .category-tab.active {
@@ -581,7 +588,7 @@ body {
 .menu-card-image {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+  background: linear-gradient(135deg, #EBE9E6 0%, var(--color-border) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -724,7 +731,7 @@ body {
 }
 
 .menu-qty-btn:active {
-  background: #f0f0f0;
+  background: var(--color-accent-light);
 }
 
 .menu-qty-btn:disabled {
@@ -940,11 +947,11 @@ body {
 }
 
 .cart-category-total.below {
-  color: #b0b0b0;
+  color: var(--color-text-muted);
 }
 
 .cart-category-total.met {
-  color: #e67b19;
+  color: var(--color-primary);
 }
 
 .cart-item {
@@ -1016,8 +1023,8 @@ body {
 }
 
 .cart-item-remove:hover {
-  color: #c5221f;
-  background: rgba(197, 34, 31, 0.08);
+  color: var(--color-error);
+  background: var(--color-error-bg);
 }
 
 .cart-item-remove .icon-trash {
@@ -1026,7 +1033,7 @@ body {
 }
 
 .cart-item-remove:active {
-  background: rgba(197, 34, 31, 0.12);
+  background: var(--color-error-bg);
 }
 
 .cart-footer {
@@ -1075,7 +1082,7 @@ body {
 }
 
 .btn-checkout.below-minimum:hover {
-  background: #e0e0e0;
+  background: var(--color-border);
 }
 
 .btn-checkout.below-minimum:active {
@@ -1084,7 +1091,7 @@ body {
 
 .cart-min-order-notice {
   font-size: 0.8125rem;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   margin-bottom: 12px;
   line-height: 1.4;
 }
@@ -1095,12 +1102,12 @@ body {
 }
 
 .cart-min-order-notice.notice-blink {
-  color: #202124;
+  color: var(--color-text);
   animation: notice-blink 0.4s ease-in-out 3;
 }
 
 .category-notice.notice-blink {
-  color: #202124;
+  color: var(--color-text);
   animation: notice-blink 0.4s ease-in-out 3;
 }
 
@@ -1171,7 +1178,7 @@ body {
   margin-top: 2px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1182,14 +1189,14 @@ body {
   margin: 0;
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid #b0b0b0;
+  border: 1px solid var(--color-text-muted);
   border-radius: 0;
   background: var(--color-surface, #fff);
   cursor: pointer;
 }
 
 .profile-include-cancelled-input:checked {
-  background-color: #b0b0b0;
+  background-color: var(--color-text-muted);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
   background-size: 12px 12px;
   background-position: center;
@@ -1265,7 +1272,7 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   font-family: inherit;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   background: none;
   border: none;
   cursor: pointer;
@@ -1273,7 +1280,7 @@ body {
 }
 
 .profile-logout-btn:active {
-  color: #909090;
+  color: var(--color-text-secondary);
 }
 
 .profile-logout-icon {
@@ -1289,13 +1296,13 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   -webkit-tap-highlight-color: transparent;
 }
 
 .profile-hamburger-btn:hover,
 .profile-hamburger-btn[aria-expanded="true"] {
-  color: #909090;
+  color: var(--color-text-secondary);
 }
 
 .profile-hamburger-icon {
@@ -1336,7 +1343,7 @@ body {
 .profile-menu-copy-sep {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
 }
 
 .profile-menu-copy-sep {
@@ -1352,7 +1359,7 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   font-family: inherit;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   text-decoration: none;
   background: none;
   border: none;
@@ -1363,7 +1370,7 @@ body {
 
 .profile-menu-link:hover,
 .profile-menu-btn:hover {
-  color: #909090;
+  color: var(--color-text-secondary);
 }
 
 .profile-menu-btn:active,
@@ -1392,7 +1399,7 @@ body {
 
 .profile-menu-policy-sep {
   font-size: 0.75rem;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   user-select: none;
 }
 
@@ -1455,18 +1462,18 @@ body {
   background: none;
   border: none;
   cursor: pointer;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   -webkit-tap-highlight-color: transparent;
 }
 
 .profile-btn-detail:active,
 .profile-btn-cancel:active {
-  color: #909090;
+  color: var(--color-text-secondary);
 }
 
 .profile-order-date {
   font-size: 0.75rem;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   margin-bottom: 8px;
 }
 
@@ -1504,7 +1511,7 @@ body {
 }
 
 .profile-order-status-steps .step.active {
-  background: rgba(230, 123, 25, 0.1);
+  background: var(--color-primary-muted);
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
@@ -1522,9 +1529,9 @@ body {
 }
 
 .profile-order-status-steps .step.cancelled {
-  background: rgba(197, 34, 31, 0.08);
-  border-color: #c5221f;
-  color: #c5221f;
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .profile-order-status-steps .step.payment-link-ready {
@@ -1859,7 +1866,7 @@ body {
 }
 
 .modal-back:active {
-  background: #f0f0f0;
+  background: var(--color-accent-light);
 }
 
 .modal-close {
@@ -1916,7 +1923,7 @@ body {
 
 .amount-category-count {
   font-size: 0.75rem;
-  color: #feb449;
+  color: var(--color-accent);
 }
 
 .btn-order-detail {
@@ -1934,7 +1941,7 @@ body {
 
 .btn-order-detail:active {
   background: var(--color-accent);
-  color: white;
+  color: var(--color-surface);
 }
 
 .order-detail-list li {
@@ -1942,7 +1949,7 @@ body {
   justify-content: space-between;
   font-size: 0.875rem;
   padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .order-detail-cart-style {
@@ -2006,7 +2013,7 @@ body {
   text-align: left;
   box-sizing: border-box;
 }
-.delivery-date-picker-display:hover { border-color: #b0b0b0; }
+.delivery-date-picker-display:hover { border-color: var(--color-text-muted); }
 .delivery-date-picker-display:focus { outline: none; border-color: var(--color-primary); }
 .delivery-date-picker-panel {
   position: absolute;
@@ -2162,7 +2169,7 @@ body {
 }
 
 .postcode-close:active {
-  background: #f0f0f0;
+  background: var(--color-accent-light);
 }
 
 .form-label {
@@ -2292,7 +2299,7 @@ body {
 
 .order-detail-header-sep {
   font-size: 0.8125rem;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   user-select: none;
 }
 
@@ -2301,7 +2308,7 @@ body {
   font-family: inherit;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #b0b0b0;
+  color: var(--color-text-muted);
   line-height: 1.4;
   -webkit-tap-highlight-color: transparent;
 }
@@ -2312,7 +2319,7 @@ body {
 
 .order-detail-pdf-btn:active,
 .order-detail-cancel-btn:active {
-  color: #909090;
+  color: var(--color-text-secondary);
 }
 
 .order-detail-cancel-btn {
@@ -2338,7 +2345,7 @@ body {
 }
 
 .order-detail-close:active {
-  background: #f0f0f0;
+  background: var(--color-accent-light);
 }
 
 .order-detail-content {
@@ -2936,11 +2943,11 @@ body {
   }
 
   .profile-btn:hover {
-    color: #909090;
+    color: var(--color-text-secondary);
   }
 
   .category-tab:hover {
-    background: #f8f9fa;
+    background: var(--color-bg);
   }
 
   .menu-add-btn:hover:not(:disabled):not(.menu-add-btn-other-category) {

@@ -123,7 +123,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
     const catTotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
     const catTitle = escapeHtml(getCategoryTitle(slug));
     rowsHtml += `
-      <tr><td colspan="3" style="border-bottom:1px solid #eee; padding:10px 12px; font-weight:600; background:#f8f9fa;">${catTitle}</td></tr>
+      <tr><td colspan="3" style="border-bottom:1px solid #eee; padding:10px 12px; font-weight:600; background:#F5F5F5;">${catTitle}</td></tr>
       ${items
         .map(
           (i) => `
@@ -147,25 +147,25 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
 </head>
 <body style="margin:0; padding:0; font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; font-size:14px; line-height:1.5; color:#333;">
   <div style="max-width:600px; margin:0 auto; padding:24px;">
-    <h2 style="margin:0 0 8px; font-size:18px; color:#e67b19;">Zero Mart 신규 주문 안내</h2>
+    <h2 style="margin:0 0 8px; font-size:18px; color:#2C2C2C;">Zero Mart 신규 주문 안내</h2>
     <p style="margin:0 0 20px; color:#666;">아래 주문이 접수되었습니다. 확인 후 처리 부탁드립니다.</p>
 
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">
-      <tr><td colspan="3" style="padding:12px; background:#f8f9fa; font-weight:600; border-bottom:1px solid #e0e0e0;">주문 내역</td></tr>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #DADADA; border-radius:8px; overflow:hidden;">
+      <tr><td colspan="3" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 내역</td></tr>
       <tr style="background:#fafafa;">
         <td style="padding:8px 12px; border-bottom:1px solid #eee; font-weight:600;">메뉴</td>
         <td style="padding:8px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">단가 × 수량</td>
         <td style="padding:8px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">금액</td>
       </tr>
       ${rowsHtml}
-      <tr style="background:#f8f9fa;">
+      <tr style="background:#F5F5F5;">
         <td colspan="2" style="padding:12px; font-weight:700;">총 결제 금액</td>
-        <td style="padding:12px; text-align:right; font-weight:700; font-size:16px; color:#e67b19;">${formatPrice(totalAmount)}</td>
+        <td style="padding:12px; text-align:right; font-weight:700; font-size:16px; color:#2C2C2C;">${formatPrice(totalAmount)}</td>
       </tr>
     </table>
 
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">
-      <tr><td colspan="2" style="padding:12px; background:#f8f9fa; font-weight:600; border-bottom:1px solid #e0e0e0;">주문 정보</td></tr>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #DADADA; border-radius:8px; overflow:hidden;">
+      <tr><td colspan="2" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 정보</td></tr>
       <tr><td style="padding:10px 12px; width:120px; border-bottom:1px solid #eee;">주문번호</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">#${orderId}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문일시</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${createdAt}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문자명</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${depositor}</td></tr>
@@ -174,7 +174,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
     </table>
 
     <div style="margin-top:7px; margin-bottom:16px;">
-      <a href="${acceptUrl.replace(/"/g, '&quot;')}" style="display:inline-block; padding:12px 24px; background:#e67b19; color:#fff; font-weight:600; text-decoration:none; border-radius:8px; font-size:0.9375rem;">주문 수령하기</a>
+      <a href="${acceptUrl.replace(/"/g, '&quot;')}" style="display:inline-block; padding:12px 24px; background:#2C2C2C; color:#fff; font-weight:600; text-decoration:none; border-radius:8px; font-size:0.9375rem;">주문 수령하기</a>
     </div>
     <div style="margin-bottom:20px; font-size:0.75rem; color:#999;">
       <a href="${rejectUrlSchedule.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:스케줄문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlCooking.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:조리문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlOther.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:기타</a>
