@@ -1,0 +1,19 @@
+{
+  "name": "bzcat",
+  "version": "1.0.0",
+  "description": "BzCat - 비즈니스 케이터링 주문 시스템",
+  "private": true,
+  "scripts": {
+    "local": "vercel dev",
+    "build": "echo 'Static site - no build needed'"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-kr": "^5.2.9",
+    "@upstash/redis": "^1.34.0",
+    "@vercel/blob": "^2.0.1",
+    "formidable": "^3.5.4",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.17.2",
+    "resend": "^4.0.0"
+  }
+}

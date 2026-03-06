@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no">
+  <title>BzCat : 비즈니스 케이터링</title>
+  <link rel="icon" href="/img/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+</head>
+<body>
+  <div id="initialLoadOverlay" class="initial-load-overlay" aria-hidden="false">
+    <div class="initial-load-spinner" role="status" aria-label="로딩 중"></div>
+  </div>
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-container">
+      <div class="login-header">
+        <img src="/img/bzcat_symbol.png" alt="" class="login-symbol">
+        <img src="/img/bzcat_logo.png" alt="BzCat" class="login-logo login-logo-refresh" id="loginLogo" role="button" tabindex="0" aria-label="새로고침">
+        <p class="login-title">비즈니스 케이터링</p>
+      </div>
+      <form class="login-form" id="loginForm" novalidate>
+        <div class="login-field">
+          <label class="login-label" for="loginEmail">이메일</label>
+          <input type="email" id="loginEmail" class="login-input" placeholder="example@email.com" autocomplete="email" required>
+        </div>
+        <button type="button" class="login-btn login-btn-primary" id="btnSendCode">로그인 코드 생성</button>
+        <div class="login-code-section" id="loginCodeSection" style="display: none;">
+          <div class="login-field">
+            <label class="login-label" for="loginCode">6자리 인증 코드</label>
+            <input type="text" id="loginCode" class="login-input" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+          </div>
+          <div class="login-code-hint-row">
+            <span class="login-code-hint" id="loginCodeHint">이메일로 발송된 인증 코드를 입력하세요.</span>
+            <span class="login-code-timer" id="loginCodeTimer"></span>
+          </div>
+          <button type="submit" class="login-btn login-btn-primary" id="btnLogin">로그인</button>
+        </div>
+      </form>
+      <p class="login-notice">※ 이메일로 로그인하세요.</p>
+      <div class="login-footer">
+        <hr class="login-footer-line">
+        <p class="login-footer-links">
+          <a href="https://lopsided-hubcap-1f0.notion.site/policy-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="login-footer-link">이용약관</a>
+          <span class="login-footer-sep">|</span>
+          <a href="https://lopsided-hubcap-1f0.notion.site/policy-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="login-footer-link">개인정보처리방침</a>
+          <span class="login-footer-sep">|</span>
+          <a href="https://lopsided-hubcap-1f0.notion.site/policy-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="login-footer-link">면책조항</a>
+        </p>
+        <p class="login-footer-copy">© 2026 (주)코코로키친.&nbsp;&nbsp;✉️ bzcatmanager@gmail.com</p>
+        <p class="login-footer-copy">사업자등록번호: 273-86-00091. 대표이사 김찬혁</p>
+        <p class="login-footer-copy">통신판매업신고번호: 2024-서울서초-4424</p>
+        <p class="login-footer-copy">주소: 서울 서초구 강남대로93길 9, 403호</p>
+        <br>
+        <p class="login-footer-beta">본 서비스는 베타 테스트 단계로 운영되고 있습니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="app" id="mainApp" style="display: none;">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo-wrap"><a href="/" class="logo-link" aria-label="메인 화면으로"><img src="/img/bzcat_logo.png" alt="BzCat" class="logo"></a></h1>
+        <a href="/admin" class="header-admin-link" id="headerAdminLink" style="display: none;">admin</a>
+        <a href="/store-orders/index.html" class="header-admin-link" id="headerStoreOrdersLink" style="display: none;">주문관리</a>
+        <button type="button" class="header-icon-btn header-chat-btn" id="categoryChatBtn" aria-label="채팅" style="display: none;">
+          <svg class="category-chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span class="category-chat-dots" aria-hidden="true">
+            <span class="category-chat-dot"></span>
+            <span class="category-chat-dot"></span>
+            <span class="category-chat-dot"></span>
+          </span>
+        </button>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="header-btn-login" id="headerLoginBtn" style="display: none;">로그인</button>
+        <button class="header-icon-btn profile-toggle" id="profileToggle" aria-label="내 주문 보기" title="내 주문 보기">
+          <svg class="header-icon profile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="10" y1="9" x2="8" y2="9"/>
+          </svg>
+        </button>
+        <button class="header-icon-btn cart-toggle" id="cartToggle" aria-label="장바구니 열기">
+          <svg class="header-icon cart-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 0 1-8 0"/>
+          </svg>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Category Section -->
+      <section class="category-section">
+        <p class="category-notice" id="categoryNotice">※ 1가지 카테고리에서만 주문이 가능합니다.</p>
+        <div class="category-tabs" id="categoryTabs">
+          <!-- 동적으로 로드 -->
+        </div>
+      </section>
+
+      <!-- Menu Section -->
+      <section class="menu-section">
+        <h2 class="section-title menu-title" id="menuSectionTitle">도시락</h2>
+        <div class="menu-grid" id="menuGrid">
+          <!-- Menu items will be injected by JS -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Cart Drawer -->
+    <div class="cart-overlay" id="cartOverlay" aria-hidden="true"></div>
+    <aside class="cart-drawer" id="cartDrawer">
+      <div class="cart-header">
+        <h2><img src="/img/bzcat_symbol.png" alt="" class="header-symbol">장바구니</h2>
+        <button class="cart-close" id="cartClose" aria-label="장바구니 닫기">
+        <svg class="cart-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      </div>
+      <div class="cart-content" id="cartContent">
+        <div class="cart-empty" id="cartEmpty">
+          <p>장바구니가 비어있습니다</p>
+          <p class="cart-empty-hint">메뉴를 선택하여 담아주세요</p>
+        </div>
+        <div class="cart-items" id="cartItems"></div>
+      </div>
+      <div class="cart-footer" id="cartFooter" style="display: none;">
+        <p class="cart-min-order-notice" id="cartMinOrderNotice">※ 최소 주문 금액은 100원 입니다.</p>
+        <div class="cart-total">
+          <span>총 금액</span>
+          <strong id="cartTotal">0원</strong>
+        </div>
+        <button class="btn-checkout" id="btnCheckout">주문 접수</button>
+      </div>
+    </aside>
+
+    <!-- Profile Drawer -->
+    <div class="profile-overlay" id="profileOverlay" aria-hidden="true"></div>
+    <aside class="profile-drawer" id="profileDrawer">
+      <div class="profile-header">
+        <div class="profile-header-left">
+          <h2><img src="/img/bzcat_symbol.png" alt="" class="header-symbol">내 주문 보기</h2>
+          <label class="profile-include-cancelled">
+            <input type="checkbox" id="profileIncludeCancelled" class="profile-include-cancelled-input" checked>
+            <span class="profile-include-cancelled-label">취소 포함</span>
+          </label>
+        </div>
+        <button class="profile-close" id="profileClose" aria-label="닫기">
+          <svg class="profile-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="profile-content" id="profileContent">
+        <div class="profile-empty" id="profileEmpty">
+          <p>주문 내역이 없습니다</p>
+          <p class="profile-empty-hint">주문 신청을 완료하면 여기에서 확인할 수 있습니다</p>
+        </div>
+        <div class="profile-orders" id="profileOrders"></div>
+        <div class="profile-logout-wrap">
+          <hr class="profile-logout-divider">
+          <div class="profile-logout-row">
+            <span class="profile-user-email" id="profileUserEmail" aria-hidden="true"></span>
+            <button type="button" class="profile-hamburger-btn" id="profileHamburgerBtn" aria-label="메뉴" aria-expanded="false">
+              <svg class="profile-hamburger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="profile-menu-panel" id="profileMenuPanel" aria-hidden="true">
+            <div class="profile-menu-line profile-menu-line-1">
+              <span class="profile-menu-copy">© 2026 (주)코코로키친.</span>
+              <span class="profile-menu-copy-sep"> </span>
+              <a href="#" id="profileMenuInquiry" class="profile-menu-item profile-menu-link">✉️ <span id="profileMenuEmail"></span></a>
+              <span class="profile-menu-copy profile-menu-copy-second-line">사업자등록번호 273-86-00091. 대표이사 김찬혁</span>
+            </div>
+            <div class="profile-menu-line profile-menu-line-2">
+              <div class="profile-menu-policy-wrap">
+                <a href="https://lopsided-hubcap-1f0.notion.site/BzCat-Document-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="profile-menu-item profile-menu-link profile-menu-terms-link" id="profileMenuTerms">이용약관</a>
+                <span class="profile-menu-policy-sep">|</span>
+                <a href="https://lopsided-hubcap-1f0.notion.site/BzCat-Document-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="profile-menu-item profile-menu-link profile-menu-terms-link">개인정보처리방침</a>
+                <span class="profile-menu-policy-sep">|</span>
+                <a href="https://lopsided-hubcap-1f0.notion.site/BzCat-Document-1e0d9a3da1e78061a7aaf96a74bf731f?source=copy_link" target="_blank" rel="noopener noreferrer" class="profile-menu-item profile-menu-link profile-menu-terms-link">면책조항</a>
+              </div>
+              <button type="button" class="profile-menu-item profile-menu-btn profile-menu-logout" id="btnLogout" aria-label="로그아웃">
+                <svg class="profile-menu-logout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Checkout Modal -->
+    <div class="modal-overlay" id="checkoutModal" aria-hidden="true">
+      <div class="modal checkout-modal">
+        <div class="modal-header">
+          <h2><img src="/img/bzcat_symbol.png" alt="" class="header-symbol">주문 접수</h2>
+          <div class="modal-header-actions">
+            <button class="modal-close" id="checkoutClose" aria-label="닫기">&times;</button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="bank-info">
+            <h3>주문 요약</h3>
+            <div class="bank-details">
+              <dl>
+                <dt>주문시간</dt>
+                <dd id="checkoutOrderTime">—</dd>
+                <dt>입금금액</dt>
+                <dd class="amount-row">
+                  <span class="amount" id="checkoutAmount">0원</span>
+                  <span class="amount-row-meta">
+                    <button type="button" class="btn-order-detail" id="btnOrderDetail">내역보기</button>
+                  </span>
+                </dd>
+              </dl>
+            </div>
+            <div class="bank-notice">
+              <p>※ 주문자명, 비상 연락처를 정확히 입력해 주세요.</p>
+              <p>※ 배송 희망 날짜는 6일후 ~ 45일후 기간 내에서만 선택 가능합니다.</p>
+            </div>
+          </div>
+          <div class="order-summary-wrap">
+            <div class="checkout-form" id="checkoutForm">
+              <div class="checkout-step" id="checkoutStep1">
+                <div class="form-row form-row-inline">
+                  <div class="form-field">
+                    <label class="form-label" for="inputDepositor">주문자명</label>
+                    <input type="text" id="inputDepositor" class="form-input" placeholder="주문자명 입력" autocomplete="name">
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label" for="inputContact">비상 연락처</label>
+                    <input type="tel" id="inputContact" class="form-input" placeholder="비상 연락처 입력" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" maxlength="11">
+                  </div>
+                </div>
+                <div class="form-row form-row-inline form-row-delivery-datetime">
+                  <div class="form-field">
+                    <label class="form-label" for="inputDeliveryDate">배송희망날짜</label>
+                    <div class="delivery-date-picker">
+                      <input type="hidden" id="inputDeliveryDate" value="">
+                      <div class="delivery-date-picker-display" id="deliveryDatePickerDisplay" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">날짜 선택</div>
+                      <div class="delivery-date-picker-panel" id="deliveryDatePickerPanel" role="dialog" aria-label="배송 희망일 선택"></div>
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label" for="inputDeliveryTime">배송희망시간</label>
+                    <select id="inputDeliveryTime" class="form-input form-select">
+                      <option value="">선택</option>
+                      <option value="09:00-10:00">09:00-10:00</option>
+                      <option value="10:00-11:00">10:00-11:00</option>
+                      <option value="11:00-12:00">11:00-12:00</option>
+                      <option value="12:00-13:00">12:00-13:00</option>
+                      <option value="13:00-14:00">13:00-14:00</option>
+                      <option value="14:00-15:00">14:00-15:00</option>
+                      <option value="15:00-16:00">15:00-16:00</option>
+                      <option value="16:00-17:00">16:00-17:00</option>
+                      <option value="17:00-18:00">17:00-18:00</option>
+                      <option value="18:00-19:00">18:00-19:00</option>
+                      <option value="19:00-20:00">19:00-20:00</option>
+                      <option value="20:00-21:00">20:00-21:00</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row form-row-delivery-address">
+                  <label class="form-label" for="inputDeliveryAddress">배송주소</label>
+                  <input type="text" id="inputDeliveryAddress" class="form-input" placeholder="배송주소 검색" readonly>
+                  <div class="form-row-detail-address" id="detailAddressRow" style="display: none;">
+                    <label class="form-label" for="inputDetailAddress">상세주소</label>
+                    <input type="text" id="inputDetailAddress" class="form-input" placeholder="상세주소 입력 (동, 호수 등)">
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn-order-submit" id="btnOrderSubmit" disabled>주문 신청</button>
+            </div>
+          </div>
+          <div class="postcode-overlay" id="postcodeOverlay" aria-hidden="true">
+            <div class="postcode-wrap">
+              <button type="button" class="postcode-close" id="postcodeClose" aria-label="닫기">&times;</button>
+              <div class="postcode-layer" id="postcodeLayer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="order-detail-overlay" id="orderDetailOverlay" aria-hidden="true">
+      <div class="order-detail-panel">
+        <div class="order-detail-header">
+          <div class="order-detail-header-left">
+            <h3>주문 내역</h3>
+            <a id="orderDetailPdfBtn" href="#" target="_blank" rel="noopener noreferrer" class="order-detail-pdf-btn" style="display: none;">주문서확인</a>
+            <span id="orderDetailHeaderSep" class="order-detail-header-sep" style="display: none;"> | </span>
+            <button type="button" id="orderDetailCancelBtn" class="order-detail-cancel-btn" style="display: none;">취소하기</button>
+          </div>
+          <button type="button" class="order-detail-close" id="orderDetailClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="order-detail-content" id="orderDetailContent"></div>
+        <div class="order-detail-footer">
+          <div class="cart-total">
+            <span>총 금액</span>
+            <strong id="orderDetailTotal">0원</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 주문 접수 완료 모달 -->
+    <div class="order-accepted-modal" id="orderAcceptedModal" aria-hidden="true">
+      <div class="order-accepted-modal-backdrop"></div>
+      <div class="order-accepted-modal-panel">
+        <button type="button" class="order-accepted-modal-close" id="orderAcceptedModalClose" aria-label="닫기">&times;</button>
+        <div class="order-accepted-modal-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="order-accepted-modal-symbol">
+        </div>
+        <p class="order-accepted-modal-msg">
+          주문이 접수되었습니다.<br>
+          확인 후 곧 안내 회신드릴게요.
+        </p>
+        <button type="button" class="order-accepted-modal-btn" id="orderAcceptedModalConfirm">고맙습니다</button>
+      </div>
+    </div>
+    <!-- 배송 불가 지역 안내 모달 -->
+    <div class="unsupported-region-modal" id="unsupportedRegionModal" aria-hidden="true">
+      <div class="unsupported-region-modal-backdrop"></div>
+      <div class="unsupported-region-modal-panel">
+        <button type="button" class="unsupported-region-modal-close" id="unsupportedRegionModalClose" aria-label="닫기">&times;</button>
+        <div class="unsupported-region-modal-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="unsupported-region-modal-symbol">
+        </div>
+        <p class="unsupported-region-modal-msg">
+          선택 장소는 BzCat 미지원 지역입니다.<br>
+          현재 서울 또는 성남시 분당구 내에서<br>
+          배송이 가능합니다. 불편드려 죄송합니다.
+        </p>
+        <button type="button" class="unsupported-region-modal-btn" id="unsupportedRegionModalConfirm">확인</button>
+      </div>
+    </div>
+    <!-- 주문 취소 확인 모달 (결제 전) -->
+    <div class="order-detail-cancel-modal" id="orderDetailCancelModal" aria-hidden="true">
+      <div class="order-detail-cancel-modal-backdrop"></div>
+      <div class="order-detail-cancel-modal-panel">
+        <button type="button" class="order-detail-cancel-modal-close" aria-label="닫기">&times;</button>
+        <div class="order-detail-cancel-modal-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="order-detail-cancel-modal-symbol">
+        </div>
+        <p class="order-detail-cancel-modal-msg">주문을 취소하시겠습니까?</p>
+        <div class="order-detail-cancel-modal-btns">
+          <button type="button" class="order-detail-cancel-modal-btn back">돌아가기</button>
+          <button type="button" class="order-detail-cancel-modal-btn confirm">주문 취소하기</button>
+        </div>
+      </div>
+    </div>
+    <!-- 결제 취소 확인 모달 -->
+    <div class="order-detail-payment-cancel-modal" id="orderDetailPaymentCancelModal" aria-hidden="true">
+      <div class="order-detail-payment-cancel-modal-backdrop"></div>
+      <div class="order-detail-payment-cancel-modal-panel">
+        <button type="button" class="order-detail-payment-cancel-modal-close" id="orderDetailPaymentCancelModalClose" aria-label="닫기">&times;</button>
+        <div class="order-detail-payment-cancel-modal-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="order-detail-payment-cancel-modal-symbol">
+        </div>
+        <p class="order-detail-payment-cancel-modal-msg">
+          결제를 취소하시겠습니까?<br>
+          결제 취소와 동시에 주문이 취소됩니다.
+        </p>
+        <div class="order-detail-payment-cancel-modal-btns">
+          <button type="button" class="order-detail-payment-cancel-modal-btn back">돌아가기</button>
+          <button type="button" class="order-detail-payment-cancel-modal-btn confirm">결제 취소하기</button>
+        </div>
+      </div>
+    </div>
+    <!-- 로그인 유도 모달 -->
+    <div class="modal-overlay login-required-modal" id="loginRequiredModal" aria-hidden="true">
+      <div class="modal login-required-modal-inner">
+        <button type="button" class="login-required-close" id="loginRequiredClose" aria-label="닫기">&times;</button>
+        <div class="login-required-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="login-required-symbol">
+        </div>
+        <p class="login-required-message">로그인 후 이용 가능합니다.</p>
+        <div class="login-required-actions">
+          <button type="button" class="btn-login-required-go" id="loginRequiredGo">로그인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 채팅 주문 안내 모달 -->
+    <div class="modal-overlay chat-intro-modal" id="chatIntroModal" aria-hidden="true">
+      <div class="modal chat-intro-modal-inner">
+        <button type="button" class="chat-intro-close" id="chatIntroClose" aria-label="닫기">&times;</button>
+        <div class="chat-intro-symbol-wrap">
+          <img src="/img/bzcat_symbol.png" alt="" class="chat-intro-symbol">
+        </div>
+        <div class="chat-intro-message">
+          <p>채팅 주문은 BzCat의 오픈 마켓입니다. 주문을 등록하시면 BzCat 커뮤니티의 셰프님들이 응답을 보내드립니다.</p>
+          <p>셰프님 응답을 확인하신 후, 요청 내용과 맞다면 주문 신청을 진행하시고, 아니라면 거절하고 새 응답을 기다려주세요.</p>
+        </div>
+        <div class="chat-intro-actions">
+          <button type="button" class="btn-chat-intro-register" id="chatIntroRegisterBtn">주문 등록하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/auth.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
