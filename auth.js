@@ -285,7 +285,7 @@ async function initAuth() {
 
       // 첫 로그인 환영 메시지
       if (data.isFirstLogin) {
-        alert('만나서 반갑습니다. 맛있게 준비해드릴게요!');
+        alert('만나서 반갑습니다!');
       }
 
       // 세션에서 isStoreManager 등 전체 사용자 정보를 받아 앱 표시
