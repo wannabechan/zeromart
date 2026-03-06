@@ -1,6 +1,6 @@
-# BzCat - 비즈니스 케이터링 주문 시스템
+# Zero Mart - B2B 식자재 주문 플랫폼
 
-단체 케이터링 주문을 위한 웹 애플리케이션입니다.
+B2B 식자재 주문을 위한 웹 애플리케이션입니다. (bzcat fork)
 
 ## 기능
 
@@ -32,6 +32,9 @@ npm install
 ```
 
 ### 2. 환경 변수 설정
+
+**Zero Mart 전용** 값만 사용하세요. bzcat의 `.env.local`을 복사하지 마세요.  
+자세한 체크리스트는 [docs/ENV_AND_SECRETS_GUIDE.md](docs/ENV_AND_SECRETS_GUIDE.md) (5단계: 환경 변수·비밀값 분리)를 참고하세요.
 
 `.env.local` 파일을 생성하고 다음 환경 변수를 설정합니다:
 
@@ -119,9 +122,8 @@ Vercel Dashboard → 프로젝트 → Storage → Postgres → Query에서 `db/s
 
 ## 관리자 계정
 
-- 이메일: `bzcatmanager@gmail.com`
 - 레벨: `admin`
-- 초기 데이터에 자동 생성됨
+- 관리자 이메일·계정은 코드/초기 데이터에서 설정 (필요 시 수정)
 
 ## 라이선스
 

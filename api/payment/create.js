@@ -60,7 +60,7 @@ module.exports = async (req, res) => {
       amount,
       currency: 'KRW',
       orderId: String(orderId),
-      orderName: `BzCat 주문 #${orderId}`,
+      orderName: `Zero Mart 주문 #${orderId}`,
       successUrl,
       failUrl,
     };

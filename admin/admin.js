@@ -1088,7 +1088,7 @@ function renderSettlementStatementContent(data) {
   let html = '<div class="admin-settlement-statement-print">';
   html += '<div class="admin-settlement-statement-print-inner">';
   html += '<div class="admin-settlement-statement-header">';
-  html += '<p class="admin-settlement-statement-logo">BzCat</p>';
+  html += '<p class="admin-settlement-statement-logo">Zero Mart</p>';
   html += '<p class="admin-settlement-statement-title">정산서</p>';
   html += '<p class="admin-settlement-statement-period">' + escapeHtml(periodText) + '</p>';
   html += '<hr class="admin-settlement-statement-hr">';

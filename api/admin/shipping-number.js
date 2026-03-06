@@ -4,9 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById, updateOrderShippingNumber, getStores } = require('../_redis');
-const { getStoreForOrder, getStoreDisplayName } = require('../orders/_order-email');
-const { sendAlimtalk } = require('../_alimtalk');
+const { getOrderById, updateOrderShippingNumber } = require('../_redis');
 
 function isAdmin(user) {
   return user && user.level === 'admin';
@@ -60,40 +58,7 @@ module.exports = async (req, res) => {
       return apiResponse(res, 400, { error: '결제 완료된 주문만 배송 번호를 등록할 수 있습니다.' });
     }
 
-    const updatedOrder = await updateOrderShippingNumber(orderId.trim(), String(trackingNumber).replace(/\D/g, '').trim());
-    if (updatedOrder) {
-      const userGoingCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_USER_GOING_ORDER || '').trim();
-      const orderContact = (updatedOrder.contact || '').trim();
-      if (userGoingCode && orderContact) {
-        try {
-          const stores = await getStores();
-          const store = getStoreForOrder(updatedOrder, stores || []);
-          const storeName = getStoreDisplayName(store);
-          const deliveryDateStr = (updatedOrder.delivery_date || '').toString().trim() || '-';
-          const deliveryTimeStr = (updatedOrder.delivery_time || '').toString().trim() || '-';
-          const deliveryAddressStr = (updatedOrder.delivery_address || '').trim() || '-';
-          const detailAddressStr = (updatedOrder.detail_address || '').trim() || '-';
-          const contactStr = (updatedOrder.contact || '').trim() || '-';
-          const depositorStr = (updatedOrder.depositor || '').trim() || '-';
-          await sendAlimtalk({
-            templateCode: userGoingCode,
-            recipientNo: orderContact,
-            templateParameter: {
-              storeName,
-              orderId: updatedOrder.id,
-              deliveryDate: deliveryDateStr,
-              deliveryTime: deliveryTimeStr || '-',
-              deliveryAddress: deliveryAddressStr,
-              detailAddress: detailAddressStr,
-              contact: contactStr,
-              depositor: depositorStr,
-            },
-          });
-        } catch (alimErr) {
-          console.error('Alimtalk going (user) error:', alimErr);
-        }
-      }
-    }
+    await updateOrderShippingNumber(orderId.trim(), String(trackingNumber).replace(/\D/g, '').trim());
     return apiResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Admin shipping-number error:', err);

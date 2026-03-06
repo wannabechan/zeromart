@@ -1,5 +1,5 @@
 /**
- * BzCat 인증 모듈 (API 연동 버전)
+ * Zero Mart 인증 모듈 (API 연동 버전)
  * - 이메일 기반 6자리 코드 로그인
  * - 사용자 레벨: admin(1) | manager(2) | user(3)
  */

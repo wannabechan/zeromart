@@ -1,7 +1,7 @@
 {
-  "name": "bzcat",
+  "name": "zeromart",
   "version": "1.0.0",
-  "description": "BzCat - 비즈니스 케이터링 주문 시스템",
+  "description": "Zero Mart - B2B 식자재 주문 플랫폼",
   "private": true,
   "scripts": {
     "local": "vercel dev",

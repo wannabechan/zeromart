@@ -4,9 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById, updateOrderPaymentLink, updateOrderStatus, getStores } = require('../_redis');
-const { getStoreForOrder, getStoreDisplayName } = require('../orders/_order-email');
-const { sendAlimtalk } = require('../_alimtalk');
+const { getOrderById, updateOrderPaymentLink, updateOrderStatus } = require('../_redis');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -51,32 +49,6 @@ module.exports = async (req, res) => {
     if (trimmed) {
       if (order.status === 'submitted' || order.status === 'order_accepted') {
         await updateOrderStatus(orderId, 'payment_link_issued');
-        // 결제 링크 발급 시 주문자에게 결제 요청 알림톡
-        const userPayaskCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_USER_PAYASK_ORDER || '').trim();
-        const orderContact = (order.contact || '').trim();
-        if (userPayaskCode && orderContact) {
-          try {
-            const stores = await getStores();
-            const store = getStoreForOrder(order, stores || []);
-            const storeName = getStoreDisplayName(store);
-            const totalAmountStr = Number(order.total_amount || 0).toLocaleString() + '원';
-            const deliveryDateStr = (order.delivery_date || '').toString().trim() || '-';
-            const depositorStr = (order.depositor || '').trim() || '-';
-            await sendAlimtalk({
-              templateCode: userPayaskCode,
-              recipientNo: orderContact,
-              templateParameter: {
-                depositor: depositorStr,
-                storeName,
-                orderId: order.id,
-                totalAmount: totalAmountStr,
-                deliveryDate: deliveryDateStr,
-              },
-            });
-          } catch (alimErr) {
-            console.error('Alimtalk payask (user) error:', alimErr);
-          }
-        }
       }
     } else {
       if (order.status === 'payment_link_issued') {

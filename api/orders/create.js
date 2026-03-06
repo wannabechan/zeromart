@@ -10,7 +10,6 @@ const { createOrder, updateOrderPdfUrl, getStores, updateOrderAcceptToken } = re
 const { generateOrderPdf } = require('../_pdf');
 const { getAppOrigin } = require('../payment/_helpers');
 const { getStoreForOrder, getStoreDisplayName, getStoreEmailForOrder, buildOrderNotificationHtml } = require('./_order-email');
-const { sendAlimtalk } = require('../_alimtalk');
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -126,101 +125,19 @@ module.exports = async (req, res) => {
 
           const { Resend } = require('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
-          const fromEmail = process.env.RESEND_FROM_EMAIL || 'no-reply@bzcat.co';
-          const fromName = process.env.RESEND_FROM_NAME || 'BzCat';
+          const fromEmail = process.env.RESEND_FROM_EMAIL || '';
+          const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
           const storeBrand = (store.brand || store.title || store.id || store.slug || '').trim() || '주문';
           const html = buildOrderNotificationHtml(order, stores, { acceptUrl, rejectUrlSchedule, rejectUrlCooking, rejectUrlOther });
           await resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
             to: toEmail,
-            subject: `[BzCat 신규 주문] ${storeBrand} #${order.id}`,
+            subject: `[Zero Mart 신규 주문] ${storeBrand} #${order.id}`,
             html,
           });
         } catch (emailErr) {
           console.error('Order notification email error:', emailErr);
           // 이메일 실패해도 주문 접수 응답은 성공으로 반환
-        }
-      }
-
-      // 신규 주문 알림톡: 해당 매장 담당자 연락처(010 휴대폰)로 발송
-      const storeSlug = store ? (store.slug || store.id || '').toString() : '';
-      if (!store) {
-        console.warn('Alimtalk skip: 주문에 해당하는 매장을 찾을 수 없음. order_items:', order.order_items?.[0]?.id);
-      } else {
-        const storeContact = (store.storeContact || '').trim();
-        const templateCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_STORE_NEW_ORDER || '').trim();
-        if (!storeContact) {
-          console.warn('Alimtalk skip: 매장 담당자연락처(storeContact)가 비어 있음. 매장관리에서 [', storeSlug, '] 매장의 담당자 연락처에 010 휴대폰 번호를 입력하세요.');
-        } else if (!templateCode) {
-          console.warn('Alimtalk skip: NHN_ALIMTALK_TEMPLATE_CODE_STORE_NEW_ORDER 환경 변수가 비어 있음.');
-        } else {
-          try {
-            const storeName = getStoreDisplayName(store);
-            const deliveryDateStr = (order.delivery_date || '').toString().trim() || '-';
-            const digits = storeContact.replace(/\D/g, '');
-            const maskedNo = digits.length >= 4 ? '010****' + digits.slice(-4) : '***';
-            const codeLen = (templateCode || '').length;
-            console.log('Alimtalk sending: orderId=', order.id, 'store=', storeSlug, 'recipient=', maskedNo, 'templateCodeLen=', codeLen);
-            if (codeLen > 20) {
-              console.warn('Alimtalk: NHN templateCode is max 20 chars. Current length=', codeLen, '- use the short template code from NHN console (e.g. STORE_NEW_ORDER), not the long Kakao code.');
-            }
-            // STORE_NEW_ORDER 템플릿: storeName, orderId, deliveryDate 만 사용
-            const result = await sendAlimtalk({
-              templateCode,
-              recipientNo: storeContact,
-              templateParameter: {
-                storeName,
-                orderId: order.id,
-                deliveryDate: deliveryDateStr,
-              },
-            });
-            if (result.success) {
-              console.log('Alimtalk sent successfully: orderId=', order.id);
-            } else {
-              console.error('Order notification alimtalk failed: orderId=', order.id, 'recipient=', maskedNo, 'resultCode=', result.resultCode, 'resultMessage=', result.resultMessage);
-            }
-          } catch (alimErr) {
-            console.error('Order notification alimtalk error: orderId=', order.id, alimErr);
-          }
-        }
-      }
-
-      // 신규 주문 알림톡: 주문자(고객) 연락처로 발송 (주문 접수 안내)
-      const orderContact = (order.contact || '').trim();
-      const userTemplateCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_USER_NEW_ORDER || '').trim();
-      // 주문자 알림톡: USER_NEW_ORDER 템플릿 (env NHN_ALIMTALK_TEMPLATE_CODE_USER_NEW_ORDER = USER_NEW_ORDER)
-      if (orderContact && userTemplateCode && store) {
-        try {
-          const storeName = getStoreDisplayName(store);
-          const totalAmountStr = Number(order.total_amount || 0).toLocaleString() + '원';
-          const deliveryDateStr = (order.delivery_date || '').toString().trim() || '-';
-          const deliveryAddressStr = (order.delivery_address || '').trim() || '-';
-          const detailAddressStr = (order.detail_address || '').trim() || '-';
-          const digitsU = orderContact.replace(/\D/g, '');
-          const maskedU = digitsU.length >= 4 ? '010****' + digitsU.slice(-4) : '***';
-          console.log('Alimtalk (user) sending: orderId=', order.id, 'recipient=', maskedU);
-          // USER_NEW_ORDER 템플릿: depositor, storeName, orderId, totalAmount, deliveryDate, deliveryAddress, detailAddress
-          const depositorStr = (order.depositor || '').trim() || '-';
-          const resultUser = await sendAlimtalk({
-            templateCode: userTemplateCode,
-            recipientNo: orderContact,
-            templateParameter: {
-              depositor: depositorStr,
-              storeName,
-              orderId: order.id,
-              totalAmount: totalAmountStr,
-              deliveryDate: deliveryDateStr,
-              deliveryAddress: deliveryAddressStr,
-              detailAddress: detailAddressStr,
-            },
-          });
-          if (resultUser.success) {
-            console.log('Alimtalk (user) sent successfully: orderId=', order.id);
-          } else {
-            console.error('Order notification alimtalk (user) failed: orderId=', order.id, 'resultCode=', resultUser.resultCode, 'resultMessage=', resultUser.resultMessage);
-          }
-        } catch (alimErrUser) {
-          console.error('Order notification alimtalk (user) error: orderId=', order.id, alimErrUser);
         }
       }
     }

@@ -88,10 +88,10 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     // ===== 헤더 =====
     doc.fontSize(24);
-    doc.text('BzCat', MARGIN, y, { align: 'center', width: CONTENT_WIDTH });
+    doc.text('Zero Mart', MARGIN, y, { align: 'center', width: CONTENT_WIDTH });
     doc.fontSize(14);
     y = doc.y + 4;
-    doc.text(isCancelled ? '비즈니스 케이터링 주문서 (취소 건)' : '비즈니스 케이터링 주문서', MARGIN, y, { align: 'center', width: CONTENT_WIDTH });
+    doc.text(isCancelled ? 'B2B 식자재 주문서 (취소 건)' : 'B2B 식자재 주문서', MARGIN, y, { align: 'center', width: CONTENT_WIDTH });
     y = doc.y + 20;
 
     // 구분선
@@ -268,7 +268,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     // 푸터 (마지막 페이지 최하단)
     doc.fontSize(8).fillColor('#000');
-    doc.text('BzCat 비즈니스 케이터링', MARGIN, PAGE_HEIGHT - MARGIN - 12, {
+    doc.text('Zero Mart B2B 식자재 주문', MARGIN, PAGE_HEIGHT - MARGIN - 12, {
       align: 'center',
       width: CONTENT_WIDTH,
     });

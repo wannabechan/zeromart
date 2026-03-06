@@ -53,5 +53,5 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 
 -- admin 사용자 추가 (초기 데이터)
 INSERT INTO users (email, level, is_first_login)
-VALUES ('bzcatmanager@gmail.com', 'admin', false)
+VALUES ('zeromartmanager@gmail.com', 'admin', false)
 ON CONFLICT (email) DO NOTHING;

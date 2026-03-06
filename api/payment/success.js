@@ -5,8 +5,6 @@
 
 const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, getStores } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
-const { getStoreForOrder, getStoreDisplayName } = require('../orders/_order-email');
-const { sendAlimtalk } = require('../_alimtalk');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -70,62 +68,6 @@ module.exports = async (req, res) => {
 
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
-
-    // 결제 완료 시 매장 담당자 알림톡: storeName, orderId, totalAmount, deliveryDate, deliveryTime
-    const templateCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_STORE_PAY_ORDER || '').trim();
-    const stores = await getStores();
-    const store = getStoreForOrder(order, stores || []);
-    if (templateCode && store) {
-      try {
-        const storeContact = (store.storeContact || '').trim();
-        if (storeContact) {
-          const storeName = getStoreDisplayName(store);
-          const totalAmountStr = Number(order.total_amount || 0).toLocaleString() + '원';
-          const deliveryDateStr = (order.delivery_date || '').toString().trim() || '-';
-          const deliveryTimeStr = (order.delivery_time || '').toString().trim() || '-';
-          await sendAlimtalk({
-            templateCode,
-            recipientNo: storeContact,
-            templateParameter: {
-              storeName,
-              orderId: order.id,
-              totalAmount: totalAmountStr,
-              deliveryDate: deliveryDateStr,
-              deliveryTime: deliveryTimeStr || '-',
-            },
-          });
-        }
-      } catch (alimErr) {
-        console.error('Alimtalk payment-completed notification error:', alimErr);
-      }
-    }
-
-    // 결제 완료 시 주문자(고객) 알림톡: storeName, orderId, totalAmount, deliveryDate, deliveryAddress, detailAddress
-    const userPaydoneCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_USER_PAYDONE_ORDER || '').trim();
-    const orderContact = (order.contact || '').trim();
-    if (userPaydoneCode && orderContact) {
-      try {
-        const storeName = getStoreDisplayName(store);
-        const totalAmountStr = Number(order.total_amount || 0).toLocaleString() + '원';
-        const deliveryDateStr = (order.delivery_date || '').toString().trim() || '-';
-        const deliveryAddressStr = (order.delivery_address || '').trim() || '-';
-        const detailAddressStr = (order.detail_address || '').trim() || '-';
-        await sendAlimtalk({
-          templateCode: userPaydoneCode,
-          recipientNo: orderContact,
-          templateParameter: {
-            storeName,
-            orderId: order.id,
-            totalAmount: totalAmountStr,
-            deliveryDate: deliveryDateStr,
-            deliveryAddress: deliveryAddressStr,
-            detailAddress: detailAddressStr,
-          },
-        });
-      } catch (alimErr) {
-        console.error('Alimtalk paydone (user) notification error:', alimErr);
-      }
-    }
 
     return res.redirect(302, `${redirectBase}?payment=success`);
   } catch (err) {

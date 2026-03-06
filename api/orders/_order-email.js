@@ -147,7 +147,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
 </head>
 <body style="margin:0; padding:0; font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; font-size:14px; line-height:1.5; color:#333;">
   <div style="max-width:600px; margin:0 auto; padding:24px;">
-    <h2 style="margin:0 0 8px; font-size:18px; color:#e67b19;">BzCat 신규 주문 안내</h2>
+    <h2 style="margin:0 0 8px; font-size:18px; color:#e67b19;">Zero Mart 신규 주문 안내</h2>
     <p style="margin:0 0 20px; color:#666;">아래 주문이 접수되었습니다. 확인 후 처리 부탁드립니다.</p>
 
     <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">
@@ -180,7 +180,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
       <a href="${rejectUrlSchedule.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:스케줄문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlCooking.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:조리문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlOther.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:기타</a>
     </div>
 
-    <p style="margin:0; color:#999; font-size:12px;">BzCat - 비즈니스 케이터링</p>
+    <p style="margin:0; color:#999; font-size:12px;">Zero Mart - B2B 식자재 주문</p>
   </div>
 </body>
 </html>

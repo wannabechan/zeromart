@@ -1,6 +1,6 @@
 # Resend 이메일 발송 설정 가이드
 
-BzCat 로그인 인증 코드는 **Resend**를 통해 발송됩니다.
+Zero Mart 로그인 인증 코드는 **Resend**를 통해 발송됩니다.
 
 ---
 
@@ -16,7 +16,7 @@ BzCat 로그인 인증 코드는 **Resend**를 통해 발송됩니다.
 
 1. Resend Dashboard → **API Keys**
 2. **Create API Key** 클릭
-3. **Name**: `BzCat Production` (원하는 이름)
+3. **Name**: `Zero Mart Production` (원하는 이름)
 4. **Permission**: Sending access
 5. **Add** 클릭
 6. **API Key 복사** (다시 볼 수 없으므로 안전하게 보관)
@@ -54,7 +54,7 @@ BzCat 로그인 인증 코드는 **Resend**를 통해 발송됩니다.
 |------|-------|------|
 | `RESEND_API_KEY` | `re_xxxxx...` (복사한 API Key) | **필수** |
 | `RESEND_FROM_EMAIL` | `noreply@yourdomain.com` (인증한 도메인) | 선택, 도메인 인증 후 |
-| `RESEND_FROM_NAME` | `BzCat` | 선택 (기본값: BzCat) |
+| `RESEND_FROM_NAME` | `Zero Mart` | 선택 (기본값: Zero Mart) |
 
 **테스트 시**: `RESEND_FROM_EMAIL`을 설정하지 않으면 `onboarding@resend.dev` 사용  
 **실서비스**: 도메인 인증 후 `RESEND_FROM_EMAIL`에 인증한 이메일 설정

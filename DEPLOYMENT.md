@@ -1,4 +1,4 @@
-# BzCat 배포 가이드
+# Zero Mart 배포 가이드
 
 ## 1단계: Upstash Redis 추가
 

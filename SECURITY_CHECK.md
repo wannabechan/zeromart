@@ -42,7 +42,7 @@
 ### 8. 환경 변수 / 비밀값
 - `.env`, `.env.local` 등이 `.gitignore`에 포함되어 있어 코드에 직접 노출되지 않음. 비밀값은 모두 `process.env` 사용.
 
-### 9. Cron 인증 (`api/cron/auto-cancel-orders.js`, `api/cron/alimtalk-*.js`)
+### 9. Cron 인증 (`api/cron/auto-cancel-orders.js`)
 - `CRON_SECRET`으로 **Authorization: Bearer &lt;시크릿&gt;** 헤더만 검증. 쿼리스트링(`?secret=`)은 **사용하지 않음** (URL/리퍼러/로그에 시크릿이 남지 않도록 코드에서 제거됨).
 - `CRON_SECRET`이 비어 있으면 모든 요청 거절. 프로덕션에서 강한 시크릿 설정 필요.
 

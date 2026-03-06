@@ -6,9 +6,6 @@
 const { put } = require('@vercel/blob');
 const { getOrderById, updateOrderStatus, updateOrderCancelReason, updateOrderPdfUrl, getStores } = require('./_redis');
 const { generateOrderPdf } = require('./_pdf');
-const { getStoreForOrder, getStoreDisplayName } = require('./orders/_order-email');
-const { sendAlimtalk } = require('./_alimtalk');
-
 /** 배송 희망일 문자열을 (배송일 - 4일) 23:59 KST Date로 변환 */
 function getPaymentDeadline(deliveryDateStr) {
   if (!deliveryDateStr || typeof deliveryDateStr !== 'string') return null;
@@ -60,53 +57,6 @@ async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
     await updateOrderPdfUrl(orderId, blob.url);
   } catch (err) {
     console.error('PDF regeneration on cancel:', err);
-  }
-
-  // 주문 취소 시 매장 담당자 알림톡
-  try {
-    const store = getStoreForOrder(order, stores);
-    const templateCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_STORE_CANCEL_ORDER || '').trim();
-    if (store && templateCode) {
-      const storeContact = (store.storeContact || '').trim();
-      if (storeContact) {
-        const storeName = getStoreDisplayName(store);
-        await sendAlimtalk({
-          templateCode,
-          recipientNo: storeContact,
-          templateParameter: {
-            storeName,
-            orderId: order.id,
-            cancelReason: (order.cancel_reason || '').trim() || '-',
-          },
-        });
-      }
-    }
-  } catch (alimErr) {
-    console.error('Alimtalk cancel notification error:', alimErr);
-  }
-
-  // 주문 취소 시 주문자(고객) 알림톡: cancelReason, storeName, orderId, deliveryDate, deliveryAddress, detailAddress
-  try {
-    const userTemplateCode = (process.env.NHN_ALIMTALK_TEMPLATE_CODE_USER_CANCEL_ORDER || '').trim();
-    const orderContact = (order.contact || '').trim();
-    if (userTemplateCode && orderContact) {
-      const store = getStoreForOrder(order, stores);
-      const storeName = getStoreDisplayName(store);
-      await sendAlimtalk({
-        templateCode: userTemplateCode,
-        recipientNo: orderContact,
-        templateParameter: {
-          cancelReason: (order.cancel_reason || '').trim() || '-',
-          storeName,
-          orderId: order.id,
-          deliveryDate: (order.delivery_date || '').toString().trim() || '-',
-          deliveryAddress: (order.delivery_address || '').trim() || '-',
-          detailAddress: (order.detail_address || '').trim() || '-',
-        },
-      });
-    }
-  } catch (alimErr) {
-    console.error('Alimtalk cancel (user) notification error:', alimErr);
   }
 
   return order;
