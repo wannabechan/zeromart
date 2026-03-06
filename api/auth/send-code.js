@@ -39,9 +39,9 @@ module.exports = async (req, res) => {
       return apiResponse(res, 500, { error: '이메일 발송 설정이 되어 있지 않습니다.' });
     }
 
-    // 발신 이메일 (Resend에서 Zero Mart용 도메인 인증 후 RESEND_FROM_EMAIL 설정)
-    const fromEmail = process.env.RESEND_FROM_EMAIL || '';
-    const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
+    // 발신 이메일: 도메인 구입 전에는 Resend 기본 주소 사용, 도메인 인증 후 RESEND_FROM_EMAIL 설정
+    const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
+    const fromName = (process.env.RESEND_FROM_NAME || 'Zero Mart').trim();
 
     // 이메일 발송
     try {

@@ -125,7 +125,7 @@ module.exports = async (req, res) => {
 
           const { Resend } = require('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
-          const fromEmail = process.env.RESEND_FROM_EMAIL || '';
+          const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
           const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
           const storeBrand = (store.brand || store.title || store.id || store.slug || '').trim() || '주문';
           const html = buildOrderNotificationHtml(order, stores, { acceptUrl, rejectUrlSchedule, rejectUrlCooking, rejectUrlOther });
