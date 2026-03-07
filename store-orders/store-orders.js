@@ -382,9 +382,9 @@ function renderList() {
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
     let orderIdEl;
     if (overdue) {
-      orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">주문 ${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
+      orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
     } else {
-      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplay}</span>`;
+      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
     }
 
     const deliveryAddressFull = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');

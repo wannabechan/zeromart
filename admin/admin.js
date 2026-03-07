@@ -458,7 +458,7 @@ function renderPaymentList() {
     const deliveryRowDisabled = order.status !== 'payment_completed' && order.status !== 'shipping';
     const orderIdEsc = escapeHtml(String(order.id));
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
-    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplay}</span>`;
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
 
     const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');

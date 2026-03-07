@@ -750,7 +750,7 @@ function renderProfileOrdersList() {
         <div class="profile-order-card" data-order-id="${orderIdEsc}">
           <div class="profile-order-card-header">
             <div class="profile-order-header-left">
-              <span class="profile-order-id">주문 ${orderNumberDisplay}</span>
+              <span class="profile-order-id">${orderNumberDisplay}</span>
               <div class="profile-order-actions">
                 <button type="button" class="profile-btn profile-btn-detail" data-action="detail">주문내역</button>
               </div>
