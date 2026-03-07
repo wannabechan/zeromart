@@ -35,11 +35,27 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-function getOrderNumberDisplay(order) {
-  const id = order?.id ?? '';
+function getOrderStoreSlugs(order) {
   const items = order?.order_items || order?.orderItems || [];
   const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
   slugs.sort();
+  return slugs.length ? slugs : ['unknown'];
+}
+
+function getSubtotalForStore(order, slug) {
+  const items = order?.order_items || order?.orderItems || [];
+  let sum = 0;
+  for (const item of items) {
+    const id = (item.id || '').toString();
+    const itemSlug = (id.split('-')[0] || '').toLowerCase();
+    if (itemSlug === slug) sum += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+  }
+  return sum;
+}
+
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const slugs = getOrderStoreSlugs(order);
   const n = slugs.length || 1;
   if (n <= 1) return `#${id}-1`;
   return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
@@ -434,6 +450,19 @@ function renderPaymentList() {
   const dir = adminPaymentSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
+  const rows = [];
+  sorted.forEach((order) => {
+    const slugs = getOrderStoreSlugs(order);
+    slugs.forEach((slug, storeIndex) => {
+      rows.push({
+        order,
+        slug,
+        storeIndex,
+        orderNumberDisplay: `#${order.id}-${storeIndex + 1}`,
+      });
+    });
+  });
+
   const arrow = (key) => (adminPaymentSortDir[key] === 'asc' ? ' ↑' : ' ↓');
   const sortBar = `
     <div class="admin-payment-sort">
@@ -451,14 +480,13 @@ function renderPaymentList() {
     </div>
   `;
 
-  const ordersHtml = sorted.map(order => {
+  const ordersHtml = rows.map((row) => {
+    const { order, slug, orderNumberDisplay } = row;
     const isCancelled = order.status === 'cancelled';
-    const isUrgent = false;
-    const isPaymentDone = order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed';
     const deliveryRowDisabled = order.status !== 'payment_completed' && order.status !== 'shipping';
     const orderIdEsc = escapeHtml(String(order.id));
-    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order));
-    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplay}</span>`;
+    const orderNumberDisplayEsc = escapeHtml(orderNumberDisplay);
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplayEsc}</span>`;
 
     const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
@@ -479,6 +507,7 @@ function renderPaymentList() {
     const ordererDisplay = effectiveFilter === 'delivery_wait'
       ? `${escapeHtml(storeName)} / ${escapeHtml(order.contact || '—')}`
       : `${escapeHtml(storeName)} / ${escapeHtml(order.depositor || '—')}`;
+    const rowSubtotal = getSubtotalForStore(order, slug);
 
     return `
       <div class="admin-payment-order ${isCancelled ? 'admin-payment-order-cancelled' : ''}" data-order-id="${orderIdEsc}">
@@ -491,6 +520,7 @@ function renderPaymentList() {
           <div>배송주소: ${deliveryAddressEsc}</div>
           <div>주문자: ${ordererDisplay}</div>
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
+          <div>금액: ${formatAdminPrice(rowSubtotal)}</div>
         </div>
         <div class="admin-payment-link-row">
           ${hideDeliveryBtn
