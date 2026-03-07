@@ -1666,6 +1666,13 @@ body {
   flex-wrap: wrap;
 }
 
+.profile-order-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .profile-order-id {
   font-size: 0.8125rem;
   font-weight: 600;
