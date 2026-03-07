@@ -304,13 +304,14 @@
               <button type="button" class="btn-order-submit" id="btnOrderSubmit" disabled>주문 신청</button>
             </div>
           </div>
-          <div class="postcode-overlay" id="postcodeOverlay" aria-hidden="true">
-            <div class="postcode-wrap">
-              <button type="button" class="postcode-close" id="postcodeClose" aria-label="닫기">&times;</button>
-              <div class="postcode-layer" id="postcodeLayer"></div>
-            </div>
-          </div>
         </div>
+      </div>
+    </div>
+    <!-- 주소 검색 공통 (설정·주문 접수 모두 사용, 모달 밖에 두어 항상 표시 가능) -->
+    <div class="postcode-overlay" id="postcodeOverlay" aria-hidden="true">
+      <div class="postcode-wrap">
+        <button type="button" class="postcode-close" id="postcodeClose" aria-label="닫기">&times;</button>
+        <div class="postcode-layer" id="postcodeLayer"></div>
       </div>
     </div>
     <div class="order-detail-overlay" id="orderDetailOverlay" aria-hidden="true">

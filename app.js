@@ -972,6 +972,18 @@ function handleMenuGridClick(e) {
     setPendingQty(id, action === 'increase' ? 1 : -1);
     return;
   }
+  const nameCell = e.target.closest('.menu-card-cell-name');
+  if (nameCell) {
+    if (!window.BzCatAuth?.getToken()) {
+      openLoginRequiredModal();
+      return;
+    }
+    const card = nameCell.closest('.menu-card');
+    if (card && card.dataset.id) {
+      setPendingQty(card.dataset.id, 1);
+    }
+    return;
+  }
   const addBtn = e.target.closest('.menu-add-btn');
   if (addBtn) {
     if (!window.BzCatAuth?.getToken()) {
