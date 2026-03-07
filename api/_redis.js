@@ -389,9 +389,13 @@ async function setProfileSettings(email, data) {
   if (!email || typeof email !== 'string') return false;
   const redis = getRedis();
   const key = PROFILE_SETTINGS_KEY_PREFIX + email.trim().toLowerCase();
+  const digits = String(data.bizNumber || '').replace(/\D/g, '').slice(0, 10);
+  const bizNumberFormatted = digits.length === 10
+    ? `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5, 10)}`
+    : digits;
   const payload = {
     storeName: (data.storeName || '').trim(),
-    bizNumber: String(data.bizNumber || '').replace(/\D/g, '').slice(0, 10),
+    bizNumber: bizNumberFormatted,
     name: (data.name || '').trim(),
     contact: (data.contact || '').trim().replace(/\D/g, '').slice(0, 11),
     address: (data.address || '').trim(),

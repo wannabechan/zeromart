@@ -484,8 +484,8 @@ function renderOrderDetailByCategory(byCategory, categoryOrder) {
     .join('');
 }
 
-// 결제 모달 열기
-function openCheckoutModal() {
+// 결제 모달 열기 (마이프로필 설정이 있으면 주문자명·연락처·배송주소·상세주소 기본값 적용)
+async function openCheckoutModal() {
   const total = calculateTotal();
   const entries = Object.entries(cart).filter(([, qty]) => qty > 0);
   const orderTime = new Date();
@@ -510,8 +510,33 @@ function openCheckoutModal() {
   inputDeliveryAddress.value = '';
   detailAddressRow.style.display = 'none';
   inputDetailAddress.value = '';
-  btnOrderSubmit.textContent = '주문 신청';
-  btnOrderSubmit.disabled = true;
+
+  const token = window.BzCatAuth?.getToken();
+  if (token) {
+    try {
+      const res = await fetch('/api/profile/settings', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      const data = res.ok && json.settings ? json.settings : {};
+      if (data.name) inputDepositor.value = data.name;
+      if (data.contact) inputContact.value = data.contact;
+      if ((data.address || '').trim()) {
+        inputDeliveryAddress.value = (data.address || '').trim();
+        detailAddressRow.style.display = '';
+        if (data.detailAddress) inputDetailAddress.value = (data.detailAddress || '').trim();
+      }
+    } catch (_) {}
+  }
+
+  btnOrderSubmit.textContent = '결제하기';
+  const hasName = (inputDepositor.value || '').trim().length > 0;
+  const hasContact = (inputContact.value || '').trim().length > 0;
+  const hasAddress = (inputDeliveryAddress.value || '').trim().length > 0;
+  const detailRowVisible = detailAddressRow.style.display !== 'none';
+  const hasDetailAddress = !detailRowVisible || (inputDetailAddress.value || '').trim().length > 0;
+  btnOrderSubmit.disabled = !(hasName && hasContact && hasAddress && hasDetailAddress);
 
   checkoutModal.classList.add('visible');
   checkoutModal.setAttribute('aria-hidden', 'false');
@@ -1071,8 +1096,8 @@ function init() {
         });
         const json = await res.json().catch(() => ({}));
         const data = res.ok && json.settings ? json.settings : {};
-        if (storeNameEl) storeNameEl.value = data.storeName || '';
-        if (bizNumberEl) bizNumberEl.value = data.bizNumber || '';
+          if (storeNameEl) storeNameEl.value = data.storeName || '';
+          if (bizNumberEl) bizNumberEl.value = (data.bizNumber || '').replace(/\D/g, '').slice(0, 10);
         if (nameEl) nameEl.value = data.name || '';
         if (contactEl) contactEl.value = data.contact || '';
         if (addressEl) addressEl.value = data.address || '';
@@ -1123,7 +1148,10 @@ function init() {
       const addressEl = document.getElementById('settingsAddress');
       const detailEl = document.getElementById('settingsDetailAddress');
       const storeName = (storeNameEl?.value || '').trim();
-      const bizNumber = (bizNumberEl?.value || '').trim().replace(/\D/g, '');
+      const bizNumberRaw = (bizNumberEl?.value || '').trim().replace(/\D/g, '');
+      const bizNumber = bizNumberRaw.length === 10
+        ? `${bizNumberRaw.slice(0, 3)}-${bizNumberRaw.slice(3, 5)}-${bizNumberRaw.slice(5, 10)}`
+        : bizNumberRaw;
       const name = (nameEl?.value || '').trim();
       const contact = (contactEl?.value || '').trim().replace(/\D/g, '');
       const address = (addressEl?.value || '').trim();
@@ -1133,7 +1161,7 @@ function init() {
         storeNameEl?.focus();
         return;
       }
-      if (!bizNumber || bizNumber.length !== 10) {
+      if (!bizNumberRaw || bizNumberRaw.length !== 10) {
         alert('사업자등록번호 10자리를 입력해 주세요.');
         bizNumberEl?.focus();
         return;
@@ -1145,6 +1173,11 @@ function init() {
       }
       if (!contact) {
         alert('비상연락처를 입력해 주세요.');
+        contactEl?.focus();
+        return;
+      }
+      if (contact.length !== 11 || !contact.startsWith('010')) {
+        alert('010으로 시작하는 11자리 핸드폰 번호를 입력해 주세요.');
         contactEl?.focus();
         return;
       }
@@ -1476,25 +1509,48 @@ function init() {
 
         if (!response.ok) {
           alert(data.error || '주문 처리에 실패했습니다.');
+          btnOrderSubmit.disabled = false;
+          btnOrderSubmit.textContent = '결제하기';
           return;
         }
 
-        showOrderAcceptedModal(() => {
-          cart = {};
-          pendingQty = {};
-          updateCartCount();
-          renderCartItems();
-          renderMenuCards();
-          closeCheckoutModal();
-          openProfile();
-        });
+        const orderId = data.order?.id;
+        if (!orderId) {
+          alert('주문 생성 후 주문 정보를 받지 못했습니다.');
+          btnOrderSubmit.disabled = false;
+          btnOrderSubmit.textContent = '결제하기';
+          return;
+        }
 
+        const payRes = await fetch('/api/payment/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ orderId }),
+        });
+        const payData = await payRes.json().catch(() => ({}));
+
+        if (!payRes.ok || !payData.checkoutUrl) {
+          alert(payData.error || '결제 진행에 실패했습니다. 내 주문 보기에서 다시 결제하기를 시도할 수 있습니다.');
+          btnOrderSubmit.disabled = false;
+          btnOrderSubmit.textContent = '결제하기';
+          return;
+        }
+
+        cart = {};
+        pendingQty = {};
+        updateCartCount();
+        renderCartItems();
+        renderMenuCards();
+        closeCheckoutModal();
+        window.location.href = payData.checkoutUrl;
       } catch (error) {
-        console.error('Order submission error:', error);
+        console.error('Order/payment error:', error);
         alert('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
-      } finally {
         btnOrderSubmit.disabled = false;
-        btnOrderSubmit.textContent = '주문 신청';
+        btnOrderSubmit.textContent = '결제하기';
       }
   });
 

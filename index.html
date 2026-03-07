@@ -227,7 +227,7 @@
           </div>
           <div class="form-row">
             <label class="form-label" for="settingsBizNumber">사업자등록번호 <span class="required">*</span></label>
-            <input type="text" id="settingsBizNumber" class="form-input" placeholder="사업자등록번호 입력" inputmode="numeric" maxlength="10" required>
+            <input type="text" id="settingsBizNumber" class="form-input" placeholder="'-' 없이 입력하세요" inputmode="numeric" maxlength="10" required>
           </div>
           <div class="form-row">
             <label class="form-label" for="settingsName">이름 <span class="required">*</span></label>
@@ -235,7 +235,7 @@
           </div>
           <div class="form-row">
             <label class="form-label" for="settingsContact">비상연락처 <span class="required">*</span></label>
-            <input type="tel" id="settingsContact" class="form-input" placeholder="비상연락처 입력" autocomplete="tel" inputmode="numeric" maxlength="11" required>
+            <input type="tel" id="settingsContact" class="form-input" placeholder="핸드폰 번호를 '-' 없이 숫자만 입력하세요." autocomplete="tel" inputmode="numeric" maxlength="11" required>
           </div>
           <div class="form-row">
             <label class="form-label" for="settingsAddress">기본배송주소 <span class="required">*</span></label>
@@ -293,15 +293,15 @@
                   </div>
                 </div>
                 <div class="form-row form-row-delivery-address">
-                  <label class="form-label" for="inputDeliveryAddress">배송주소</label>
-                  <input type="text" id="inputDeliveryAddress" class="form-input" placeholder="배송주소 검색" readonly>
+                  <label class="form-label" for="inputDeliveryAddress">기본 배송주소</label>
+                  <input type="text" id="inputDeliveryAddress" class="form-input" placeholder="클릭하여 주소 검색" readonly>
                   <div class="form-row-detail-address" id="detailAddressRow" style="display: none;">
                     <label class="form-label" for="inputDetailAddress">상세주소</label>
                     <input type="text" id="inputDetailAddress" class="form-input" placeholder="상세주소 입력 (동, 호수 등)">
                   </div>
                 </div>
               </div>
-              <button type="button" class="btn-order-submit" id="btnOrderSubmit" disabled>주문 신청</button>
+              <button type="button" class="btn-order-submit" id="btnOrderSubmit" disabled>결제하기</button>
             </div>
           </div>
         </div>
