@@ -379,7 +379,7 @@ function renderList() {
     const overdue = isOverdueForAccept(order);
 
     const orderIdEsc = escapeHtml(String(order.id));
-    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order));
+    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
     let orderIdEl;
     if (overdue) {
       orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">주문 ${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;

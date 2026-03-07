@@ -98,27 +98,11 @@ const ORDER_STATUS_STEPS = [
 const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed'];
 
 // 유틸: 금액 포맷
-function getOrderStoreSlugs(order) {
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
   const items = order?.order_items || order?.orderItems || [];
   const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
   slugs.sort();
-  return slugs.length ? slugs : ['unknown'];
-}
-
-function getSubtotalForStore(order, slug) {
-  const items = order?.order_items || order?.orderItems || [];
-  let sum = 0;
-  for (const item of items) {
-    const id = (item.id || '').toString();
-    const itemSlug = (id.split('-')[0] || '').toLowerCase();
-    if (itemSlug === slug) sum += (Number(item.price) || 0) * (Number(item.quantity) || 0);
-  }
-  return sum;
-}
-
-function getOrderNumberDisplay(order) {
-  const id = order?.id ?? '';
-  const slugs = getOrderStoreSlugs(order);
   const n = slugs.length || 1;
   if (n <= 1) return `#${id}-1`;
   return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
@@ -722,15 +706,8 @@ function canCancelOrder(status) {
 
 function renderProfileOrdersList() {
   const orders = profileIncludeCancelled ? profileAllOrders : profileAllOrders.filter((o) => o.status !== 'cancelled');
-  const rows = [];
-  orders.forEach((o) => {
-    const slugs = getOrderStoreSlugs(o);
-    slugs.forEach((slug, storeIndex) => {
-      rows.push({ order: o, slug, storeIndex, orderNumberDisplay: `#${o.id}-${storeIndex + 1}`, subtotal: getSubtotalForStore(o, slug) });
-    });
-  });
-  const visibleRows = rows.slice(0, profileVisibleCount);
-  const hasMore = rows.length > profileVisibleCount;
+  const visible = orders.slice(0, profileVisibleCount);
+  const hasMore = orders.length > profileVisibleCount;
 
   const stepIndex = (status) => {
     if (['submitted', 'order_accepted', 'payment_link_issued'].includes(status)) return 0;
@@ -739,15 +716,13 @@ function renderProfileOrdersList() {
     return 0;
   };
   const isCancelled = (status) => status === 'cancelled';
+  const canCancel = canCancelOrder;
 
   profileOrdersData = {};
-  visibleRows.forEach((row) => {
-    profileOrdersData[row.order.id] = row.order;
-  });
 
-  const cardsHtml = visibleRows
-    .map((row) => {
-      const o = row.order;
+  const cardsHtml = visible
+    .map((o) => {
+      profileOrdersData[o.id] = o;
       const paymentLinkActive = isPaymentLinkActive(o);
       const cancelled = isCancelled(o.status);
       const currentIdx = cancelled ? -1 : stepIndex(o.status);
@@ -770,12 +745,12 @@ function renderProfileOrdersList() {
         }).join('');
       }
       const orderIdEsc = escapeHtml(String(o.id));
-      const orderNumberDisplayEsc = escapeHtml(row.orderNumberDisplay);
+      const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(o)).replace(/, /g, '<br>');
       return `
         <div class="profile-order-card" data-order-id="${orderIdEsc}">
           <div class="profile-order-card-header">
             <div class="profile-order-header-left">
-              <span class="profile-order-id">주문 ${orderNumberDisplayEsc}</span>
+              <span class="profile-order-id">주문 ${orderNumberDisplay}</span>
               <div class="profile-order-actions">
                 <button type="button" class="profile-btn profile-btn-detail" data-action="detail">주문내역</button>
               </div>
@@ -784,7 +759,7 @@ function renderProfileOrdersList() {
           </div>
           <div class="profile-order-date">주문일시 : ${formatOrderDate(o.createdAt)}</div>
           <div class="profile-order-status-steps" ${cancelled ? ' style="display:none"' : ''}>${stepsHtml}</div>
-          <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(row.subtotal)}</div>
+          <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(o.totalAmount || 0)}</div>
         </div>
       `;
     })
