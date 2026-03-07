@@ -753,7 +753,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 13px;
 }
 
 .menu-card-image-wrapper {
@@ -1001,7 +1001,7 @@ body {
     flex: 0 0 40%;
     min-width: 0;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 11px;
   }
   .menu-qty-controls .menu-qty-btn {
     width: 28px;

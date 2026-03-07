@@ -91,10 +91,9 @@ let profileIdleTimerId = null;
 let profileIdleListenersAttached = false;
 
 const ORDER_STATUS_STEPS = [
-  { key: 'submitted', label: '신청완료' },
-  { key: 'order_accepted', label: '결제준비중' },
   { key: 'payment_link_issued', label: '결제하기' },
   { key: 'payment_completed', label: '결제완료' },
+  { key: 'shipping', label: '배송중' },
   { key: 'delivery_completed', label: '배송완료' },
 ];
 const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed', 'shipping'];
@@ -722,8 +721,8 @@ async function doCancelOrder(order) {
 }
 
 function isPaymentLinkActive(order) {
-  if (order.status === 'cancelled' || order.status === 'order_accepted' || order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed') return false;
-  return order.status === 'payment_link_issued';
+  if (order.status === 'cancelled' || order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed') return false;
+  return ['submitted', 'order_accepted', 'payment_link_issued'].includes(order.status);
 }
 
 function canCancelOrder(status) {
@@ -736,8 +735,11 @@ function renderProfileOrdersList() {
   const hasMore = orders.length > profileVisibleCount;
 
   const stepIndex = (status) => {
-    if (status === 'shipping' || status === 'delivery_completed') return 4;
-    return ORDER_STATUS_STEPS.findIndex((s) => s.key === status);
+    if (['submitted', 'order_accepted', 'payment_link_issued'].includes(status)) return 0;
+    if (status === 'payment_completed') return 1;
+    if (status === 'shipping') return 2;
+    if (status === 'delivery_completed') return 3;
+    return 0;
   };
   const isCancelled = (status) => status === 'cancelled';
   const canCancel = canCancelOrder;
@@ -751,7 +753,6 @@ function renderProfileOrdersList() {
       const paymentLinkActive = isPaymentLinkActive(o);
       const cancelled = isCancelled(o.status);
       const currentIdx = cancelled ? -1 : stepIndex(o.status);
-      const step4Label = o.status === 'delivery_completed' ? '배송완료' : '배송중';
       let stepsHtml;
       if (cancelled) {
         stepsHtml = ORDER_STATUS_STEPS.slice(0, CANCELABLE_STEP_COUNT)
@@ -763,12 +764,8 @@ function renderProfileOrdersList() {
           if (i < currentIdx) cls += ' done';
           else if (i === currentIdx) cls += ' active';
           else cls += ' pending';
-          
-          if (s.key === 'payment_link_issued' && paymentLinkActive) {
-            cls += ' payment-link-ready';
-          }
-          const label = (i === 4) ? step4Label : s.label;
-          return `<span class="${cls}" ${s.key === 'payment_link_issued' && paymentLinkActive ? `data-action="open-payment-link"` : ''}>${label}</span>`;
+          if (i === 0 && paymentLinkActive) cls += ' payment-link-ready';
+          return `<span class="${cls}" ${i === 0 && paymentLinkActive ? `data-action="open-payment-link"` : ''}>${s.label}</span>`;
         }).join('');
       }
       const orderIdEsc = escapeHtml(String(o.id));

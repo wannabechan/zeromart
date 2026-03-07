@@ -386,16 +386,6 @@ function setupTabs() {
   }
 }
 
-/** 신청 완료 주문이 주문일+1일 15:00까지 승인/거절되지 않은 경우 true */
-function isOverdueForAccept(order) {
-  if (order.status !== 'submitted') return false;
-  const created = new Date(order.created_at);
-  const deadline = new Date(created);
-  deadline.setDate(deadline.getDate() + 1);
-  deadline.setHours(15, 0, 0, 0);
-  return new Date() > deadline;
-}
-
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
   const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -459,19 +449,14 @@ function renderPaymentList() {
     const isCancelled = order.status === 'cancelled';
     const isUrgent = false;
     const isPaymentDone = order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed';
-    const paymentLinkRowDisabled = isCancelled || isPaymentDone || order.status === 'submitted' || !!(order.payment_link && String(order.payment_link).trim());
     const shippingRowDisabled = order.status !== 'payment_completed';
     const deliveryRowDisabled = order.status !== 'shipping';
     const shippingValue = (order.status === 'shipping' || order.status === 'delivery_completed') ? (order.tracking_number || '') : '';
-    const overdue = isOverdueForAccept(order);
     const orderIdEsc = escapeHtml(String(order.id));
-    const orderIdEl = overdue
-      ? `<span class="admin-payment-order-id admin-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="admin-overdue-id">주문 #${orderIdEsc}</span><span class="admin-overdue-msg">주문 신청을 승인해 주세요.</span></span>`
-      : `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 #${orderIdEsc}</span>`;
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 #${orderIdEsc}</span>`;
 
     const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
-    const paymentLinkEsc = escapeHtml(order.payment_link || '');
     const shippingValueEsc = escapeHtml(shippingValue || '');
     const deliveryInputValueEsc = order.status === 'delivery_completed' ? escapeHtml(`주문 #${order.id}`) : '';
 
@@ -487,22 +472,6 @@ function renderPaymentList() {
           <div>주문자: ${escapeHtml(order.depositor || '—')} / ${escapeHtml(order.contact || '—')}</div>
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
           <div>총액: ${formatAdminPrice(order.total_amount)}</div>
-        </div>
-        <div class="admin-payment-link-row">
-          <input 
-            type="text" 
-            class="admin-payment-link-input ${isUrgent ? 'urgent' : ''}" 
-            value="${paymentLinkEsc}" 
-            data-order-id="${orderIdEsc}"
-            placeholder="결제 생성 코드 입력"
-            ${paymentLinkRowDisabled ? 'readonly disabled' : ''}
-          >
-          <button 
-            type="button" 
-            class="admin-btn admin-btn-primary admin-payment-link-btn" 
-            data-save-link="${orderIdEsc}"
-            ${paymentLinkRowDisabled ? 'disabled' : ''}
-          >저장</button>
         </div>
         <div class="admin-payment-link-row">
           <input 
@@ -596,58 +565,6 @@ function renderPaymentList() {
   });
 
   content.querySelector('[data-payment-load-more]')?.addEventListener('click', () => loadMorePaymentOrders());
-
-  content.querySelectorAll('[data-save-link]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const orderId = btn.dataset.saveLink;
-      const input = content.querySelector(`.admin-payment-link-input[data-order-id="${orderId}"]`);
-      const paymentLink = input?.value?.trim() || '';
-
-      const approvedPhrase = paymentLink && (orderId === paymentLink || `주문 #${orderId}` === paymentLink);
-      if (!approvedPhrase) {
-        alert('결제 진행 승인 코드 오류');
-        if (input) input.value = '';
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = '저장 중...';
-
-      try {
-        const token = getToken();
-        const res = await fetch(`${API_BASE}/api/admin/payment-link`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ orderId, paymentLink }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || '저장에 실패했습니다.');
-        }
-
-        const order = adminPaymentOrders.find(o => o.id === orderId);
-        if (order) {
-          order.payment_link = paymentLink;
-          if (!paymentLink.trim() && order.status === 'payment_link_issued') {
-            order.status = 'order_accepted';
-          } else if (paymentLink.trim() && (order.status === 'submitted' || order.status === 'order_accepted')) {
-            order.status = 'payment_link_issued';
-          }
-        }
-        alert('저장되었습니다.');
-        renderPaymentList();
-      } catch (e) {
-        alert(e.message || '저장에 실패했습니다.');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '저장';
-      }
-    });
-  });
 
   content.querySelectorAll('[data-save-shipping]').forEach(btn => {
     btn.addEventListener('click', async () => {
