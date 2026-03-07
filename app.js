@@ -305,7 +305,7 @@ function renderMenuCards() {
       const nameEsc = escapeHtml(item.name);
       return `
         <article class="menu-card menu-card-row" data-id="${idEsc}">
-          <div class="menu-card-name-price-wrap">
+          <div class="menu-card-left">
             <div class="menu-card-cell menu-card-cell-name">${nameEsc}</div>
             <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}</div>
           </div>
