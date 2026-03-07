@@ -30,28 +30,31 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: '주문 번호가 필요합니다.' });
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    setCorsHeaders(res);
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
-  const user = verifyToken(authHeader.substring(7));
-  if (!user) {
-    setCorsHeaders(res);
-    return res.status(401).json({ error: '로그인이 필요합니다.' });
-  }
-
   const order = await getOrderById(orderId);
   if (!order) {
     setCorsHeaders(res);
     return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
   }
 
-  const isAdmin = user.level === 'admin';
-  if (order.user_email !== user.email && !isAdmin) {
-    setCorsHeaders(res);
-    return res.status(403).json({ error: '해당 주문을 볼 수 없습니다.' });
+  const tokenFromQuery = (req.query.token || '').trim();
+  const allowedByToken = tokenFromQuery && order.accept_token && order.accept_token === tokenFromQuery;
+
+  if (!allowedByToken) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      setCorsHeaders(res);
+      return res.status(401).json({ error: '로그인이 필요합니다.' });
+    }
+    const user = verifyToken(authHeader.substring(7));
+    if (!user) {
+      setCorsHeaders(res);
+      return res.status(401).json({ error: '로그인이 필요합니다.' });
+    }
+    const isAdmin = user.level === 'admin';
+    if (order.user_email !== user.email && !isAdmin) {
+      setCorsHeaders(res);
+      return res.status(403).json({ error: '해당 주문을 볼 수 없습니다.' });
+    }
   }
 
   try {

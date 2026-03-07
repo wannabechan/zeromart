@@ -14,10 +14,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-function formatPrice(price) {
-  return Number(price).toLocaleString() + '원';
-}
-
 function formatOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
@@ -70,16 +66,16 @@ function getStoreEmailForOrder(order, stores) {
 }
 
 /**
- * 주문 내역 메일 HTML 생성 (내 주문 보기와 동일한 정보 수준)
+ * 주문 내역 메일 HTML 생성 (결제 완료 시 매장 담당자 발송용)
+ * 주문 내역: 메뉴명·수량만. 주문자=매장명(이름), 배송주소=기본주소/상세주소, 버튼=주문서 인쇄
  * @param {object} order - 주문 객체
  * @param {object[]} stores - 매장 목록
- * @param {object} [options] - { acceptUrl, rejectUrlSchedule, rejectUrlCooking, rejectUrlOther }
+ * @param {object} [options] - { pdfUrl }
  */
 function buildOrderNotificationHtml(order, stores, options = {}) {
-  const acceptUrl = (options.acceptUrl || '').trim() || '#';
-  const rejectUrlSchedule = (options.rejectUrlSchedule || '').trim() || '#';
-  const rejectUrlCooking = (options.rejectUrlCooking || '').trim() || '#';
-  const rejectUrlOther = (options.rejectUrlOther || '').trim() || '#';
+  const pdfUrl = (options.pdfUrl || '').trim() || '#';
+  const store = getStoreForOrder(order, stores);
+  const storeDisplayName = getStoreDisplayName(store);
   const slugToTitle = {};
   for (const s of stores || []) {
     const id = (s.id || s.slug || '').toString();
@@ -93,11 +89,10 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
     const itemId = (oi.id || '').toString();
     const slug = (itemId.split('-')[0] || 'default').toLowerCase();
     const name = oi.name || '';
-    const price = Number(oi.price) || 0;
     const qty = Number(oi.quantity) || 0;
     if (qty <= 0) continue;
     if (!byCategory[slug]) byCategory[slug] = [];
-    byCategory[slug].push({ name, price, qty });
+    byCategory[slug].push({ name, qty });
   }
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
@@ -107,32 +102,28 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const otherSlugs = Object.keys(byCategory).filter((s) => !categoryOrder.includes(s));
   const orderedSlugs = [...categoryOrder.filter((s) => byCategory[s]?.length), ...otherSlugs];
 
-  const totalAmount = Number(order.total_amount ?? order.totalAmount) || 0;
-  const depositor = escapeHtml(order.depositor || '—');
-  const contact = escapeHtml(order.contact || '—');
-  const deliveryAddress = escapeHtml(order.delivery_address || order.deliveryAddress || '—');
-  const detailAddress = escapeHtml(order.detail_address || order.detailAddress || '');
+  const ordererDisplay = escapeHtml(`${storeDisplayName}(${order.depositor || '—'})`);
+  const baseAddr = (order.delivery_address || order.deliveryAddress || '').trim();
+  const detailAddr = (order.detail_address || order.detailAddress || '').trim();
+  const deliveryDisplay = escapeHtml([baseAddr, detailAddr].filter(Boolean).join(' / ') || '—');
   const orderId = escapeHtml(order.id || '');
   const createdAt = formatOrderDate(order.created_at || order.createdAt);
 
   let rowsHtml = '';
   for (const slug of orderedSlugs) {
     const items = byCategory[slug] || [];
-    const catTotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
     const catTitle = escapeHtml(getCategoryTitle(slug));
     rowsHtml += `
-      <tr><td colspan="3" style="border-bottom:1px solid #eee; padding:10px 12px; font-weight:600; background:#F5F5F5;">${catTitle}</td></tr>
+      <tr><td colspan="2" style="border-bottom:1px solid #eee; padding:10px 12px; font-weight:600; background:#F5F5F5;">${catTitle}</td></tr>
       ${items
         .map(
           (i) => `
       <tr>
         <td style="padding:8px 12px; border-bottom:1px solid #f0f0f0;">${escapeHtml(i.name)}</td>
-        <td style="padding:8px 12px; border-bottom:1px solid #f0f0f0; text-align:right;">${formatPrice(i.price)} × ${i.qty}</td>
-        <td style="padding:8px 12px; border-bottom:1px solid #f0f0f0; text-align:right;">${formatPrice(i.price * i.qty)}</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0f0f0; text-align:right;">${i.qty}</td>
       </tr>`
         )
         .join('')}
-      <tr><td colspan="2" style="padding:6px 12px; text-align:right; font-weight:600;">소계</td><td style="padding:6px 12px; text-align:right;">${formatPrice(catTotal)}</td></tr>
     `;
   }
 
@@ -146,35 +137,27 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
 <body style="margin:0; padding:0; font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; font-size:14px; line-height:1.5; color:#333;">
   <div style="max-width:600px; margin:0 auto; padding:24px;">
     <h2 style="margin:0 0 8px; font-size:18px; color:#2C2C2C;">Zero Mart 신규 주문 안내</h2>
-    <p style="margin:0 0 20px; color:#666;">아래 주문이 접수되었습니다. 확인 후 처리 부탁드립니다.</p>
+    <p style="margin:0 0 20px; color:#666;">아래 주문이 결제 완료되었습니다. 확인 후 처리 부탁드립니다.</p>
 
     <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #DADADA; border-radius:8px; overflow:hidden;">
-      <tr><td colspan="3" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 내역</td></tr>
+      <tr><td colspan="2" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 내역</td></tr>
       <tr style="background:#fafafa;">
         <td style="padding:8px 12px; border-bottom:1px solid #eee; font-weight:600;">메뉴</td>
-        <td style="padding:8px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">단가 × 수량</td>
-        <td style="padding:8px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">금액</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #eee; text-align:right; font-weight:600;">수량</td>
       </tr>
       ${rowsHtml}
-      <tr style="background:#F5F5F5;">
-        <td colspan="2" style="padding:12px; font-weight:700;">총 결제 금액</td>
-        <td style="padding:12px; text-align:right; font-weight:700; font-size:16px; color:#2C2C2C;">${formatPrice(totalAmount)}</td>
-      </tr>
     </table>
 
     <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #DADADA; border-radius:8px; overflow:hidden;">
       <tr><td colspan="2" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 정보</td></tr>
       <tr><td style="padding:10px 12px; width:120px; border-bottom:1px solid #eee;">주문번호</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">#${orderId}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문일시</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${createdAt}</td></tr>
-      <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문자명</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${depositor}</td></tr>
-      <tr><td style="padding:10px 12px;">배송 주소</td><td style="padding:10px 12px;">${deliveryAddress}</td></tr>
+      <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문자</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${ordererDisplay}</td></tr>
+      <tr><td style="padding:10px 12px;">배송주소</td><td style="padding:10px 12px;">${deliveryDisplay}</td></tr>
     </table>
 
-    <div style="margin-top:7px; margin-bottom:16px;">
-      <a href="${acceptUrl.replace(/"/g, '&quot;')}" style="display:inline-block; padding:12px 24px; background:#2C2C2C; color:#fff; font-weight:600; text-decoration:none; border-radius:8px; font-size:0.9375rem;">주문 수령하기</a>
-    </div>
-    <div style="margin-bottom:20px; font-size:0.75rem; color:#999;">
-      <a href="${rejectUrlSchedule.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:스케줄문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlCooking.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:조리문제</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="${rejectUrlOther.replace(/"/g, '&quot;')}" style="color:#999; text-decoration:underline; display:inline;">거부:기타</a>
+    <div style="margin-top:7px; margin-bottom:20px;">
+      <a href="${pdfUrl.replace(/"/g, '&quot;')}" style="display:inline-block; padding:12px 24px; background:#2C2C2C; color:#fff; font-weight:600; text-decoration:none; border-radius:8px; font-size:0.9375rem;">주문서 인쇄</a>
     </div>
 
     <p style="margin:0; color:#999; font-size:12px;">Zero Mart - B2B 식자재 주문</p>

@@ -5,11 +5,8 @@
 
 const { put } = require('@vercel/blob');
 const { verifyToken, apiResponse } = require('../_utils');
-const crypto = require('crypto');
-const { createOrder, updateOrderPdfUrl, getStores, updateOrderAcceptToken } = require('../_redis');
+const { createOrder, updateOrderPdfUrl, getStores } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
-const { getAppOrigin } = require('../payment/_helpers');
-const { getStoreForOrder, getStoreDisplayName, getStoreEmailForOrder, buildOrderNotificationHtml } = require('./_order-email');
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -96,39 +93,6 @@ module.exports = async (req, res) => {
     } catch (pdfErr) {
       console.error('PDF generation/upload error:', pdfErr);
       // 주문은 완료됐으므로 PDF 실패만 로깅
-    }
-
-    // 신규 주문 접수 시 해당 매장 담당자에게 이메일/알림톡 발송
-    if (stores.length > 0) {
-      const store = getStoreForOrder(order, stores);
-      const toEmail = store ? (store.storeContactEmail || '').trim() : null;
-      if (process.env.RESEND_API_KEY && toEmail) {
-        try {
-          const acceptToken = crypto.randomBytes(24).toString('hex');
-          await updateOrderAcceptToken(order.id, acceptToken);
-          const origin = getAppOrigin(req);
-          const acceptUrl = `${origin}/api/orders/accept?orderId=${encodeURIComponent(order.id)}&token=${encodeURIComponent(acceptToken)}`;
-          const rejectUrlSchedule = `${origin}/api/orders/reject?orderId=${encodeURIComponent(order.id)}&token=${encodeURIComponent(acceptToken)}&reason=schedule`;
-          const rejectUrlCooking = `${origin}/api/orders/reject?orderId=${encodeURIComponent(order.id)}&token=${encodeURIComponent(acceptToken)}&reason=cooking`;
-          const rejectUrlOther = `${origin}/api/orders/reject?orderId=${encodeURIComponent(order.id)}&token=${encodeURIComponent(acceptToken)}&reason=other`;
-
-          const { Resend } = require('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
-          const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
-          const storeBrand = (store.brand || store.title || store.id || store.slug || '').trim() || '주문';
-          const html = buildOrderNotificationHtml(order, stores, { acceptUrl, rejectUrlSchedule, rejectUrlCooking, rejectUrlOther });
-          await resend.emails.send({
-            from: `${fromName} <${fromEmail}>`,
-            to: toEmail,
-            subject: `[Zero Mart 신규 주문] ${storeBrand} #${order.id}`,
-            html,
-          });
-        } catch (emailErr) {
-          console.error('Order notification email error:', emailErr);
-          // 이메일 실패해도 주문 접수 응답은 성공으로 반환
-        }
-      }
     }
 
     return apiResponse(res, 201, {

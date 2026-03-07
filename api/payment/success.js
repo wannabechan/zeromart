@@ -3,8 +3,10 @@
  * Toss 결제 성공 리다이렉트: 확인 후 주문 상태를 결제 완료로 변경
  */
 
-const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, getStores } = require('../_redis');
+const crypto = require('crypto');
+const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken, getStores } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
+const { getStoreForOrder, getStoreDisplayName, getStoreEmailForOrder, buildOrderNotificationHtml } = require('../orders/_order-email');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -68,6 +70,35 @@ module.exports = async (req, res) => {
 
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
+
+    // 결제 완료 시 해당 매장 담당자에게 주문서 메일 발송
+    const orderAfter = await getOrderById(orderIdStr);
+    const stores = await getStores();
+    if (orderAfter && Array.isArray(stores) && stores.length > 0) {
+      const store = getStoreForOrder(orderAfter, stores);
+      const toEmail = getStoreEmailForOrder(orderAfter, stores);
+      if (process.env.RESEND_API_KEY && toEmail) {
+        try {
+          const pdfToken = crypto.randomBytes(24).toString('hex');
+          await updateOrderAcceptToken(orderIdStr, pdfToken);
+          const pdfUrl = `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(pdfToken)}`;
+          const html = buildOrderNotificationHtml(orderAfter, stores, { pdfUrl });
+          const { Resend } = require('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
+          const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
+          const storeBrand = getStoreDisplayName(store);
+          await resend.emails.send({
+            from: `${fromName} <${fromEmail}>`,
+            to: toEmail,
+            subject: `[Zero Mart 신규 주문] ${storeBrand} #${orderIdStr}`,
+            html,
+          });
+        } catch (emailErr) {
+          console.error('Order notification email (payment_completed) error:', emailErr);
+        }
+      }
+    }
 
     return res.redirect(302, `${redirectBase}?payment=success`);
   } catch (err) {
