@@ -1360,12 +1360,6 @@ function openAdminOrderDetail(order) {
         } catch (_) {}
       };
       pdfWrap.appendChild(a);
-      if (i < slugs.length - 1) {
-        const sep = document.createElement('span');
-        sep.className = 'admin-order-detail-pdf-sep';
-        sep.textContent = ' · ';
-        pdfWrap.appendChild(sep);
-      }
     });
   }
   overlay.classList.add('visible');
