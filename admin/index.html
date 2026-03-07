@@ -22,7 +22,7 @@
     .admin-payment-order { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); margin-bottom: 16px; padding: 16px; }
     .admin-payment-order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
     .admin-payment-order-id { font-weight: 600; font-size: 1rem; }
-    .admin-payment-order-notice { text-decoration: none; color: inherit; }
+    .admin-payment-order-notice { text-decoration: none; font-size: 90%; color: var(--color-error); }
     .admin-payment-order-status { font-size: 0.8125rem; padding: 4px 8px; border-radius: 4px; }
     .admin-payment-order-status.submitted { background: rgba(44, 44, 44, 0.12); color: var(--color-primary); }
     .admin-payment-order-status.order_accepted { background: rgba(13, 148, 136, 0.12); color: #0d9488; }
@@ -273,12 +273,13 @@
       #settlementView { display: none !important; }
       .admin-tabs { display: flex; gap: 0; }
       .admin-tabs .admin-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
+      .admin-payment-subfilter-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .admin-stats-table-menu tbody tr { height: 5em; }
       .admin-stats-table-menu tbody td { height: 5em; min-height: 5em; max-height: 5em; }
       .admin-stats-daterange { width: 100%; justify-content: flex-start; }
       .admin-stats-daterange input[type="date"] { flex: 1; min-width: 0; font-size: 0.8125rem; }
       .admin-stats-search-btn { margin-left: auto; flex-shrink: 0; }
-      .admin-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .admin-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .admin-stats-card { min-width: 0; }
       .admin-stats-section-crm { display: none; }
     }
