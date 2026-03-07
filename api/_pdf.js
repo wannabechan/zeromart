@@ -106,9 +106,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     y += 16;
 
     const col1 = MARGIN + 12;
-    const col2 = MARGIN + 280;
-    const col3 = MARGIN + 360;
-    const col4 = MARGIN + 440;
+    const col2 = MARGIN + 400;
 
     function ensureSpace(needed) {
       if (y + needed > BOTTOM_LIMIT - 30) {
@@ -128,8 +126,6 @@ async function generateOrderPdf(order, stores = [], options = {}) {
       if (!useKorean) doc.font('Helvetica-Bold');
       doc.text('메뉴명', col1, y + 8);
       doc.text('수량', col2, y + 8);
-      doc.text('단가', col3, y + 8);
-      doc.text('금액', col4, y + 8);
       if (useKorean) doc.font('NotoSansKR');
       y += 24;
       drawHLine(y, '#ccc');
@@ -160,32 +156,16 @@ async function generateOrderPdf(order, stores = [], options = {}) {
       rowNum++;
 
       for (const item of byCategory[slug]) {
-        const lineTotal = Number(item.price || 0) * Number(item.qty || 0);
         const rowH = 18;
         ensureSpace(rowH);
         doc.fontSize(9).fillColor('#000');
         doc.text(`- ${String(item.name || '')}`, col1, y + 5, { width: col2 - col1 - 8 });
         doc.text(String(item.qty || 0), col2, y + 5);
-        doc.text(formatPrice(item.price || 0), col3, y + 5);
-        doc.text(formatPrice(lineTotal), col4, y + 5, { width: 55, align: 'right' });
         y += rowH;
         drawHLine(y, '#eee');
         rowNum++;
       }
     }
-
-    // 총 금액 행
-    ensureSpace(36);
-    y += 8;
-    drawHLine(y, '#ccc');
-    doc.fontSize(10).fillColor('#000');
-    if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('총 주문 금액', col1, y + 9);
-    doc.fontSize(9);
-    doc.text(formatPrice(order.total_amount || 0), col4, y + 10, { width: 55, align: 'right', lineBreak: false });
-    if (useKorean) doc.font('NotoSansKR');
-    y += 28;
-    drawHLine(y, '#ccc');
 
     // ===== 2. 주문자 정보 =====
     const section2And3Height = 220;
@@ -202,7 +182,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     y += 20;
 
     const orderBoxY = y;
-    const orderBoxH = 14 + 18 * 4;
+    const orderBoxH = 14 + 18 * 5; // 주문번호, 주문일시, 주문매장, 배송주소, 빈 줄
     doc.rect(MARGIN, y, CONTENT_WIDTH, orderBoxH).stroke('#ccc').fill('#fafafa');
     doc.fillColor('#000').fontSize(10);
     y += 14;
@@ -210,6 +190,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
     doc.text(`주문매장: ${profileStoreName}`, MARGIN + 12, y + 36);
     doc.text(`배송주소: ${deliveryAddr}`, MARGIN + 12, y + 54);
+    // 빈 라인 한 줄 (y + 72는 비움)
     y = orderBoxY + orderBoxH + 20;
 
     // ===== 3. 기타 =====
@@ -234,7 +215,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     // 푸터 (마지막 페이지 최하단)
     doc.fontSize(8).fillColor('#000');
-    doc.text('Zero Mart B2B 식자재 주문', MARGIN, PAGE_HEIGHT - MARGIN - 12, {
+    doc.text('Zero Mart', MARGIN, PAGE_HEIGHT - MARGIN - 12, {
       align: 'center',
       width: CONTENT_WIDTH,
     });

@@ -70,12 +70,13 @@ function getStoreEmailForOrder(order, stores) {
  * 주문 내역: 메뉴명·수량만. 주문자=매장명(이름), 배송주소=기본주소/상세주소, 버튼=주문서 인쇄
  * @param {object} order - 주문 객체
  * @param {object[]} stores - 매장 목록
- * @param {object} [options] - { pdfUrl }
+ * @param {object} [options] - { pdfUrl, profileStoreName } (profileStoreName = 주문자 프로필 매장명)
  */
 function buildOrderNotificationHtml(order, stores, options = {}) {
   const pdfUrl = (options.pdfUrl || '').trim() || '#';
   const store = getStoreForOrder(order, stores);
   const storeDisplayName = getStoreDisplayName(store);
+  const profileStoreName = (options.profileStoreName || '').trim() || storeDisplayName;
   const slugToTitle = {};
   for (const s of stores || []) {
     const id = (s.id || s.slug || '').toString();
@@ -102,7 +103,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const otherSlugs = Object.keys(byCategory).filter((s) => !categoryOrder.includes(s));
   const orderedSlugs = [...categoryOrder.filter((s) => byCategory[s]?.length), ...otherSlugs];
 
-  const ordererDisplay = escapeHtml(`${storeDisplayName} / ${order.depositor || '—'}`);
+  const ordererDisplay = escapeHtml(`${profileStoreName} / ${order.depositor || '—'}`);
   const baseAddr = (order.delivery_address || order.deliveryAddress || '').trim();
   const detailAddr = (order.detail_address || order.detailAddress || '').trim();
   const deliveryDisplay = escapeHtml([baseAddr, detailAddr].filter(Boolean).join(' / ') || '—');

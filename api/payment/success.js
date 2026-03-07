@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken, getStores } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
 const { getStoreForOrder, getStoreDisplayName, getStoreEmailForOrder, buildOrderNotificationHtml } = require('../orders/_order-email');
+const { getProfileSettings } = require('../_redis');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -82,7 +83,9 @@ module.exports = async (req, res) => {
           const pdfToken = crypto.randomBytes(24).toString('hex');
           await updateOrderAcceptToken(orderIdStr, pdfToken);
           const pdfUrl = `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(pdfToken)}`;
-          const html = buildOrderNotificationHtml(orderAfter, stores, { pdfUrl });
+          const profile = await getProfileSettings(orderAfter.user_email || '');
+          const profileStoreName = (profile?.storeName || '').trim();
+          const html = buildOrderNotificationHtml(orderAfter, stores, { pdfUrl, profileStoreName });
           const { Resend } = require('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
           const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
