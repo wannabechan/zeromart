@@ -40,7 +40,7 @@ function getStatusLabel(status, cancelReason) {
     payment_link_issued: '결제 링크 발급',
     payment_completed: '결제 완료',
     shipping: '배송중',
-    delivery_completed: '배송 완료',
+    delivery_completed: '발송 완료',
     cancelled: '주문취소',
   };
   const base = labels[s] || s || '—';
@@ -359,7 +359,7 @@ function renderList() {
       <div class="admin-payment-subfilter-row">
         <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_wait' ? 'active' : ''}" data-subfilter="delivery_wait" role="button" tabindex="0">배송대기 ${deliveryWaitCount}개</span>
         <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'shipping' ? 'active' : ''}" data-subfilter="shipping" role="button" tabindex="0">배송중 ${shippingCount}개</span>
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_completed' ? 'active' : ''}" data-subfilter="delivery_completed" role="button" tabindex="0">배송완료 ${deliveryCompletedCount}개</span>
+        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_completed' ? 'active' : ''}" data-subfilter="delivery_completed" role="button" tabindex="0">발송완료 ${deliveryCompletedCount}개</span>
       </div>
     </div>
   `;
@@ -564,7 +564,7 @@ function renderStoreOrdersStats(container, data) {
   html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제완료 <strong>' + n2 + '</strong> (' + pct(n2, totalOrders) + '%)</li>';
   html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제전취소 <strong>' + n3 + '</strong> (' + pct(n3, totalOrders) + '%)</li>';
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
-  html += '<li>결제완료 <strong>' + n2 + '</strong> → 배송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
+  html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
   html += '</ul></div>';
   html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
@@ -731,7 +731,7 @@ function formatSettlementClock() {
 
 function renderStoreSettlementTable(byBrand) {
   if (!byBrand || byBrand.length === 0) {
-    return '<p class="admin-settlement-empty">해당 날짜에 배송 완료된 주문이 없습니다.</p>';
+    return '<p class="admin-settlement-empty">해당 날짜에 발송 완료된 주문이 없습니다.</p>';
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
   let html = '<table class="admin-stats-table"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
@@ -764,8 +764,8 @@ async function loadStoreSettlement() {
 
   container.innerHTML =
     '<div class="admin-settlement-clock" id="storeSettlementClock">' + escapeHtml(formatSettlementClock()) + '</div>' +
-    '<section class="admin-stats-section"><h3>오늘 정산 내역</h3><p class="admin-settlement-caption">배송완료일 ' + escapeHtml(dateToday) + ' 기준</p><div id="storeSettlementToday"></div></section>' +
-    '<section class="admin-stats-section"><h3>내일 정산 예정</h3><p class="admin-settlement-caption">배송완료일 ' + escapeHtml(dateTomorrow) + ' 기준</p><div id="storeSettlementTomorrow"></div></section>';
+    '<section class="admin-stats-section"><h3>오늘 정산 내역</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateToday) + ' 기준</p><div id="storeSettlementToday"></div></section>' +
+    '<section class="admin-stats-section"><h3>내일 정산 예정</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateTomorrow) + ' 기준</p><div id="storeSettlementTomorrow"></div></section>';
 
   const clockEl = document.getElementById('storeSettlementClock');
   if (storeSettlementClockIntervalId) clearInterval(storeSettlementClockIntervalId);

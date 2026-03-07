@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders } = require('../_redis');
+const { getAllOrders, getProfileSettings } = require('../_redis');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -40,6 +40,11 @@ module.exports = async (req, res) => {
     const sorted = (allOrders || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
+
+    for (const o of orders) {
+      const profile = await getProfileSettings(o.user_email || '');
+      o.profileStoreName = (profile?.storeName || '').trim() || null;
+    }
 
     return apiResponse(res, 200, { orders, total });
   } catch (error) {

@@ -11,8 +11,8 @@ const STATUS_LABELS = {
   order_accepted: '결제하기',
   payment_link_issued: '결제하기',
   payment_completed: '결제완료',
-  shipping: '배송중',
-  delivery_completed: '배송완료',
+  shipping: '발송완료',
+  delivery_completed: '발송완료',
   cancelled: '주문취소',
 };
 
@@ -51,12 +51,16 @@ module.exports = async (req, res) => {
         status,
         statusLabel,
         createdAt: o.created_at,
+        paymentCompletedAt: o.payment_completed_at || null,
         deliveryAddress: o.delivery_address || null,
         detailAddress: o.detail_address || null,
         totalAmount: o.total_amount,
         orderItems: o.order_items || [],
         pdfUrl: o.pdf_url || null,
         paymentLink: o.payment_link || null,
+        courierCompany: o.courier_company || null,
+        trackingNumber: o.tracking_number || null,
+        deliveryType: o.delivery_type || null,
       };
     });
 

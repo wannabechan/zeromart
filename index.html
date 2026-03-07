@@ -319,8 +319,6 @@
         <div class="order-detail-header">
           <div class="order-detail-header-left">
             <h3>주문 내역</h3>
-            <a id="orderDetailPdfBtn" href="#" target="_blank" rel="noopener noreferrer" class="order-detail-pdf-btn" style="display: none;">주문서확인</a>
-            <span id="orderDetailHeaderSep" class="order-detail-header-sep" style="display: none;"> | </span>
             <button type="button" id="orderDetailCancelBtn" class="order-detail-cancel-btn" style="display: none;">취소하기</button>
           </div>
           <button type="button" class="order-detail-close" id="orderDetailClose" aria-label="닫기">&times;</button>
@@ -347,6 +345,14 @@
           확인 후 곧 안내 회신드릴게요.
         </p>
         <button type="button" class="order-accepted-modal-btn" id="orderAcceptedModalConfirm">고맙습니다</button>
+      </div>
+    </div>
+    <!-- 발송 정보 팝업 (내 주문 보기) -->
+    <div class="delivery-info-modal" id="deliveryInfoModal" aria-hidden="true">
+      <div class="delivery-info-modal-backdrop"></div>
+      <div class="delivery-info-modal-panel">
+        <button type="button" class="delivery-info-modal-close" id="deliveryInfoModalClose" aria-label="닫기">&times;</button>
+        <p class="delivery-info-modal-msg" id="deliveryInfoModalMsg"></p>
       </div>
     </div>
     <!-- 배송 불가 지역 안내 모달 -->

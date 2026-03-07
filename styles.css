@@ -1766,6 +1766,14 @@ body {
   opacity: 0.8;
 }
 
+.profile-order-status-steps .step.delivery-info-ready {
+  cursor: pointer;
+}
+
+.profile-order-status-steps .step.delivery-info-ready:hover {
+  opacity: 0.8;
+}
+
 @keyframes payment-link-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
@@ -2691,6 +2699,74 @@ body {
 
 .order-accepted-modal-btn:hover {
   opacity: 0.9;
+}
+
+/* 발송 정보 팝업 (내 주문 보기) */
+.delivery-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+}
+
+.delivery-info-modal.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.delivery-info-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.delivery-info-modal-panel {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  padding-top: 44px;
+}
+
+.delivery-info-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.delivery-info-modal-close:hover {
+  color: var(--color-text);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.delivery-info-modal-msg {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  text-align: center;
 }
 
 /* 배송 불가 지역 안내 모달 */

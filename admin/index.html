@@ -22,6 +22,7 @@
     .admin-payment-order { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); margin-bottom: 16px; padding: 16px; }
     .admin-payment-order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
     .admin-payment-order-id { font-weight: 600; font-size: 1rem; }
+    .admin-payment-order-notice { text-decoration: none; color: inherit; }
     .admin-payment-order-status { font-size: 0.8125rem; padding: 4px 8px; border-radius: 4px; }
     .admin-payment-order-status.submitted { background: rgba(44, 44, 44, 0.12); color: var(--color-primary); }
     .admin-payment-order-status.order_accepted { background: rgba(13, 148, 136, 0.12); color: #0d9488; }
@@ -33,6 +34,7 @@
     .admin-payment-order-info { font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 12px; }
     .admin-payment-order-info div { margin-bottom: 4px; }
     .admin-payment-link-row { display: flex; gap: 8px; align-items: center; }
+    .admin-payment-delivery-info { font-size: 0.9rem; color: var(--color-text); }
     .admin-payment-link-row + .admin-payment-link-row { margin-top: 10px; }
     .admin-payment-order-delete-row { margin-top: 12px; text-align: left; }
     .admin-payment-order-delete-row .admin-payment-cancel-btn,
@@ -92,6 +94,13 @@
     .admin-modal-header h3 { font-size: 1rem; font-weight: 600; margin: 0; }
     .admin-modal-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; font-size: 1.5rem; line-height: 1; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; border-radius: var(--radius); }
     .admin-modal-close:hover { color: var(--color-text); background: rgba(0,0,0,0.05); }
+    .admin-modal-delivery-complete .admin-modal-body { display: flex; flex-direction: column; gap: 16px; }
+    .admin-delivery-direct-btn { width: 100%; padding: 12px 20px; }
+    .admin-delivery-or { text-align: center; font-size: 0.875rem; color: var(--color-text-secondary); margin: 0; }
+    .admin-delivery-parcel-row { display: flex; gap: 8px; align-items: center; }
+    .admin-delivery-courier-select { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.875rem; min-width: 120px; flex: 0 0 auto; }
+    .admin-delivery-tracking-input { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.875rem; box-sizing: border-box; }
+    .admin-delivery-parcel-save-btn { align-self: flex-end; padding: 8px 20px; }
     .admin-modal-body { padding: 20px; overflow: auto; }
     .admin-modal-store-name { font-size: 0.875rem; color: var(--color-text-secondary); margin: 5px 0 12px 20px; }
     .admin-modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--color-border); }
@@ -401,6 +410,32 @@
         <div class="admin-modal-footer">
           <button type="button" class="admin-btn admin-btn-secondary" id="adminReorderStoresCancel">취소</button>
           <button type="button" class="admin-btn admin-btn-primary" id="adminReorderStoresConfirm">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminDeliveryCompleteModal" aria-hidden="true">
+      <div class="admin-modal admin-modal-delivery-complete">
+        <div class="admin-modal-header">
+          <h3>발송 완료</h3>
+          <button type="button" class="admin-modal-close" id="adminDeliveryCompleteModalClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <button type="button" class="admin-btn admin-btn-primary admin-delivery-direct-btn" id="adminDeliveryCompleteDirectBtn">직접 배송 완료</button>
+          <p class="admin-delivery-or">또는</p>
+          <div class="admin-delivery-parcel-row">
+            <select id="adminDeliveryCourierSelect" class="admin-delivery-courier-select">
+              <option value="">택배사 선택</option>
+              <option value="CJ대한통운">CJ대한통운</option>
+              <option value="한진택배">한진택배</option>
+              <option value="로젠택배">로젠택배</option>
+              <option value="우체국택배">우체국택배</option>
+              <option value="CU편의점택배">CU편의점택배</option>
+              <option value="기타">기타</option>
+            </select>
+            <input type="text" id="adminDeliveryTrackingInput" class="admin-delivery-tracking-input" placeholder="송장 번호">
+          </div>
+          <button type="button" class="admin-btn admin-btn-primary admin-delivery-parcel-save-btn" id="adminDeliveryParcelSaveBtn">저장</button>
         </div>
       </div>
     </div>

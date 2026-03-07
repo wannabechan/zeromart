@@ -93,10 +93,9 @@ let profileIdleListenersAttached = false;
 const ORDER_STATUS_STEPS = [
   { key: 'payment_link_issued', label: '결제하기' },
   { key: 'payment_completed', label: '결제완료' },
-  { key: 'shipping', label: '배송중' },
-  { key: 'delivery_completed', label: '배송완료' },
+  { key: 'delivery_completed', label: '발송완료' },
 ];
-const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed', 'shipping'];
+const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed'];
 
 // 유틸: 금액 포맷
 function formatPrice(price) {
@@ -496,11 +495,6 @@ async function openCheckoutModal() {
 
   const orderDetailPanel = orderDetailOverlay.querySelector('.order-detail-panel');
   if (orderDetailPanel) orderDetailPanel.classList.remove('order-detail-cancelled');
-  const pdfBtn = document.getElementById('orderDetailPdfBtn');
-  if (pdfBtn) {
-    pdfBtn.href = '#';
-    pdfBtn.style.display = 'none';
-  }
   const orderDetailTotalEl = document.getElementById('orderDetailTotal');
   if (orderDetailTotalEl) orderDetailTotalEl.textContent = formatPrice(total);
 
@@ -576,48 +570,28 @@ function openProfileOrderDetail(order) {
   const panel = orderDetailOverlay.querySelector('.order-detail-panel');
   if (panel) panel.classList.toggle('order-detail-cancelled', order.status === 'cancelled');
 
-  const pdfBtn = document.getElementById('orderDetailPdfBtn');
-  if (pdfBtn) {
-    pdfBtn.style.display = '';
-    pdfBtn.href = '#';
-    pdfBtn.textContent = order.status === 'cancelled' ? '주문서확인 (취소 건)' : '주문서확인';
-    const orderIdForPdf = order.id;
-    pdfBtn.onclick = async (e) => {
-      e.preventDefault();
-      const token = window.BzCatAuth?.getToken();
-      if (!token) return;
-      try {
-        const res = await fetch(`/api/orders/pdf?orderId=${encodeURIComponent(orderIdForPdf)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } catch (_) {}
-    };
-  }
-
   const cancelBtn = document.getElementById('orderDetailCancelBtn');
-  const headerSep = document.getElementById('orderDetailHeaderSep');
   if (cancelBtn) {
     if (canCancelOrder(order.status)) {
       cancelBtn.style.display = '';
       cancelBtn.textContent = '취소하기';
       cancelBtn.onclick = () => handleOrderCancelClick(order);
-      if (headerSep) headerSep.style.display = '';
     } else if (order.status === 'payment_completed') {
-      cancelBtn.style.display = '';
-      cancelBtn.textContent = '결제취소';
-      cancelBtn.onclick = () => handlePaymentCancelClick(order);
-      if (headerSep) headerSep.style.display = '';
+      const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
+      const completedAt = order.paymentCompletedAt ? new Date(order.paymentCompletedAt).getTime() : 0;
+      const withinWindow = order.paymentCompletedAt && (Date.now() - completedAt < PAYMENT_CANCEL_WINDOW_MS);
+      if (withinWindow) {
+        cancelBtn.style.display = '';
+        cancelBtn.textContent = '결제취소';
+        cancelBtn.onclick = () => handlePaymentCancelClick(order);
+      } else {
+        cancelBtn.style.display = 'none';
+        cancelBtn.onclick = null;
+      }
     } else {
       cancelBtn.style.display = 'none';
       cancelBtn.onclick = null;
-      if (headerSep) headerSep.style.display = 'none';
     }
-  } else if (headerSep) {
-    headerSep.style.display = 'none';
   }
 
   orderDetailOverlay.classList.add('visible');
@@ -735,8 +709,7 @@ function renderProfileOrdersList() {
   const stepIndex = (status) => {
     if (['submitted', 'order_accepted', 'payment_link_issued'].includes(status)) return 0;
     if (status === 'payment_completed') return 1;
-    if (status === 'shipping') return 2;
-    if (status === 'delivery_completed') return 3;
+    if (status === 'shipping' || status === 'delivery_completed') return 2;
     return 0;
   };
   const isCancelled = (status) => status === 'cancelled';
@@ -754,13 +727,18 @@ function renderProfileOrdersList() {
       if (cancelled) {
         stepsHtml = '';
       } else {
+        const isDeliveryCompleted = o.status === 'delivery_completed' || o.status === 'shipping';
         stepsHtml = ORDER_STATUS_STEPS.map((s, i) => {
           let cls = 'step';
           if (i < currentIdx) cls += ' done';
           else if (i === currentIdx) cls += ' active';
           else cls += ' pending';
           if (i === 0 && paymentLinkActive) cls += ' payment-link-ready';
-          return `<span class="${cls}" ${i === 0 && paymentLinkActive ? `data-action="open-payment-link"` : ''}>${s.label}</span>`;
+          if (i === 2 && isDeliveryCompleted) cls += ' delivery-info-ready';
+          const attrs = [];
+          if (i === 0 && paymentLinkActive) attrs.push('data-action="open-payment-link"');
+          if (i === 2 && isDeliveryCompleted) attrs.push(`data-action="show-delivery-info" data-order-id="${escapeHtml(String(o.id))}" role="button" tabindex="0"`);
+          return `<span class="${cls}" ${attrs.join(' ')}>${s.label}</span>`;
         }).join('');
       }
       const orderIdEsc = escapeHtml(String(o.id));
@@ -904,6 +882,30 @@ function showUnsupportedRegionModal() {
     if (backdrop) backdrop.onclick = null;
   };
   if (confirmBtn) confirmBtn.onclick = doClose;
+  if (closeBtn) closeBtn.onclick = doClose;
+  if (backdrop) backdrop.onclick = doClose;
+  modal.classList.add('visible');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function openDeliveryInfoModal(order) {
+  const modal = document.getElementById('deliveryInfoModal');
+  const msgEl = document.getElementById('deliveryInfoModalMsg');
+  if (!modal || !msgEl) return;
+  const hasParcel = !!(order.courierCompany && order.courierCompany.trim()) || !!(order.trackingNumber && order.trackingNumber.trim());
+  let text;
+  if (order.deliveryType === 'direct') text = '직접 배송 완료';
+  else if (hasParcel) text = `${(order.courierCompany || '—').trim()} / ${(order.trackingNumber || '').trim()}`;
+  else text = '배송 정보 없음';
+  msgEl.textContent = text;
+  const closeBtn = document.getElementById('deliveryInfoModalClose');
+  const backdrop = modal.querySelector('.delivery-info-modal-backdrop');
+  const doClose = () => {
+    modal.classList.remove('visible');
+    modal.setAttribute('aria-hidden', 'true');
+    if (closeBtn) closeBtn.onclick = null;
+    if (backdrop) backdrop.onclick = null;
+  };
   if (closeBtn) closeBtn.onclick = doClose;
   if (backdrop) backdrop.onclick = doClose;
   modal.classList.add('visible');
@@ -1283,6 +1285,13 @@ function init() {
     });
   }
   profileOrders.addEventListener('click', (e) => {
+    const deliveryInfoStep = e.target.closest('[data-action="show-delivery-info"]');
+    if (deliveryInfoStep) {
+      const orderId = deliveryInfoStep.dataset.orderId;
+      const order = orderId && profileOrdersData[orderId];
+      if (order) openDeliveryInfoModal(order);
+      return;
+    }
     const paymentLinkStep = e.target.closest('[data-action="open-payment-link"]');
     if (paymentLinkStep) {
       const card = paymentLinkStep.closest('.profile-order-card');

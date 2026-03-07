@@ -168,6 +168,9 @@ async function updateOrderStatus(orderId, status) {
   const redis = getRedis();
   const order = await getOrderById(orderId);
   if (!order) return null;
+  if (status === 'payment_completed' && order.status !== 'payment_completed') {
+    order.payment_completed_at = new Date().toISOString();
+  }
   order.status = status;
   await redis.set(`order:${orderId}`, JSON.stringify(order));
   return order;
@@ -211,6 +214,30 @@ async function updateOrderShippingNumber(orderId, trackingNumber) {
   if (order.status === 'payment_completed') {
     order.status = 'shipping';
   }
+  await redis.set(`order:${orderId}`, JSON.stringify(order));
+  return order;
+}
+
+/** 택배사·송장 저장 후 발송 완료로 변경 */
+async function updateOrderParcelAndDeliveryComplete(orderId, courierCompany, trackingNumber) {
+  const redis = getRedis();
+  const order = await getOrderById(orderId);
+  if (!order) return null;
+  order.courier_company = (courierCompany || '').trim() || null;
+  order.tracking_number = (trackingNumber || '').trim() || null;
+  order.delivery_type = 'parcel';
+  order.status = 'delivery_completed';
+  await redis.set(`order:${orderId}`, JSON.stringify(order));
+  return order;
+}
+
+/** 직접 배송 완료로 변경 (승인 코드 검증 후 호출) */
+async function updateOrderDeliveryCompleteDirect(orderId) {
+  const redis = getRedis();
+  const order = await getOrderById(orderId);
+  if (!order) return null;
+  order.delivery_type = 'direct';
+  order.status = 'delivery_completed';
   await redis.set(`order:${orderId}`, JSON.stringify(order));
   return order;
 }
@@ -421,6 +448,8 @@ module.exports = {
   updateOrderPdfUrl,
   updateOrderPaymentLink,
   updateOrderShippingNumber,
+  updateOrderParcelAndDeliveryComplete,
+  updateOrderDeliveryCompleteDirect,
   updateOrderAcceptToken,
   updateOrderTossPaymentKey,
   updateOrderUserAsOrderSent,

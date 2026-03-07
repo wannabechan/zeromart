@@ -12,7 +12,7 @@ const STATUS_LABELS = {
   payment_link_issued: '결제대기',
   payment_completed: '결제완료',
   shipping: '배송중',
-  delivery_completed: '배송완료',
+  delivery_completed: '발송완료',
   cancelled: '취소',
 };
 
@@ -249,7 +249,7 @@ module.exports = async (req, res) => {
       payment_link_issued: '결제대기',
       payment_completed: '배송대기',
       shipping: '배송중',
-      delivery_completed: '배송완료',
+      delivery_completed: '발송완료',
     };
     const orderSummaryByStatus = {};
     const newOrdersCount = (byStatus.submitted || 0) + (byStatus.order_accepted || 0);

@@ -1,10 +1,10 @@
 /**
  * POST /api/admin/delivery-complete
- * 주문을 배송 완료로 변경 (admin 전용, 코드 검증)
+ * 주문을 발송 완료로 변경 (admin 전용, 코드 검증)
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById, updateOrderStatus } = require('../_redis');
+const { getOrderById, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
 
 function isAdmin(user) {
   return user && user.level === 'admin';
@@ -28,27 +28,39 @@ module.exports = async (req, res) => {
       return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
     }
 
-    const { orderId, code } = req.body || {};
+    const { orderId, code, courierCompany, trackingNumber } = req.body || {};
     if (!orderId || typeof orderId !== 'string') {
       return apiResponse(res, 400, { error: '주문 번호가 필요합니다.' });
     }
 
-    const order = await getOrderById(orderId);
+    const order = await getOrderById(orderId.trim());
     if (!order) {
       return apiResponse(res, 404, { error: '주문을 찾을 수 없습니다.' });
     }
 
-    if (order.status !== 'shipping') {
-      return apiResponse(res, 400, { error: '배송 번호가 등록된 주문만 배송 완료 처리할 수 있습니다.' });
+    if (order.status !== 'payment_completed' && order.status !== 'shipping') {
+      return apiResponse(res, 400, { error: '결제 완료된 주문만 발송 완료 처리할 수 있습니다.' });
+    }
+
+    const hasParcel = (courierCompany != null && String(courierCompany).trim() !== '') || (trackingNumber != null && String(trackingNumber).trim() !== '');
+
+    if (hasParcel) {
+      const courier = String(courierCompany || '').trim();
+      const tracking = String(trackingNumber || '').trim();
+      if (!tracking) {
+        return apiResponse(res, 400, { error: '송장 번호를 입력해 주세요.' });
+      }
+      await updateOrderParcelAndDeliveryComplete(orderId.trim(), courier || null, tracking);
+      return apiResponse(res, 200, { success: true });
     }
 
     const codeTrim = (code || '').trim();
     const valid = codeTrim === orderId || codeTrim === `주문 #${orderId}`;
     if (!valid) {
-      return apiResponse(res, 400, { error: '배송 완료 승인 코드 오류' });
+      return apiResponse(res, 400, { error: '발송 완료 승인 코드 오류' });
     }
 
-    await updateOrderStatus(orderId, 'delivery_completed');
+    await updateOrderDeliveryCompleteDirect(orderId.trim());
     return apiResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Admin delivery-complete error:', err);

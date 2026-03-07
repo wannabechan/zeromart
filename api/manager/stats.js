@@ -179,7 +179,7 @@ module.exports = async (req, res) => {
       payment_link_issued: '결제대기',
       payment_completed: '배송대기',
       shipping: '배송중',
-      delivery_completed: '배송완료',
+      delivery_completed: '발송완료',
     };
     const orderSummaryByStatus = {};
     orderSummaryByStatus.new_orders = { count: newOrdersCount, label: '신규주문' };

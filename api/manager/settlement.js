@@ -1,6 +1,6 @@
 /**
  * GET /api/manager/settlement?date=YYYY-MM-DD
- * 해당 날짜에 주문된 건 중 배송완료된 주문 집계 (매장 담당자 전용). zeromart: 주문일(created_at) 기준
+ * 해당 날짜에 주문된 건 중 발송완료된 주문 집계 (매장 담당자 전용). zeromart: 주문일(created_at) 기준
  */
 
 const { verifyToken, apiResponse } = require('../_utils');

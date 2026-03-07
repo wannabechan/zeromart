@@ -145,7 +145,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
       const title = getCategoryTitle(slug);
       ensureSpace(20);
       drawHLine(y, '#ddd');
-      doc.fontSize(10).fillColor('#000');
+      doc.fontSize(9).fillColor('#000');
       if (!useKorean) doc.font('Helvetica-Bold');
       else doc.font('NotoSansKR');
       doc.text(`[${title}]`, col1, y + 6);
@@ -158,7 +158,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
       for (const item of byCategory[slug]) {
         const rowH = 18;
         ensureSpace(rowH);
-        doc.fontSize(9).fillColor('#000');
+        doc.fontSize(10).fillColor('#000');
         doc.text(`- ${String(item.name || '')}`, col1, y + 5, { width: col2 - col1 - 8 });
         doc.text(String(item.qty || 0), col2, y + 5);
         y += rowH;
@@ -202,7 +202,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     const notices = [
       '안전 배송 부탁드립니다. 감사합니다!',
-      '배송 완료 후, 홈페이지 [주문관리] 페이지에서 \'배송완료\' 처리해주세요.',
+      '발송 완료 후, 홈페이지 [주문관리] 페이지에서 반드시 \'발송완료\' 처리해주세요.',
     ];
     doc.rect(MARGIN, y, CONTENT_WIDTH, notices.length * 22 + 16).stroke('#ccc').fill('#fcfcfc');
     doc.fillColor('#000').fontSize(9);

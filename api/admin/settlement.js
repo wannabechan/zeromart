@@ -1,6 +1,6 @@
 /**
  * GET /api/admin/settlement?date=YYYY-MM-DD
- * 해당 날짜에 주문된 건 중 배송완료된 주문을 브랜드별로 집계 (admin 전용)
+ * 해당 날짜에 주문된 건 중 발송완료된 주문을 브랜드별로 집계 (admin 전용)
  * zeromart: 배송희망일 없음 → 주문일(created_at) 기준
  */
 
