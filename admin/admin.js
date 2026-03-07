@@ -405,23 +405,35 @@ function sortPaymentOrders(orders, sortBy, dir) {
   return copy;
 }
 
+const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000; // 결제 취소 가능 45분
+
+function isWithinPaymentCancelWindow(order) {
+  if (order.status !== 'payment_completed') return false;
+  const at = order.payment_completed_at || order.paymentCompletedAt;
+  if (!at) return false;
+  const ts = new Date(at).getTime();
+  return !Number.isNaN(ts) && Date.now() - ts < PAYMENT_CANCEL_WINDOW_MS;
+}
+
 function renderPaymentList() {
   const content = document.getElementById('adminPaymentContent');
   const allOrders = adminPaymentOrders;
   const cancelled = (o) => o.status === 'cancelled';
 
   const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
-  const newCount = allOrders.filter(o => !cancelled(o) && orderWaitStatuses.includes(o.status)).length;
-  const deliveryWaitCount = allOrders.filter(o => !cancelled(o) && o.status === 'payment_completed').length;
+  const isOrderWait = (o) => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o));
+  const isDeliveryWait = (o) => !cancelled(o) && o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o);
+  const newCount = allOrders.filter(isOrderWait).length;
+  const deliveryWaitCount = allOrders.filter(isDeliveryWait).length;
   const deliveryCompletedCount = allOrders.filter(o => !cancelled(o) && o.status === 'delivery_completed').length;
   const cancelledCount = allOrders.filter(o => o.status === 'cancelled').length;
 
   const effectiveFilter = adminPaymentSubFilter === 'all' ? 'delivery_wait' : adminPaymentSubFilter;
   let filtered;
   if (effectiveFilter === 'new') {
-    filtered = allOrders.filter(o => orderWaitStatuses.includes(o.status));
+    filtered = allOrders.filter(o => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o)));
   } else if (effectiveFilter === 'delivery_wait') {
-    filtered = allOrders.filter(o => o.status === 'payment_completed');
+    filtered = allOrders.filter(o => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o));
   } else if (effectiveFilter === 'delivery_completed') {
     filtered = allOrders.filter(o => o.status === 'delivery_completed');
   } else if (effectiveFilter === 'cancelled') {

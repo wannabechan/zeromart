@@ -251,6 +251,15 @@ async function updateOrderAcceptToken(orderId, token) {
   return order;
 }
 
+async function setOrderNotificationSent(orderId) {
+  const redis = getRedis();
+  const order = await getOrderById(orderId);
+  if (!order) return null;
+  order.order_notification_sent = true;
+  await redis.set(`order:${orderId}`, JSON.stringify(order));
+  return order;
+}
+
 async function updateOrderTossPaymentKey(orderId, paymentKey) {
   const redis = getRedis();
   const order = await getOrderById(orderId);
@@ -451,6 +460,7 @@ module.exports = {
   updateOrderParcelAndDeliveryComplete,
   updateOrderDeliveryCompleteDirect,
   updateOrderAcceptToken,
+  setOrderNotificationSent,
   updateOrderTossPaymentKey,
   updateOrderUserAsOrderSent,
   getAllOrders,

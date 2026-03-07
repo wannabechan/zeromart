@@ -753,13 +753,15 @@ function renderProfileOrdersList() {
               <span class="profile-order-id">${orderNumberDisplay}</span>
             </div>
             <div class="profile-order-header-right">
-              <button type="button" class="profile-btn profile-btn-detail" data-action="detail">주문내역</button>
               <span class="profile-order-status ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${escapeHtml(o.statusLabel || '')}</span>
             </div>
           </div>
           <div class="profile-order-date">주문일시 : ${formatOrderDate(o.createdAt)}</div>
           <div class="profile-order-status-steps" ${cancelled ? ' style="display:none"' : ''}>${stepsHtml}</div>
-          <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(o.totalAmount || 0)}</div>
+          <div class="profile-order-amount-row">
+            <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(o.totalAmount || 0)}</div>
+            <button type="button" class="profile-btn profile-btn-detail" data-action="detail">주문내역</button>
+          </div>
         </div>
       `;
     })

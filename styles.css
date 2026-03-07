@@ -1786,6 +1786,13 @@ body {
   50% { opacity: 0.4; }
 }
 
+.profile-order-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .profile-order-amount.cancelled {
   text-decoration: line-through;
   color: var(--color-text-secondary);
@@ -1798,7 +1805,6 @@ body {
 .profile-order-amount {
   font-size: 0.9375rem;
   font-weight: 600;
-  margin-top: 8px;
 }
 
 .profile-load-more-wrap {

@@ -4,10 +4,8 @@
  */
 
 const crypto = require('crypto');
-const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken, getStores } = require('../_redis');
+const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
-const { getStoreDisplayName, getStoresWithItemsInOrder, getOrderNumberForStoreIndex, buildOrderNotificationHtml } = require('../orders/_order-email');
-const { getProfileSettings } = require('../_redis');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -72,42 +70,9 @@ module.exports = async (req, res) => {
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
 
-    // 결제 완료 시 주문에 상품이 포함된 각 매장 담당자에게 해당 매장 메뉴만 담은 주문서 메일 발송
-    const orderAfter = await getOrderById(orderIdStr);
-    const stores = await getStores();
-    if (orderAfter && Array.isArray(stores) && stores.length > 0 && process.env.RESEND_API_KEY) {
-      try {
-        const pdfToken = crypto.randomBytes(24).toString('hex');
-        await updateOrderAcceptToken(orderIdStr, pdfToken);
-        const pdfUrl = `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(pdfToken)}`;
-        const profile = await getProfileSettings(orderAfter.user_email || '');
-        const profileStoreName = (profile?.storeName || '').trim();
-        const { Resend } = require('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
-        const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
-        const storeEntries = getStoresWithItemsInOrder(orderAfter, stores);
-        storeEntries.forEach((entry, index) => {
-          entry.orderNumberDisplay = getOrderNumberForStoreIndex(orderIdStr, index);
-        });
-        for (const { store, slug, items, orderNumberDisplay } of storeEntries) {
-          const toEmail = (store?.storeContactEmail || '').trim();
-          if (!toEmail) continue;
-          const storePdfUrl = `${pdfUrl}&store=${encodeURIComponent(slug)}`;
-          const orderForStore = { ...orderAfter, order_items: items };
-          const html = buildOrderNotificationHtml(orderForStore, stores, { pdfUrl: storePdfUrl, profileStoreName, orderNumberDisplay });
-          const storeBrand = getStoreDisplayName(store);
-          await resend.emails.send({
-            from: `${fromName} <${fromEmail}>`,
-            to: toEmail,
-            subject: `[Zero Mart 신규 주문] ${storeBrand} ${orderNumberDisplay}`,
-            html,
-          });
-        }
-      } catch (emailErr) {
-        console.error('Order notification email (payment_completed) error:', emailErr);
-      }
-    }
+    // 주문서 PDF 링크용 토큰만 설정. 매장 담당자 메일은 결제 완료 45분 후 cron에서 발송
+    const pdfToken = crypto.randomBytes(24).toString('hex');
+    await updateOrderAcceptToken(orderIdStr, pdfToken);
 
     return res.redirect(302, `${redirectBase}?payment=success`);
   } catch (err) {
