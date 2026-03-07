@@ -30,10 +30,21 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: '주문 번호가 필요합니다.' });
   }
 
-  const order = await getOrderById(orderId);
+  let order = await getOrderById(orderId);
   if (!order) {
     setCorsHeaders(res);
     return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
+  }
+
+  const storeSlug = (req.query.store || '').trim().toLowerCase();
+  if (storeSlug) {
+    const items = order.order_items || order.orderItems || [];
+    const filtered = items.filter((item) => {
+      const id = (item.id || '').toString();
+      const slug = (id.split('-')[0] || '').toLowerCase();
+      return slug === storeSlug;
+    });
+    order = { ...order, order_items: filtered };
   }
 
   const tokenFromQuery = (req.query.token || '').trim();
@@ -64,7 +75,9 @@ module.exports = async (req, res) => {
 
     setCorsHeaders(res);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="order-${String(order.id).replace(/[^\w-]/g, '_')}.pdf"`);
+    const baseId = String(order.id || orderId).replace(/[^\w-]/g, '_');
+    const filename = storeSlug ? `order-${baseId}-${storeSlug}.pdf` : `order-${baseId}.pdf`;
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Order PDF generation error:', err);

@@ -55,7 +55,8 @@ module.exports = async (req, res) => {
     }
 
     const codeTrim = (code || '').trim();
-    const valid = codeTrim === orderId || codeTrim === `주문 #${orderId}`;
+    const baseFromCode = codeTrim.replace(/^주문\s*#?\s*/, '').replace(/-\d+$/, '');
+    const valid = codeTrim === orderId || codeTrim === `주문 #${orderId}` || baseFromCode === orderId;
     if (!valid) {
       return apiResponse(res, 400, { error: '발송 완료 승인 코드 오류' });
     }

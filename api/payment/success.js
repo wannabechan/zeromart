@@ -6,7 +6,7 @@
 const crypto = require('crypto');
 const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken, getStores } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
-const { getStoreDisplayName, getStoresWithItemsInOrder, buildOrderNotificationHtml } = require('../orders/_order-email');
+const { getStoreDisplayName, getStoresWithItemsInOrder, getOrderNumberForStoreIndex, buildOrderNotificationHtml } = require('../orders/_order-email');
 const { getProfileSettings } = require('../_redis');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -87,16 +87,20 @@ module.exports = async (req, res) => {
         const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
         const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
         const storeEntries = getStoresWithItemsInOrder(orderAfter, stores);
-        for (const { store, slug, items } of storeEntries) {
+        storeEntries.forEach((entry, index) => {
+          entry.orderNumberDisplay = getOrderNumberForStoreIndex(orderIdStr, index);
+        });
+        for (const { store, slug, items, orderNumberDisplay } of storeEntries) {
           const toEmail = (store?.storeContactEmail || '').trim();
           if (!toEmail) continue;
+          const storePdfUrl = `${pdfUrl}&store=${encodeURIComponent(slug)}`;
           const orderForStore = { ...orderAfter, order_items: items };
-          const html = buildOrderNotificationHtml(orderForStore, stores, { pdfUrl, profileStoreName });
+          const html = buildOrderNotificationHtml(orderForStore, stores, { pdfUrl: storePdfUrl, profileStoreName, orderNumberDisplay });
           const storeBrand = getStoreDisplayName(store);
           await resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
             to: toEmail,
-            subject: `[Zero Mart 신규 주문] ${storeBrand} #${orderIdStr}`,
+            subject: `[Zero Mart 신규 주문] ${storeBrand} ${orderNumberDisplay}`,
             html,
           });
         }

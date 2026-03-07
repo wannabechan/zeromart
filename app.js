@@ -98,6 +98,16 @@ const ORDER_STATUS_STEPS = [
 const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed'];
 
 // 유틸: 금액 포맷
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  slugs.sort();
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
+}
+
 function formatPrice(price) {
   return price.toLocaleString() + '원';
 }
@@ -283,14 +293,7 @@ function renderMenuCards() {
     return;
   }
 
-  const brand = escapeHtml(data.brand || '');
-  const bizNo = escapeHtml(data.bizNo || '');
-  const titleEscaped = escapeHtml(data.title || '');
-  if (brand || bizNo) {
-    menuSectionTitle.innerHTML = titleEscaped + '   <span class="menu-section-madeby">made by ' + brand + ' (' + bizNo + ')</span>';
-  } else {
-    menuSectionTitle.textContent = data.title;
-  }
+  menuSectionTitle.textContent = data.title || '';
   const emoji = getCategoryEmoji(category);
 
   const items = data.items || [];
@@ -742,11 +745,12 @@ function renderProfileOrdersList() {
         }).join('');
       }
       const orderIdEsc = escapeHtml(String(o.id));
+      const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(o));
       return `
         <div class="profile-order-card" data-order-id="${orderIdEsc}">
           <div class="profile-order-card-header">
             <div class="profile-order-header-left">
-              <span class="profile-order-id">주문 #${orderIdEsc}</span>
+              <span class="profile-order-id">주문 ${orderNumberDisplay}</span>
               <div class="profile-order-actions">
                 <button type="button" class="profile-btn profile-btn-detail" data-action="detail">주문내역</button>
               </div>

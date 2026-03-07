@@ -35,6 +35,16 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  slugs.sort();
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
+}
+
 function escapeHtml(s) {
   if (s == null || s === '') return '';
   const t = String(s);
@@ -447,7 +457,8 @@ function renderPaymentList() {
     const isPaymentDone = order.status === 'payment_completed' || order.status === 'shipping' || order.status === 'delivery_completed';
     const deliveryRowDisabled = order.status !== 'payment_completed' && order.status !== 'shipping';
     const orderIdEsc = escapeHtml(String(order.id));
-    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 #${orderIdEsc}</span>`;
+    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order));
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplay}</span>`;
 
     const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
@@ -1299,7 +1310,6 @@ function renderAdminOrderDetailHtml(order) {
 function openAdminOrderDetail(order) {
   const content = document.getElementById('adminOrderDetailContent');
   const totalEl = document.getElementById('adminOrderDetailTotal');
-  const pdfBtn = document.getElementById('adminOrderDetailPdfBtn');
   const overlay = document.getElementById('adminOrderDetailOverlay');
   const panel = overlay?.querySelector('.admin-order-detail-panel');
   if (!content || !overlay) return;
@@ -1307,25 +1317,44 @@ function openAdminOrderDetail(order) {
   content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
   if (totalEl) totalEl.textContent = formatAdminPrice(order.total_amount || 0);
   if (panel) panel.classList.toggle('admin-order-detail-cancelled', order.status === 'cancelled');
-  if (pdfBtn) {
-    pdfBtn.href = '#';
-    pdfBtn.style.display = '';
-    pdfBtn.textContent = order.status === 'cancelled' ? '주문서 확인 (취소 건)' : '주문서 확인';
-    const orderIdForPdf = order.id;
-    pdfBtn.onclick = async (e) => {
-      e.preventDefault();
-      const token = getToken();
-      if (!token) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/orders/pdf?orderId=${encodeURIComponent(orderIdForPdf)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } catch (_) {}
-    };
+  const pdfWrap = document.getElementById('adminOrderDetailPdfWrap');
+  if (pdfWrap) {
+    const items = order.order_items || order.orderItems || [];
+    const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))].sort();
+    pdfWrap.innerHTML = '';
+    pdfWrap.style.display = slugs.length ? '' : 'none';
+    const pdfLabel = order.status === 'cancelled' ? '주문서 확인 (취소 건)' : '주문서 확인';
+    slugs.forEach((slug, i) => {
+      const orderNum = slugs.length === 1 ? '' : ` (${getOrderNumberDisplay(order).split(', ')[i] || `#${order.id}-${i + 1}`})`;
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = 'admin-order-detail-pdf-btn';
+      a.textContent = slugs.length === 1 ? pdfLabel : pdfLabel + orderNum;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      const orderIdForPdf = order.id;
+      const storeSlug = slug;
+      a.onclick = async (e) => {
+        e.preventDefault();
+        const token = getToken();
+        if (!token) return;
+        try {
+          const url = `${API_BASE}/api/orders/pdf?orderId=${encodeURIComponent(orderIdForPdf)}&store=${encodeURIComponent(storeSlug)}`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) return;
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        } catch (_) {}
+      };
+      pdfWrap.appendChild(a);
+      if (i < slugs.length - 1) {
+        const sep = document.createElement('span');
+        sep.className = 'admin-order-detail-pdf-sep';
+        sep.textContent = ' · ';
+        pdfWrap.appendChild(sep);
+      }
+    });
   }
   overlay.classList.add('visible');
   overlay.setAttribute('aria-hidden', 'false');

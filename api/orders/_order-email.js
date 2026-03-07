@@ -84,21 +84,38 @@ function getOrderItemsByStore(order) {
 
 /**
  * 복수 카테고리 주문 시, 주문에 상품이 포함된 각 매장별로 { store, slug, items } 배열 반환.
- * 매장 목록에서 slug로 매장 객체를 찾고, 담당자 이메일 발송 시 각 항목당 한 통씩 발송할 때 사용.
+ * slug 오름차순 정렬하여 -1, -2 넘버링이 항상 동일 매장에 매핑되도록 함.
  */
 function getStoresWithItemsInOrder(order, stores) {
   const byStore = getOrderItemsByStore(order);
+  const slugs = Object.keys(byStore).filter(Boolean).sort();
   const result = [];
   const storeMap = {};
   for (const s of stores || []) {
     const id = (s.id || s.slug || '').toString().toLowerCase();
     if (id) storeMap[id] = s;
   }
-  for (const slug of Object.keys(byStore)) {
-    const store = storeMap[slug] || null;
-    result.push({ store, slug, items: byStore[slug] });
+  for (const slug of slugs) {
+    result.push({ store: storeMap[slug] || null, slug, items: byStore[slug] });
   }
   return result;
+}
+
+/**
+ * 주문 번호 표기: 1개 카테고리 → #orderId-1, 복수 카테고리 → #orderId-1, #orderId-2, ...
+ */
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const byStore = getOrderItemsByStore(order || {});
+  const slugs = Object.keys(byStore).filter(Boolean).sort();
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
+}
+
+/** 매장 순서(0-based index)에 해당하는 주문 번호. getStoresWithItemsInOrder 순서와 동일해야 함 */
+function getOrderNumberForStoreIndex(orderId, storeIndex) {
+  return `#${orderId}-${Number(storeIndex) + 1}`;
 }
 
 /**
@@ -106,13 +123,14 @@ function getStoresWithItemsInOrder(order, stores) {
  * 주문 내역: 메뉴명·수량만. 주문자=매장명(이름), 배송주소=기본주소/상세주소, 버튼=주문서 인쇄
  * @param {object} order - 주문 객체
  * @param {object[]} stores - 매장 목록
- * @param {object} [options] - { pdfUrl, profileStoreName } (profileStoreName = 주문자 프로필 매장명)
+ * @param {object} [options] - { pdfUrl, profileStoreName, orderNumberDisplay } (orderNumberDisplay = 주문번호 표기, 예: #260307011-1)
  */
 function buildOrderNotificationHtml(order, stores, options = {}) {
   const pdfUrl = (options.pdfUrl || '').trim() || '#';
   const store = getStoreForOrder(order, stores);
   const storeDisplayName = getStoreDisplayName(store);
   const profileStoreName = (options.profileStoreName || '').trim() || storeDisplayName;
+  const orderNumberDisplay = (options.orderNumberDisplay || getOrderNumberDisplay(order)).replace(/^#?/, '#');
   const slugToTitle = {};
   for (const s of stores || []) {
     const id = (s.id || s.slug || '').toString();
@@ -143,7 +161,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const baseAddr = (order.delivery_address || order.deliveryAddress || '').trim();
   const detailAddr = (order.detail_address || order.detailAddress || '').trim();
   const deliveryDisplay = escapeHtml([baseAddr, detailAddr].filter(Boolean).join(' / ') || '—');
-  const orderId = escapeHtml(order.id || '');
+  const orderIdDisplay = escapeHtml(orderNumberDisplay);
   const createdAt = formatOrderDate(order.created_at || order.createdAt);
 
   let rowsHtml = '';
@@ -187,7 +205,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
 
     <table style="width:100%; border-collapse:collapse; margin-bottom:20px; background:#fff; border:1px solid #DADADA; border-radius:8px; overflow:hidden;">
       <tr><td colspan="2" style="padding:12px; background:#F5F5F5; font-weight:600; border-bottom:1px solid #DADADA;">주문 정보</td></tr>
-      <tr><td style="padding:10px 12px; width:120px; border-bottom:1px solid #eee;">주문번호</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">#${orderId}</td></tr>
+      <tr><td style="padding:10px 12px; width:120px; border-bottom:1px solid #eee;">주문번호</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${orderIdDisplay}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문일시</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${createdAt}</td></tr>
       <tr><td style="padding:10px 12px; border-bottom:1px solid #eee;">주문자</td><td style="padding:10px 12px; border-bottom:1px solid #eee;">${ordererDisplay}</td></tr>
       <tr><td style="padding:10px 12px;">배송주소</td><td style="padding:10px 12px;">${deliveryDisplay}</td></tr>
@@ -212,5 +230,7 @@ module.exports = {
   getStoreEmailForOrder,
   getOrderItemsByStore,
   getStoresWithItemsInOrder,
+  getOrderNumberDisplay,
+  getOrderNumberForStoreIndex,
   buildOrderNotificationHtml,
 };

@@ -32,6 +32,16 @@ function escapeHtml(s) {
   return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  slugs.sort();
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
+}
+
 function getStatusLabel(status, cancelReason) {
   const s = (status || '').trim();
   const labels = {
@@ -369,11 +379,12 @@ function renderList() {
     const overdue = isOverdueForAccept(order);
 
     const orderIdEsc = escapeHtml(String(order.id));
+    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order));
     let orderIdEl;
     if (overdue) {
-      orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">주문 #${orderIdEsc}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
+      orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">주문 ${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
     } else {
-      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 #${orderIdEsc}</span>`;
+      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">주문 ${orderNumberDisplay}</span>`;
     }
 
     const deliveryAddressFull = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
