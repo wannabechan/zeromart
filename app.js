@@ -82,7 +82,7 @@ const categoryChatBtn = document.getElementById('categoryChatBtn');
 let profileOrdersData = {};
 let profileAllOrders = [];
 let profileVisibleCount = 10;
-let profileIncludeCancelled = true;
+let profileIncludeCancelled = false;
 const PROFILE_PAGE_SIZE = 10;
 
 // 180초 무활동 시 API 재호출 + 주문 목록 영역만 다시 그리기
@@ -554,8 +554,6 @@ function closeOrderDetailOverlay() {
 
 // 마이프로필: 주문 내역
 async function openProfile() {
-  profileIncludeCancelled = true;
-  if (profileIncludeCancelledEl) profileIncludeCancelledEl.checked = true;
   profileDrawer.classList.add('open');
   profileOverlay.classList.add('visible');
   profileOverlay.setAttribute('aria-hidden', 'false');
@@ -745,7 +743,6 @@ function renderProfileOrdersList() {
   const canCancel = canCancelOrder;
 
   profileOrdersData = {};
-  const CANCELABLE_STEP_COUNT = 1;
 
   const cardsHtml = visible
     .map((o) => {
@@ -755,9 +752,7 @@ function renderProfileOrdersList() {
       const currentIdx = cancelled ? -1 : stepIndex(o.status);
       let stepsHtml;
       if (cancelled) {
-        stepsHtml = ORDER_STATUS_STEPS.slice(0, CANCELABLE_STEP_COUNT)
-          .map((s) => `<span class="step done">${s.label}</span>`)
-          .join('');
+        stepsHtml = '';
       } else {
         stepsHtml = ORDER_STATUS_STEPS.map((s, i) => {
           let cls = 'step';
@@ -781,7 +776,7 @@ function renderProfileOrdersList() {
             <span class="profile-order-status ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${escapeHtml(o.statusLabel || '')}</span>
           </div>
           <div class="profile-order-date">주문일시 : ${formatOrderDate(o.createdAt)}</div>
-          <div class="profile-order-status-steps">${stepsHtml}</div>
+          <div class="profile-order-status-steps" ${cancelled ? ' style="display:none"' : ''}>${stepsHtml}</div>
           <div class="profile-order-amount ${cancelled ? 'cancelled' : ''} ${o.status === 'delivery_completed' ? 'delivered' : ''}">${formatPrice(o.totalAmount || 0)}</div>
         </div>
       `;

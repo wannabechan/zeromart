@@ -102,7 +102,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const otherSlugs = Object.keys(byCategory).filter((s) => !categoryOrder.includes(s));
   const orderedSlugs = [...categoryOrder.filter((s) => byCategory[s]?.length), ...otherSlugs];
 
-  const ordererDisplay = escapeHtml(`${storeDisplayName}(${order.depositor || '—'})`);
+  const ordererDisplay = escapeHtml(`${storeDisplayName} / ${order.depositor || '—'}`);
   const baseAddr = (order.delivery_address || order.deliveryAddress || '').trim();
   const detailAddr = (order.detail_address || order.detailAddress || '').trim();
   const deliveryDisplay = escapeHtml([baseAddr, detailAddr].filter(Boolean).join(' / ') || '—');

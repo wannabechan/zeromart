@@ -1,10 +1,11 @@
 /**
  * 주문서 PDF 생성 (정식 주문서 형식)
- * P1: 주문자 정보, 주문 정보, 기타 안내 사항, 면책 조항
- * P2+: 주문 내역
+ * P1: 1. 주문자 정보, 2. 기타
+ * P2+: 3. 주문 내역
  */
 
 const PDFDocument = require('pdfkit');
+const { getStoreForOrder, getStoreDisplayName } = require('./orders/_order-email');
 const path = require('path');
 const fs = require('fs');
 
@@ -98,49 +99,38 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).stroke('#ddd');
     y += 16;
 
-    // ===== P1: 1. 주문자 정보 =====
+    const store = getStoreForOrder(order, stores);
+    const storeDisplayName = getStoreDisplayName(store);
+    const deliveryAddr = [order.delivery_address, order.detail_address].filter(Boolean).join(' / ') || '—';
+
+    // ===== 1. 주문자 정보 =====
     doc.fontSize(12);
     if (!useKorean) doc.font('Helvetica-Bold');
     doc.text('1. 주문자 정보', MARGIN, y);
     if (useKorean) doc.font('NotoSansKR');
     y += 20;
 
-    const infoBoxY = y;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, 72).stroke('#ccc').fill('#fafafa');
-    doc.fillColor('#000').fontSize(10);
-    y += 14;
-    doc.text(`주문자 이메일: ${order.user_email || '—'}`, MARGIN + 12, y);
-    doc.text(`주문자명: ${order.depositor || '—'}`, MARGIN + 12, y + 18);
-    doc.text(`연락처: ${order.contact || '—'}`, MARGIN + 12, y + 36);
-    y = infoBoxY + 72 + 20;
-
-    // ===== 2. 주문 정보 =====
-    doc.fontSize(12);
-    if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('2. 주문 정보', MARGIN, y);
-    if (useKorean) doc.font('NotoSansKR');
-    y += 20;
-
     const orderBoxY = y;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, 72).stroke('#ccc').fill('#fafafa');
+    const orderBoxH = 14 + 18 * 4;
+    doc.rect(MARGIN, y, CONTENT_WIDTH, orderBoxH).stroke('#ccc').fill('#fafafa');
     doc.fillColor('#000').fontSize(10);
     y += 14;
     doc.text(`주문번호: #${order.id}`, MARGIN + 12, y);
     doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
-    doc.text(`배송주소: ${order.delivery_address || '—'} ${order.detail_address || ''}`, MARGIN + 12, y + 36);
-    y = orderBoxY + 72 + 20;
+    doc.text(`주문매장: ${storeDisplayName}`, MARGIN + 12, y + 36);
+    doc.text(`배송주소: ${deliveryAddr}`, MARGIN + 12, y + 54);
+    y = orderBoxY + orderBoxH + 20;
 
-    // ===== 3. 기타 안내 사항 =====
+    // ===== 2. 기타 =====
     doc.fontSize(12);
     if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('3. 기타 안내 사항', MARGIN, y);
+    doc.text('2. 기타', MARGIN, y);
     if (useKorean) doc.font('NotoSansKR');
     y += 20;
 
     const notices = [
-      '· 본 주문서는 주문자의 신청에 따른 주문 내용 확인용 문서이며, 최종 결제 완료 후 주문이 확정됩니다.',
-      '· 주문 접수 시 해당 매장에 배송 목록이 전달됩니다.',
-      '· 홈페이지 \'내 주문 보기\'에서 해당 주문의 [결제 진행하기] 버튼을 누르시고 결제를 진행하시면 됩니다.',
+      '안전 배송 부탁드립니다. 감사합니다!',
+      '배송 완료 후 (직접배송 또는 택배 발송) 홈페이지 [주문관리] 페이지에서 \'배송완료\' 처리해주세요.',
     ];
     doc.rect(MARGIN, y, CONTENT_WIDTH, notices.length * 22 + 16).stroke('#ccc').fill('#fcfcfc');
     doc.fillColor('#000').fontSize(9);
@@ -151,33 +141,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     }
     y += 16;
 
-    // ===== 4. 면책 조항 =====
-    y += 10;
-    doc.fontSize(12);
-    if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('4. 면책 조항', MARGIN, y);
-    if (useKorean) doc.font('NotoSansKR');
-    y += 20;
-
-    const disclaimer = [
-      '· 본 웹사이트는 소상공인 음식점의 주문 연결을 지원하기 위한 비영리 플랫폼으로, 플랫폼 제공자는 상품의 판매 당사자가 아닙니다.',
-      '· 주문에 대한 결제, 조리 및 환불 책임은 해당 메뉴에 명시된 음식점에 있으며, 플랫폼 제공자는 이에 대한 법적·계약상 책임을 지지 않습니다.',
-      '· 재고 수급 및 생산 일정 등 음식점 운영 사정에 따라 일부 메뉴 구성 또는 주문 내용이 변경될 수 있으며, 이 경우 사전에 고객에게 안내드립니다.',
-      '· 플랫폼 서비스 운영 과정에서 제공되는 서비스의 일부 내용은 필요에 따라 예고 없이 변경될 수 있습니다.',
-    ];
-    const discWidth = CONTENT_WIDTH - 24;
-    doc.fillColor('#000').fontSize(8);
-    const discLineH = 21;
-    const discTotalH = disclaimer.length * discLineH + 24;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, discTotalH).stroke('#ddd').fill('#fafafa');
-    y += 12;
-    for (const d of disclaimer) {
-      doc.fillColor('#000');
-      doc.text(d, MARGIN + 12, y, { width: discWidth });
-      y += discLineH;
-    }
-
-    // ===== P2: 5. 주문 내역 =====
+    // ===== P2: 3. 주문 내역 =====
     doc.addPage();
     y = MARGIN;
 
@@ -213,7 +177,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     doc.fontSize(12);
     if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('5. 주문 내역', MARGIN, y);
+    doc.text('3. 주문 내역', MARGIN, y);
     if (useKorean) doc.font('NotoSansKR');
     y += 20;
 
