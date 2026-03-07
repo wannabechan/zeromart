@@ -38,7 +38,7 @@ JWT_SECRET=<강력한-랜덤-문자열-64자-이상>
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
 RESEND_FROM_EMAIL=noreply@yourdomain.com  (도메인 인증 후, 선택)
 TOSS_SECRET_KEY=test_sk_xxxx  (토스페이먼츠 결제용, 시크릿 키는 서버 전용)
-CRON_SECRET=<랜덤문자열>  (선택, 자동 취소 크론 보안용. 설정 시 /api/cron/auto-cancel-orders 호출 시 Authorization: Bearer <CRON_SECRET> 필요)
+CRON_SECRET=<랜덤문자열>  (선택, 자동 취소 크론 호출 시 Authorization: Bearer <CRON_SECRET> 필요)
 ```
 
 JWT_SECRET 생성 예시:

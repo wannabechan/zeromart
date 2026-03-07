@@ -6,7 +6,7 @@
 const crypto = require('crypto');
 const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken, getStores } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
-const { getStoreForOrder, getStoreDisplayName, getStoreEmailForOrder, buildOrderNotificationHtml } = require('../orders/_order-email');
+const { getStoreDisplayName, getStoresWithItemsInOrder, buildOrderNotificationHtml } = require('../orders/_order-email');
 const { getProfileSettings } = require('../_redis');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -72,24 +72,26 @@ module.exports = async (req, res) => {
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
 
-    // 결제 완료 시 해당 매장 담당자에게 주문서 메일 발송
+    // 결제 완료 시 주문에 상품이 포함된 각 매장 담당자에게 해당 매장 메뉴만 담은 주문서 메일 발송
     const orderAfter = await getOrderById(orderIdStr);
     const stores = await getStores();
-    if (orderAfter && Array.isArray(stores) && stores.length > 0) {
-      const store = getStoreForOrder(orderAfter, stores);
-      const toEmail = getStoreEmailForOrder(orderAfter, stores);
-      if (process.env.RESEND_API_KEY && toEmail) {
-        try {
-          const pdfToken = crypto.randomBytes(24).toString('hex');
-          await updateOrderAcceptToken(orderIdStr, pdfToken);
-          const pdfUrl = `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(pdfToken)}`;
-          const profile = await getProfileSettings(orderAfter.user_email || '');
-          const profileStoreName = (profile?.storeName || '').trim();
-          const html = buildOrderNotificationHtml(orderAfter, stores, { pdfUrl, profileStoreName });
-          const { Resend } = require('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
-          const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
+    if (orderAfter && Array.isArray(stores) && stores.length > 0 && process.env.RESEND_API_KEY) {
+      try {
+        const pdfToken = crypto.randomBytes(24).toString('hex');
+        await updateOrderAcceptToken(orderIdStr, pdfToken);
+        const pdfUrl = `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(pdfToken)}`;
+        const profile = await getProfileSettings(orderAfter.user_email || '');
+        const profileStoreName = (profile?.storeName || '').trim();
+        const { Resend } = require('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const fromEmail = (process.env.RESEND_FROM_EMAIL || '').trim() || 'onboarding@resend.dev';
+        const fromName = process.env.RESEND_FROM_NAME || 'Zero Mart';
+        const storeEntries = getStoresWithItemsInOrder(orderAfter, stores);
+        for (const { store, slug, items } of storeEntries) {
+          const toEmail = (store?.storeContactEmail || '').trim();
+          if (!toEmail) continue;
+          const orderForStore = { ...orderAfter, order_items: items };
+          const html = buildOrderNotificationHtml(orderForStore, stores, { pdfUrl, profileStoreName });
           const storeBrand = getStoreDisplayName(store);
           await resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
@@ -97,9 +99,9 @@ module.exports = async (req, res) => {
             subject: `[Zero Mart 신규 주문] ${storeBrand} #${orderIdStr}`,
             html,
           });
-        } catch (emailErr) {
-          console.error('Order notification email (payment_completed) error:', emailErr);
         }
+      } catch (emailErr) {
+        console.error('Order notification email (payment_completed) error:', emailErr);
       }
     }
 

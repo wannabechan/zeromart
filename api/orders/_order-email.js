@@ -58,11 +58,47 @@ function getStoreDisplayName(store) {
 
 /**
  * 주문에 해당하는 매장의 담당자 이메일 반환 (없으면 null)
+ * 단일 매장 주문 시 사용. 복수 매장 주문 시에는 getStoresWithItemsInOrder 사용.
  */
 function getStoreEmailForOrder(order, stores) {
   const store = getStoreForOrder(order, stores);
   const email = (store?.storeContactEmail || '').trim();
   return email || null;
+}
+
+/**
+ * 주문 상품을 매장(slug)별로 묶어 반환. item.id의 접두사로 slug 추출.
+ * @returns {Record<string, object[]>} { [slug]: orderItems }
+ */
+function getOrderItemsByStore(order) {
+  const items = order.order_items || order.orderItems || [];
+  const byStore = {};
+  for (const item of items) {
+    const id = (item.id || '').toString();
+    const slug = (id.split('-')[0] || 'unknown').toLowerCase();
+    if (!byStore[slug]) byStore[slug] = [];
+    byStore[slug].push(item);
+  }
+  return byStore;
+}
+
+/**
+ * 복수 카테고리 주문 시, 주문에 상품이 포함된 각 매장별로 { store, slug, items } 배열 반환.
+ * 매장 목록에서 slug로 매장 객체를 찾고, 담당자 이메일 발송 시 각 항목당 한 통씩 발송할 때 사용.
+ */
+function getStoresWithItemsInOrder(order, stores) {
+  const byStore = getOrderItemsByStore(order);
+  const result = [];
+  const storeMap = {};
+  for (const s of stores || []) {
+    const id = (s.id || s.slug || '').toString().toLowerCase();
+    if (id) storeMap[id] = s;
+  }
+  for (const slug of Object.keys(byStore)) {
+    const store = storeMap[slug] || null;
+    result.push({ store, slug, items: byStore[slug] });
+  }
+  return result;
 }
 
 /**
@@ -174,5 +210,7 @@ module.exports = {
   getStoreForOrder,
   getStoreDisplayName,
   getStoreEmailForOrder,
+  getOrderItemsByStore,
+  getStoresWithItemsInOrder,
   buildOrderNotificationHtml,
 };

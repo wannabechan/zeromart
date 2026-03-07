@@ -1,6 +1,7 @@
 /**
  * GET /api/cron/auto-cancel-orders
- * zeromart: 배송희망일 없음 — isPastPaymentDeadline 항상 false로 자동 취소 없음. CRON_SECRET 필요.
+ * 결제 완료 전 주문(submitted, payment_link_issued) 중 주문 일시로부터 24시간 경과 시 '결제기한만료'로 자동 취소.
+ * CRON_SECRET 필요 (Authorization: Bearer <CRON_SECRET>).
  */
 
 const { getAllOrders } = require('../_redis');

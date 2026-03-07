@@ -11,7 +11,7 @@ let adminPaymentOrders = [];
 let adminPaymentTotal = 0;
 let adminPaymentSortBy = 'created_at';
 let adminPaymentSortDir = { created_at: 'desc' };
-let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'delivery_completed' (default: 주문완료)
+let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'delivery_completed' | 'cancelled'
 let adminStoresMap = {};
 let adminStoreOrder = []; // slug order for order detail
 let adminStatsLastData = null;
@@ -404,6 +404,7 @@ function renderPaymentList() {
   const newCount = allOrders.filter(o => !cancelled(o) && orderWaitStatuses.includes(o.status)).length;
   const deliveryWaitCount = allOrders.filter(o => !cancelled(o) && o.status === 'payment_completed').length;
   const deliveryCompletedCount = allOrders.filter(o => !cancelled(o) && o.status === 'delivery_completed').length;
+  const cancelledCount = allOrders.filter(o => o.status === 'cancelled').length;
 
   const effectiveFilter = adminPaymentSubFilter === 'all' ? 'delivery_wait' : adminPaymentSubFilter;
   let filtered;
@@ -413,6 +414,8 @@ function renderPaymentList() {
     filtered = allOrders.filter(o => o.status === 'payment_completed');
   } else if (effectiveFilter === 'delivery_completed') {
     filtered = allOrders.filter(o => o.status === 'delivery_completed');
+  } else if (effectiveFilter === 'cancelled') {
+    filtered = allOrders.filter(o => o.status === 'cancelled');
   } else {
     filtered = allOrders.filter(o => o.status === 'payment_completed');
   }
@@ -433,6 +436,7 @@ function renderPaymentList() {
         <span class="admin-payment-subfilter-item ${adminPaymentSubFilter === 'new' ? 'active' : ''}" data-subfilter="new" role="button" tabindex="0">주문대기 ${newCount}개</span>
         <span class="admin-payment-subfilter-item ${adminPaymentSubFilter === 'delivery_wait' ? 'active' : ''}" data-subfilter="delivery_wait" role="button" tabindex="0">주문완료 ${deliveryWaitCount}개</span>
         <span class="admin-payment-subfilter-item ${adminPaymentSubFilter === 'delivery_completed' ? 'active' : ''}" data-subfilter="delivery_completed" role="button" tabindex="0">발송완료 ${deliveryCompletedCount}개</span>
+        <span class="admin-payment-subfilter-item ${adminPaymentSubFilter === 'cancelled' ? 'active' : ''}" data-subfilter="cancelled" role="button" tabindex="0">취소주문 ${cancelledCount}개</span>
       </div>
     </div>
   `;
@@ -1147,25 +1151,22 @@ function renderStats(container, data) {
   const byStore = orderSummary.byStore || {};
   Object.entries(byStore).forEach(function (e) {
     const v = e[1];
-    const progress = (v && v.count) ?? 0;
-    const cancelled = (v && v.cancelledCount) ?? 0;
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : 진행 <strong>' + progress + '</strong>건 (취소 <strong>' + cancelled + '</strong>건)</li>';
+    const paymentCompleted = (v && v.paymentCompletedCount) ?? 0;
+    const deliveryCompleted = (v && v.deliveryCompletedCount) ?? 0;
+    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : 주문완료 <strong>' + paymentCompleted + '</strong>건, 발송완료 <strong>' + deliveryCompleted + '</strong>건</li>';
   });
   html += '</ul></div>';
   const revTotal = Number(revenue.total) || 0;
-  const revExpected = Number(revenue.expected) || 0;
-  const totalRevText = formatMoney(revTotal) + (revExpected > 0 ? ' (+' + formatMoney(revExpected) + ' 예정)' : '');
+  const totalRevText = formatMoney(revTotal);
   html += '<div class="admin-stats-section"><h3>매출</h3><p class="admin-stats-big">총 매출 <strong>' + totalRevText + '</strong></p><br><h4 class="admin-stats-brand-heading">브랜드별 매출</h4><ul class="admin-stats-list">';
   const revByStore = revenue.byStore || {};
   Object.entries(revByStore).forEach(function (e) {
     const v = e[1];
     const amt = Number(v && v.amount) || 0;
-    const exp = Number(v && v.expected) || 0;
-    const line = formatMoney(amt) + (exp > 0 ? ' (+' + formatMoney(exp) + ' 예정)' : '');
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + line + '</li>';
+    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + formatMoney(amt) + '</li>';
   });
   html += '</ul></div>';
-  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출</h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   timeSeries.slice(-14).reverse().forEach(function (d) {
     html += '<tr><td>' + escapeHtml(d.date) + '</td><td>' + d.orders + '</td><td>' + formatMoney(d.revenue) + '</td></tr>';
   });
@@ -1173,7 +1174,7 @@ function renderStats(container, data) {
   const menuFilterLimit = adminStatsMenuFilter === 'top10' ? 10 : (topMenus.length || 20);
   const menuList = topMenus.slice(0, menuFilterLimit);
   const menuFilterLabel = adminStatsMenuFilter === 'top10' ? 'top10' : 'all';
-  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출</h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   menuList.forEach(function (m) {
     html += '<tr><td>' + escapeHtml(m.name) + '</td><td>' + m.orderCount + '</td><td>' + formatMoney(m.revenue) + '</td></tr>';
   });
@@ -1190,7 +1191,7 @@ function renderStats(container, data) {
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
   html += '</ul></div>';
-  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
     const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR') : '—';
     html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';

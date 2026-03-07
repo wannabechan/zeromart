@@ -1,15 +1,20 @@
 /**
  * 주문 취소 + 주문서 PDF 재생성 공통 로직
- * zeromart: 배송희망일 없음 — 결제 마감/자동취소 기준 미사용
  */
 
 const { put } = require('@vercel/blob');
 const { getOrderById, updateOrderStatus, updateOrderCancelReason, updateOrderPdfUrl, getStores } = require('./_redis');
 const { generateOrderPdf } = require('./_pdf');
 
-/** zeromart: 배송희망일 없음. 자동취소 대상이 되지 않도록 항상 false */
+const PAYMENT_DEADLINE_HOURS = 24;
+const PAYMENT_DEADLINE_MS = PAYMENT_DEADLINE_HOURS * 60 * 60 * 1000;
+
+/** 주문 일시로부터 24시간 경과 시 true (결제 완료 전 자동 취소 대상) */
 function isPastPaymentDeadline(order) {
-  return false;
+  if (!order || !order.created_at) return false;
+  const created = new Date(order.created_at).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created >= PAYMENT_DEADLINE_MS;
 }
 
 /** 주문 취소 처리 + 취소 주문서 PDF 재생성 및 URL 갱신. cancelReason: 고객취소 | 관리자취소 | 결제기한만료 | 결제실패 */
