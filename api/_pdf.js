@@ -1,11 +1,11 @@
 /**
  * 주문서 PDF 생성 (정식 주문서 형식)
- * P1: 1. 주문자 정보, 2. 기타
- * P2+: 3. 주문 내역
+ * 순서: 1. 주문 내역, 2. 주문자 정보, 3. 기타
  */
 
 const PDFDocument = require('pdfkit');
 const { getStoreForOrder, getStoreDisplayName } = require('./orders/_order-email');
+const { getProfileSettings } = require('./_redis');
 const path = require('path');
 const fs = require('fs');
 
@@ -70,6 +70,12 @@ async function generateOrderPdf(order, stores = [], options = {}) {
   const otherSlugs = Object.keys(byCategory).filter((s) => !categoryOrder.includes(s));
   const orderedSlugs = [...knownSlugs, ...otherSlugs];
 
+  const profile = await getProfileSettings(order.user_email || '');
+  const store = getStoreForOrder(order, stores);
+  const storeDisplayName = getStoreDisplayName(store);
+  const profileStoreName = (profile?.storeName || '').trim() || storeDisplayName;
+  const deliveryAddr = [order.delivery_address, order.detail_address].filter(Boolean).join(' / ') || '—';
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: MARGIN });
     const chunks = [];
@@ -98,52 +104,6 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     // 구분선
     doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).stroke('#ddd');
     y += 16;
-
-    const store = getStoreForOrder(order, stores);
-    const storeDisplayName = getStoreDisplayName(store);
-    const deliveryAddr = [order.delivery_address, order.detail_address].filter(Boolean).join(' / ') || '—';
-
-    // ===== 1. 주문자 정보 =====
-    doc.fontSize(12);
-    if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('1. 주문자 정보', MARGIN, y);
-    if (useKorean) doc.font('NotoSansKR');
-    y += 20;
-
-    const orderBoxY = y;
-    const orderBoxH = 14 + 18 * 4;
-    doc.rect(MARGIN, y, CONTENT_WIDTH, orderBoxH).stroke('#ccc').fill('#fafafa');
-    doc.fillColor('#000').fontSize(10);
-    y += 14;
-    doc.text(`주문번호: #${order.id}`, MARGIN + 12, y);
-    doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
-    doc.text(`주문매장: ${storeDisplayName}`, MARGIN + 12, y + 36);
-    doc.text(`배송주소: ${deliveryAddr}`, MARGIN + 12, y + 54);
-    y = orderBoxY + orderBoxH + 20;
-
-    // ===== 2. 기타 =====
-    doc.fontSize(12);
-    if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('2. 기타', MARGIN, y);
-    if (useKorean) doc.font('NotoSansKR');
-    y += 20;
-
-    const notices = [
-      '안전 배송 부탁드립니다. 감사합니다!',
-      '배송 완료 후 (직접배송 또는 택배 발송) 홈페이지 [주문관리] 페이지에서 \'배송완료\' 처리해주세요.',
-    ];
-    doc.rect(MARGIN, y, CONTENT_WIDTH, notices.length * 22 + 16).stroke('#ccc').fill('#fcfcfc');
-    doc.fillColor('#000').fontSize(9);
-    y += 12;
-    for (const n of notices) {
-      doc.text(n, MARGIN + 12, y, { width: CONTENT_WIDTH - 24 });
-      y += 22;
-    }
-    y += 16;
-
-    // ===== P2: 3. 주문 내역 =====
-    doc.addPage();
-    y = MARGIN;
 
     const col1 = MARGIN + 12;
     const col2 = MARGIN + 280;
@@ -177,7 +137,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
 
     doc.fontSize(12);
     if (!useKorean) doc.font('Helvetica-Bold');
-    doc.text('3. 주문 내역', MARGIN, y);
+    doc.text('1. 주문 내역', MARGIN, y);
     if (useKorean) doc.font('NotoSansKR');
     y += 20;
 
@@ -226,6 +186,51 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     if (useKorean) doc.font('NotoSansKR');
     y += 28;
     drawHLine(y, '#ccc');
+
+    // ===== 2. 주문자 정보 =====
+    const section2And3Height = 220;
+    if (y + section2And3Height > BOTTOM_LIMIT - 30) {
+      doc.addPage();
+      y = MARGIN;
+    }
+    y += 20;
+
+    doc.fontSize(12);
+    if (!useKorean) doc.font('Helvetica-Bold');
+    doc.text('2. 주문자 정보', MARGIN, y);
+    if (useKorean) doc.font('NotoSansKR');
+    y += 20;
+
+    const orderBoxY = y;
+    const orderBoxH = 14 + 18 * 4;
+    doc.rect(MARGIN, y, CONTENT_WIDTH, orderBoxH).stroke('#ccc').fill('#fafafa');
+    doc.fillColor('#000').fontSize(10);
+    y += 14;
+    doc.text(`주문번호: #${order.id}`, MARGIN + 12, y);
+    doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
+    doc.text(`주문매장: ${profileStoreName}`, MARGIN + 12, y + 36);
+    doc.text(`배송주소: ${deliveryAddr}`, MARGIN + 12, y + 54);
+    y = orderBoxY + orderBoxH + 20;
+
+    // ===== 3. 기타 =====
+    doc.fontSize(12);
+    if (!useKorean) doc.font('Helvetica-Bold');
+    doc.text('3. 기타', MARGIN, y);
+    if (useKorean) doc.font('NotoSansKR');
+    y += 20;
+
+    const notices = [
+      '안전 배송 부탁드립니다. 감사합니다!',
+      '배송 완료 후, 홈페이지 [주문관리] 페이지에서 \'배송완료\' 처리해주세요.',
+    ];
+    doc.rect(MARGIN, y, CONTENT_WIDTH, notices.length * 22 + 16).stroke('#ccc').fill('#fcfcfc');
+    doc.fillColor('#000').fontSize(9);
+    y += 12;
+    for (const n of notices) {
+      doc.text(n, MARGIN + 12, y, { width: CONTENT_WIDTH - 24 });
+      y += 22;
+    }
+    y += 16;
 
     // 푸터 (마지막 페이지 최하단)
     doc.fontSize(8).fillColor('#000');
