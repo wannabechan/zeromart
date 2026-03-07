@@ -1740,6 +1740,27 @@ body {
   }
 }
 
+/* 주문하기 화면: 모바일에서 메뉴명·가격·수량 폰트 80%, 수량 버튼 폭 70% */
+@media (max-width: 599px) {
+  .menu-card-cell-name,
+  .menu-card-name {
+    font-size: 0.75rem; /* 0.9375 * 0.8 */
+  }
+  .menu-card-cell-price,
+  .menu-card-price {
+    font-size: 0.8rem; /* 1 * 0.8 */
+  }
+  .menu-qty-btn {
+    width: 25px;   /* 36 * 0.7 */
+    height: 25px;
+    font-size: 1rem; /* 1.25 * 0.8 */
+  }
+  .menu-qty-value {
+    font-size: 0.75rem; /* 0.9375 * 0.8 */
+    min-width: 26px;
+  }
+}
+
 /* ===== Checkout Modal ===== */
 .modal-overlay {
   position: fixed;
