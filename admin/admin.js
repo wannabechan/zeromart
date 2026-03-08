@@ -369,6 +369,7 @@ function setupTabs() {
         clearPaymentIdleTimer();
       } else if (targetTab === 'payments') {
         document.getElementById('paymentsView').classList.add('active');
+        adminPaymentSubFilter = 'delivery_wait';
         loadPaymentManagement().then(() => startPaymentIdleRefresh());
     } else     if (targetTab === 'stats') {
       document.getElementById('statsView').classList.add('active');
@@ -541,14 +542,12 @@ function renderPaymentList() {
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
             : showDeliveryInfo
             ? `<span class="admin-payment-delivery-info">${escapeHtml(deliveryInfoText)}</span>`
-            : `<button 
-            type="button" 
-            class="admin-btn admin-btn-primary admin-payment-link-btn" 
-            data-open-delivery-modal="${orderIdEsc}"
-            ${deliveryRowDisabled ? 'disabled' : ''}
-          >발송 완료</button>`}
+            : effectiveFilter === 'delivery_wait'
+            ? ''
+            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${deliveryRowDisabled ? 'disabled' : ''}>발송 완료</button>`}
         </div>
         <div class="admin-payment-order-delete-row">
+          ${effectiveFilter === 'delivery_wait' && !hideDeliveryBtn && !showDeliveryInfo && (order.status === 'payment_completed' || order.status === 'shipping') ? `<button type="button" class="admin-payment-delivery-row-btn" data-open-delivery-modal="${orderIdEsc}">발송 처리</button>` : ''}
           ${order.status !== 'cancelled' && (order.status === 'submitted' || order.status === 'order_accepted' || order.status === 'payment_link_issued') ? `<button type="button" class="admin-payment-cancel-btn" data-cancel-order="${orderIdEsc}">취소</button>` : ''}
           <button type="button" class="admin-payment-delete-btn" data-delete-order="${orderIdEsc}">삭제</button>
         </div>

@@ -975,6 +975,8 @@ function setupStoreOrdersTabs() {
     }
     if (targetTab === 'list') {
       listView?.classList.add('active');
+      storeOrdersSubFilter = 'delivery_wait';
+      renderList();
     } else if (targetTab === 'stats') {
       statsView?.classList.add('active');
       loadStoreOrdersStats();
