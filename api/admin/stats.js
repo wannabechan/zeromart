@@ -5,6 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
+const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
 function isWithinPaymentCancelWindow(o) {
@@ -23,21 +24,6 @@ const STATUS_LABELS = {
   delivery_completed: '발송완료',
   cancelled: '취소',
 };
-
-function parseDate(str) {
-  if (!str) return null;
-  const d = new Date(str + 'T00:00:00');
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function toDateKey(isoStr) {
-  if (!isoStr) return '';
-  const d = new Date(isoStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 /** 주문에 포함된 상품의 매장(slug) 목록 (중복 제거). 복수 카테고리 주문 시 한 주문이 여러 slug에 기여 */
 function getOrderStoreSlugs(order) {
@@ -65,8 +51,10 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     if (user.level !== 'admin') return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
 
-    const startDate = parseDate(req.query.startDate);
-    const endDate = parseDate(req.query.endDate);
+    const startDateStr = (req.query.startDate || '').trim();
+    const endDateStr = (req.query.endDate || '').trim();
+    const startRange = /^\d{4}-\d{2}-\d{2}$/.test(startDateStr) ? getKSTDayRange(startDateStr) : null;
+    const endRange = /^\d{4}-\d{2}-\d{2}$/.test(endDateStr) ? getKSTDayRange(endDateStr) : null;
     let orders = await getAllOrders() || [];
     const stores = await getStores() || [];
     const storeTitles = {};
@@ -78,11 +66,12 @@ module.exports = async (req, res) => {
       storeBrands[s.slug] = storeBrands[s.id];
     });
 
-    if (startDate || endDate) {
+    if (startRange || endRange) {
       orders = orders.filter((o) => {
         const t = new Date(o.created_at).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate && t > endDate.getTime() + 86400000) return false;
+        if (Number.isNaN(t)) return false;
+        if (startRange && t < startRange.startMs) return false;
+        if (endRange && t > endRange.endMs) return false;
         return true;
       });
     }
@@ -170,7 +159,7 @@ module.exports = async (req, res) => {
       if (status === 'submitted') unacceptedCount++;
       if (status === 'payment_link_issued') unpaidCount++;
 
-      const orderDate = (o.created_at || '').toString().trim().slice(0, 10);
+      const orderDate = toKSTDateKey(o.created_at);
       if (orderDate) byDeliveryDate[orderDate] = (byDeliveryDate[orderDate] || 0) + 1;
 
       const items = o.order_items || o.orderItems || [];
@@ -189,7 +178,7 @@ module.exports = async (req, res) => {
         if (!menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = name;
       });
 
-      const dateKey = toDateKey(o.created_at);
+      const dateKey = toKSTDateKey(o.created_at);
       if (dateKey && confirmedPaid) {
         dailyOrders[dateKey] = (dailyOrders[dateKey] || 0) + 1;
         dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + (Number(o.total_amount) || 0);
@@ -231,8 +220,8 @@ module.exports = async (req, res) => {
     });
 
     const uniqueCustomers = Object.keys(customerOrders).length;
-    const rangeStart = startDate ? startDate.getTime() : null;
-    const rangeEnd = endDate ? endDate.getTime() + 86400000 : null;
+    const rangeStart = startRange ? startRange.startMs : null;
+    const rangeEnd = endRange ? endRange.endMs : null;
     let newCustomers = 0;
     if (rangeStart != null && rangeEnd != null) {
       Object.keys(customerFirstOrder).forEach((email) => {
@@ -340,8 +329,8 @@ module.exports = async (req, res) => {
         unpaidCount,
       },
       dateRange: {
-        startDate: req.query.startDate || null,
-        endDate: req.query.endDate || null,
+        startDate: startDateStr || null,
+        endDate: endDateStr || null,
       },
     });
   } catch (error) {

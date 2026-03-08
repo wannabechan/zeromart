@@ -6,8 +6,9 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
+const { toKSTDateKey } = require('../_kst');
 
-/** 날짜 문자열 YYYY-MM-DD 정규화. zeromart: 주문일(created_at) 기준 */
+/** 날짜 문자열 YYYY-MM-DD 정규화. zeromart: 주문일(created_at) 기준 KST */
 function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
   const s = String(str).trim().replace(/\D/g, '');
@@ -43,8 +44,8 @@ module.exports = async (req, res) => {
 
     const filtered = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
-      const d = normalizeDate((o.created_at || '').toString().slice(0, 10));
-      if (d < startStr || d > endStr) return false;
+      const d = toKSTDateKey(o.created_at);
+      if (!d || d < startStr || d > endStr) return false;
       const store = getStoreForOrder(o, stores);
       const s = (store?.slug || store?.id || '').toString().toLowerCase();
       return s === slug;
@@ -57,7 +58,8 @@ module.exports = async (req, res) => {
 
     const byDate = {};
     filtered.forEach((o) => {
-      const d = normalizeDate((o.created_at || '').toString().slice(0, 10));
+      const d = toKSTDateKey(o.created_at);
+      if (!d) return;
       if (!byDate[d]) byDate[d] = { date: d, orderCount: 0, totalAmount: 0 };
       byDate[d].orderCount += 1;
       byDate[d].totalAmount += Number(o.total_amount) || 0;

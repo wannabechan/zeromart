@@ -63,62 +63,65 @@ function getStatusLabel(status, cancelReason) {
 function formatAdminOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}. ${m}. ${day} ${h}:${min}`;
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 function formatAdminPrice(price) {
   return Number(price || 0).toLocaleString() + '원';
 }
 
-function getStatsDateStr(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + day;
+function getTodayKST() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
-function getThisWeekMonday(date) {
-  const x = new Date(date.getTime());
-  const day = x.getDay();
+function toDateKeyKST(d) {
+  if (d == null) return '';
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+function getStatsDateStr(d) {
+  return toDateKeyKST(d);
+}
+function getThisWeekMondayKST(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00+09:00');
+  const day = d.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
-  x.setDate(x.getDate() - diff);
-  return x;
+  const monday = new Date(d.getTime() - diff * 86400000);
+  return monday.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 function getDefaultStatsRange() {
-  const end = new Date();
-  const start = getThisWeekMonday(end);
-  return { start: getStatsDateStr(start), end: getStatsDateStr(end) };
+  const end = getTodayKST();
+  const start = getThisWeekMondayKST(end);
+  return { start, end };
 }
 function getPresetStatsRange(preset) {
-  const today = new Date();
-  if (preset === 'today') {
-    const s = getStatsDateStr(today);
-    return { start: s, end: s };
-  }
+  const today = getTodayKST();
+  if (preset === 'today') return { start: today, end: today };
   if (preset === 'this_week') {
-    const start = getThisWeekMonday(today);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(today) };
+    const start = getThisWeekMondayKST(today);
+    return { start, end: today };
   }
   if (preset === 'last_week') {
-    const thisMon = getThisWeekMonday(today);
-    const lastSun = new Date(thisMon.getTime());
-    lastSun.setDate(lastSun.getDate() - 1);
-    const lastMon = new Date(lastSun.getTime());
-    lastMon.setDate(lastMon.getDate() - 6);
-    return { start: getStatsDateStr(lastMon), end: getStatsDateStr(lastSun) };
+    const thisMon = getThisWeekMondayKST(today);
+    const thisMonD = new Date(thisMon + 'T12:00:00+09:00');
+    const lastSun = new Date(thisMonD.getTime() - 86400000);
+    const lastMon = new Date(thisMonD.getTime() - 7 * 86400000);
+    return { start: toDateKeyKST(lastMon.getTime()), end: toDateKeyKST(lastSun.getTime()) };
   }
   if (preset === 'this_month') {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(today) };
+    const d = new Date(today + 'T12:00:00+09:00');
+    const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    return { start: toDateKeyKST(first.getTime() + 9 * 3600000), end: today };
   }
   if (preset === 'last_month') {
-    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const end = new Date(today.getFullYear(), today.getMonth(), 0);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(end) };
+    const [y, m] = today.split('-').map(Number);
+    const lastMonthYear = m === 1 ? y - 1 : y;
+    const lastMonthNum = m === 1 ? 12 : m - 1;
+    const lastDayNum = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+    const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
+    const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+    return { start, end };
   }
   return null;
 }
@@ -220,25 +223,6 @@ function renderOrderDetailHtml(order) {
     .join('');
 }
 
-/**
- * @param {object} order
- * @param {{ showButtons?: boolean }} [opts] - showButtons: true면 주문 수령하기 + 거부 3개만 노출 (주문 정보 영역 없음)
- */
-function renderOrderAcceptBlock(order, opts = {}) {
-  const showButtons = opts.showButtons !== false;
-  const orderIdEsc = escapeHtml(String(order.id));
-  const buttonsHtml = showButtons
-    ? `
-      <button type="button" class="store-orders-accept-btn" data-accept-order="${orderIdEsc}">주문 수령하기</button>
-      <div class="store-orders-reject-links">
-        <span class="store-orders-reject-link" data-order-id="${orderIdEsc}" data-reject-reason="schedule" role="button" tabindex="0">거부:스케줄문제</span><span class="store-orders-reject-sep">&nbsp;&nbsp;|&nbsp;&nbsp;</span><span class="store-orders-reject-link" data-order-id="${orderIdEsc}" data-reject-reason="cooking" role="button" tabindex="0">거부:조리문제</span><span class="store-orders-reject-sep">&nbsp;&nbsp;|&nbsp;&nbsp;</span><span class="store-orders-reject-link" data-order-id="${orderIdEsc}" data-reject-reason="other" role="button" tabindex="0">거부:기타</span>
-      </div>`
-    : '';
-  return showButtons
-    ? `<div class="store-orders-accept-block">${buttonsHtml}</div>`
-    : '';
-}
-
 function openOrderDetail(order) {
   const content = document.getElementById('storeOrderDetailContent');
   const totalEl = document.getElementById('storeOrderDetailTotal');
@@ -246,92 +230,9 @@ function openOrderDetail(order) {
   const panel = overlay?.querySelector('.admin-order-detail-panel');
   if (!content || !overlay) return;
   const html = renderOrderDetailHtml(order);
-  const showAcceptButtons = order.status === 'submitted';
-  const acceptBlock = renderOrderAcceptBlock(order, { showButtons: showAcceptButtons });
-  content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>${acceptBlock}`;
+  content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
   if (totalEl) totalEl.textContent = formatAdminPrice(order.total_amount || 0);
   if (panel) panel.classList.toggle('admin-order-detail-cancelled', order.status === 'cancelled');
-
-  const acceptBtn = content.querySelector('.store-orders-accept-btn');
-  if (acceptBtn) {
-    acceptBtn.addEventListener('click', async () => {
-      const orderId = acceptBtn.dataset.acceptOrder;
-      if (!orderId) return;
-      acceptBtn.disabled = true;
-      acceptBtn.textContent = '처리 중...';
-      try {
-        const token = getToken();
-        const res = await fetch(`${API_BASE}/api/manager/accept-order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ orderId }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          alert(data.error || '처리에 실패했습니다.');
-          acceptBtn.disabled = false;
-          acceptBtn.textContent = '주문 수령하기';
-          return;
-        }
-        const o = storeOrdersData.find(x => x.id === orderId);
-        if (o) o.status = 'order_accepted';
-        closeOrderDetail();
-        renderList();
-        alert('주문을 수령했습니다.');
-      } catch (e) {
-        alert('네트워크 오류가 발생했습니다.');
-        acceptBtn.disabled = false;
-        acceptBtn.textContent = '주문 수령하기';
-      }
-    });
-  }
-
-  content.querySelectorAll('.store-orders-reject-link[data-order-id][data-reject-reason]').forEach((el) => {
-    const orderId = el.dataset.orderId;
-    const reason = (el.dataset.rejectReason || '').trim();
-    if (!orderId || !reason) return;
-    const handleReject = async () => {
-      if (!confirm('이 주문을 거부(취소)하시겠습니까?')) return;
-      el.style.pointerEvents = 'none';
-      const origText = el.textContent;
-      el.textContent = '처리 중...';
-      try {
-        const token = getToken();
-        const res = await fetch(`${API_BASE}/api/manager/reject-order`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ orderId, reason }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          alert(data.error || '거부 처리에 실패했습니다.');
-          el.style.pointerEvents = '';
-          el.textContent = origText;
-          return;
-        }
-        const o = storeOrdersData.find((x) => x.id === orderId);
-        if (o) {
-          o.status = 'cancelled';
-          o.cancel_reason = { schedule: '매장일정이슈', cooking: '매장준비이슈', other: '매장운영이슈' }[reason];
-        }
-        closeOrderDetail();
-        renderList();
-        alert('주문이 거부(취소)되었습니다.');
-      } catch (e) {
-        alert('네트워크 오류가 발생했습니다.');
-        el.style.pointerEvents = '';
-        el.textContent = origText;
-      }
-    };
-    el.addEventListener('click', handleReject);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleReject(); } });
-  });
 
   overlay.classList.add('visible');
   overlay.setAttribute('aria-hidden', 'false');
@@ -730,7 +631,7 @@ function renderStoreOrdersStats(container, data) {
   html += '</ul></div>';
   html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
-    const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR') : '—';
+    const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '—';
     html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
   });
   html += '</tbody></table></div>';
@@ -870,25 +771,18 @@ document.getElementById('storeOrderDetailOverlay')?.addEventListener('click', (e
   if (e.target.id === 'storeOrderDetailOverlay') closeOrderDetail();
 });
 
-/** YYYY-MM-DD */
+/** YYYY-MM-DD (KST) */
 function toDateKey(d) {
-  const x = new Date(d);
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return toDateKeyKST(d);
 }
 
-/** yy/mm/dd hh:mm:ss (실시간 시계용) */
+/** yy/mm/dd hh:mm:ss KST (실시간 시계용) */
 function formatSettlementClock() {
   const x = new Date();
-  const yy = String(x.getFullYear()).slice(-2);
-  const mm = String(x.getMonth() + 1).padStart(2, '0');
-  const dd = String(x.getDate()).padStart(2, '0');
-  const hh = String(x.getHours()).padStart(2, '0');
-  const min = String(x.getMinutes()).padStart(2, '0');
-  const ss = String(x.getSeconds()).padStart(2, '0');
-  return `${yy}/${mm}/${dd} ${hh}:${min}:${ss}`;
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(x);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
 function renderStoreSettlementTable(byBrand) {
@@ -913,16 +807,13 @@ async function loadStoreSettlement() {
   const container = document.getElementById('storeOrdersSettlementContent');
   if (!container) return;
 
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const todayMinus7 = new Date(today);
-  todayMinus7.setDate(todayMinus7.getDate() - 7);
-  const tomorrowMinus7 = new Date(tomorrow);
-  tomorrowMinus7.setDate(tomorrowMinus7.getDate() - 7);
+  const today = getTodayKST();
+  const todayD = new Date(today + 'T12:00:00+09:00');
+  const tomorrowD = new Date(todayD.getTime() + 86400000);
+  const todayMinus7D = new Date(todayD.getTime() - 7 * 86400000);
 
-  const dateToday = toDateKey(todayMinus7);
-  const dateTomorrow = toDateKey(tomorrowMinus7);
+  const dateToday = toDateKeyKST(todayMinus7D.getTime());
+  const dateTomorrow = toDateKeyKST(tomorrowD.getTime());
 
   container.innerHTML =
     '<div class="admin-settlement-clock" id="storeSettlementClock">' + escapeHtml(formatSettlementClock()) + '</div>' +

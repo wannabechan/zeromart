@@ -128,26 +128,23 @@ function safeImageUrl(url) {
   return '';
 }
 
-// 유틸: 주문시간 포맷 (yy년 mm월 dd일 hh시 mm분)
+// 유틸: 주문시간 포맷 KST (yy년 mm월 dd일 hh시 mm분)
 function formatOrderTime(date) {
-  const y = String(date.getFullYear()).slice(-2);
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  return `${y}년 ${m}월 ${d}일 ${h}시 ${min}분`;
+  if (!date) return '';
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(date);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}년 ${get('month')}월 ${get('day')}일 ${get('hour')}시 ${get('minute')}분`;
 }
 
-// 유틸: ISO 날짜를 간단 포맷 (yy년 mm월 dd일 | hh시 mm분)
+// 유틸: ISO 날짜를 KST 기준 간단 포맷 (yy년 mm월 dd일 | hh시 mm분)
 function formatOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
-  const y = String(d.getFullYear()).slice(-2);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}년 ${m}월 ${day}일 | ${h}시 ${min}분`;
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}년 ${get('month')}월 ${get('day')}일 | ${get('hour')}시 ${get('minute')}분`;
 }
 
 // 유틸: 아이콘 이모지 (플레이스홀더)
@@ -209,8 +206,8 @@ function isBusinessDay(dateStr, categorySlug) {
   const data = MENU_DATA[categorySlug];
   const days = data?.businessDays;
   if (!days || !Array.isArray(days) || days.length === 0) return true;
-  const d = new Date(dateStr + 'T12:00:00');
-  const dayOfWeek = d.getDay();
+  const d = new Date(dateStr + 'T12:00:00+09:00');
+  const dayOfWeek = d.getUTCDay();
   return days.includes(dayOfWeek);
 }
 

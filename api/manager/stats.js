@@ -7,6 +7,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
 function isWithinPaymentCancelWindow(o) {
@@ -46,21 +47,6 @@ function scopeOrderToManagerStores(order, managerEmail, stores) {
   };
 }
 
-function parseDate(str) {
-  if (!str) return null;
-  const d = new Date(str + 'T00:00:00');
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function toDateKey(isoStr) {
-  if (!isoStr) return '';
-  const d = new Date(isoStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 function getStoreSlugFromOrder(order) {
   const items = order.order_items || order.orderItems || [];
   const firstId = items[0]?.id || '';
@@ -87,16 +73,19 @@ module.exports = async (req, res) => {
       return apiResponse(res, 403, { error: '담당자로 등록된 매장이 없습니다.' });
     }
 
-    const startDate = parseDate(req.query.startDate);
-    const endDate = parseDate(req.query.endDate);
+    const startDateStr = (req.query.startDate || '').trim();
+    const endDateStr = (req.query.endDate || '').trim();
+    const startRange = /^\d{4}-\d{2}-\d{2}$/.test(startDateStr) ? getKSTDayRange(startDateStr) : null;
+    const endRange = /^\d{4}-\d{2}-\d{2}$/.test(endDateStr) ? getKSTDayRange(endDateStr) : null;
     const allOrders = await getAllOrders() || [];
 
     const orders = [];
     for (const o of allOrders) {
-      if (startDate || endDate) {
+      if (startRange || endRange) {
         const t = new Date(o.created_at).getTime();
-        if (startDate && t < startDate.getTime()) continue;
-        if (endDate && t > endDate.getTime() + 86400000) continue;
+        if (Number.isNaN(t)) continue;
+        if (startRange && t < startRange.startMs) continue;
+        if (endRange && t > endRange.endMs) continue;
       }
       const scoped = scopeOrderToManagerStores(o, managerEmail, stores);
       if (scoped) orders.push(scoped);
@@ -177,7 +166,7 @@ module.exports = async (req, res) => {
       if (status === 'submitted') unacceptedCount++;
       if (status === 'payment_link_issued') unpaidCount++;
 
-      const orderDate = (o.created_at || '').toString().trim().slice(0, 10);
+      const orderDate = toKSTDateKey(o.created_at);
       if (orderDate) byDeliveryDate[orderDate] = (byDeliveryDate[orderDate] || 0) + 1;
 
       const items = o.order_items || o.orderItems || [];
@@ -196,7 +185,7 @@ module.exports = async (req, res) => {
         if (!menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = name;
       });
 
-      const dateKey = toDateKey(o.created_at);
+      const dateKey = toKSTDateKey(o.created_at);
       if (dateKey && confirmedPaid) {
         dailyOrders[dateKey] = (dailyOrders[dateKey] || 0) + 1;
         dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + (Number(o.total_amount) || 0);
@@ -262,8 +251,8 @@ module.exports = async (req, res) => {
     });
 
     const uniqueCustomers = Object.keys(customerOrders).length;
-    const rangeStart = startDate ? startDate.getTime() : null;
-    const rangeEnd = endDate ? endDate.getTime() + 86400000 : null;
+    const rangeStart = startRange ? startRange.startMs : null;
+    const rangeEnd = endRange ? endRange.endMs : null;
     let newCustomers = 0;
     if (rangeStart != null && rangeEnd != null) {
       Object.keys(customerFirstOrder).forEach((email) => {

@@ -6,6 +6,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { toKSTDateKey } = require('../_kst');
 
 function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
@@ -69,7 +70,7 @@ module.exports = async (req, res) => {
     const bySlug = {};
     for (const o of orders) {
       if ((o.status || '') !== 'delivery_completed') continue;
-      const orderDate = normalizeDate((o.created_at || '').toString().slice(0, 10));
+      const orderDate = toKSTDateKey(o.created_at);
       if (orderDate !== targetDate) continue;
 
       const scoped = scopeOrderToManagerStores(o, managerEmail, stores);

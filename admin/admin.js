@@ -821,48 +821,57 @@ function clearPaymentIdleTimer() {
   }
 }
 
-function getStatsDateStr(d) {
-  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + day;
+/** 현재 날짜를 KST 기준 YYYY-MM-DD */
+function getTodayKST() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
-function getThisWeekMonday(d) {
-  const x = new Date(d.getTime());
-  const day = x.getDay();
+/** Date 또는 타임스탬프를 KST 기준 YYYY-MM-DD */
+function toDateKeyKST(d) {
+  if (d == null) return '';
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+function getStatsDateStr(d) {
+  return toDateKeyKST(d);
+}
+function getThisWeekMondayKST(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00+09:00');
+  const day = d.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
-  x.setDate(x.getDate() - diff);
-  return x;
+  const monday = new Date(d.getTime() - diff * 86400000);
+  return monday.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 function getDefaultStatsRange() {
-  const end = new Date();
-  const start = getThisWeekMonday(end);
-  return { start: getStatsDateStr(start), end: getStatsDateStr(end) };
+  const end = getTodayKST();
+  const start = getThisWeekMondayKST(end);
+  return { start, end };
 }
 function getPresetStatsRange(preset) {
-  const today = new Date();
-  if (preset === 'today') {
-    const s = getStatsDateStr(today);
-    return { start: s, end: s };
-  }
+  const today = getTodayKST();
+  if (preset === 'today') return { start: today, end: today };
   if (preset === 'this_week') {
-    const start = getThisWeekMonday(today);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(today) };
+    const start = getThisWeekMondayKST(today);
+    return { start, end: today };
   }
   if (preset === 'last_week') {
-    const thisMon = getThisWeekMonday(today);
-    const lastSun = new Date(thisMon.getTime());
-    lastSun.setDate(lastSun.getDate() - 1);
-    const lastMon = new Date(lastSun.getTime());
-    lastMon.setDate(lastMon.getDate() - 6);
-    return { start: getStatsDateStr(lastMon), end: getStatsDateStr(lastSun) };
+    const thisMon = getThisWeekMondayKST(today);
+    const thisMonD = new Date(thisMon + 'T12:00:00+09:00');
+    const lastSun = new Date(thisMonD.getTime() - 86400000);
+    const lastMon = new Date(thisMonD.getTime() - 7 * 86400000);
+    return { start: toDateKeyKST(lastMon.getTime()), end: toDateKeyKST(lastSun.getTime()) };
   }
   if (preset === 'this_month') {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(today) };
+    const d = new Date(today + 'T12:00:00+09:00');
+    const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    return { start: toDateKeyKST(first.getTime() + 9 * 3600000), end: today };
   }
   if (preset === 'last_month') {
-    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const end = new Date(today.getFullYear(), today.getMonth(), 0);
-    return { start: getStatsDateStr(start), end: getStatsDateStr(end) };
+    const [y, m] = today.split('-').map(Number);
+    const lastMonthYear = m === 1 ? y - 1 : y;
+    const lastMonthNum = m === 1 ? 12 : m - 1;
+    const lastDayNum = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+    const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
+    const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+    return { start, end };
   }
   return null;
 }
@@ -909,25 +918,18 @@ async function loadStats() {
   }
 }
 
-/** YYYY-MM-DD */
+/** YYYY-MM-DD (KST 기준, 통계/정산용) */
 function toDateKey(d) {
-  const x = new Date(d);
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return toDateKeyKST(d);
 }
 
-/** yy/mm/dd hh:mm:ss (실시간 시계용) */
+/** yy/mm/dd hh:mm:ss KST (실시간 시계용) */
 function formatSettlementClock() {
   const x = new Date();
-  const yy = String(x.getFullYear()).slice(-2);
-  const mm = String(x.getMonth() + 1).padStart(2, '0');
-  const dd = String(x.getDate()).padStart(2, '0');
-  const hh = String(x.getHours()).padStart(2, '0');
-  const min = String(x.getMinutes()).padStart(2, '0');
-  const ss = String(x.getSeconds()).padStart(2, '0');
-  return `${yy}/${mm}/${dd} ${hh}:${min}:${ss}`;
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(x);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
 function renderSettlementTable(byBrand) {
@@ -950,10 +952,10 @@ let settlementClockIntervalId = null;
 
 /** 정산서 출력용 기본 기간 (최근 7일) */
 function getStatementDefaultRange() {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 6);
-  return { start: toDateKey(start), end: toDateKey(end) };
+  const end = getTodayKST();
+  const endD = new Date(end + 'T12:00:00+09:00');
+  const startD = new Date(endD.getTime() - 6 * 86400000);
+  return { start: toDateKeyKST(startD.getTime()), end };
 }
 
 function renderSettlementStatementContent(data) {
@@ -963,7 +965,7 @@ function renderSettlementStatementContent(data) {
   const periodText = (data.startDate || '') + ' ~ ' + (data.endDate || '');
   const contactEmail = escapeHtml(data.storeContactEmail || '');
   const repName = escapeHtml(data.representative || '');
-  const issueDate = toDateKey(new Date());
+  const issueDate = getTodayKST();
 
   let html = '<div class="admin-settlement-statement-print">';
   html += '<div class="admin-settlement-statement-print-inner">';
@@ -1030,12 +1032,11 @@ async function runSettlementStatementSearch() {
   resultBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
   if (SETTLEMENT_MOCK_FOR_TEST) {
     const days = [];
-    const d = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T00:00:00');
+    const d = new Date(startDate + 'T12:00:00+09:00');
+    const endMs = new Date(endDate + 'T12:00:00+09:00').getTime();
     const row = { orderCount: 1, totalAmount: 500000, fee: 75000, settlement: 425000 };
-    for (; d <= end; d.setDate(d.getDate() + 1)) {
-      const dateKey = toDateKey(new Date(d));
-      days.push({ date: dateKey, ...row });
+    for (let t = d.getTime(); t <= endMs; t += 86400000) {
+      days.push({ date: toDateKeyKST(t), ...row });
     }
     const n = days.length;
     const mockStatementData = {
@@ -1108,16 +1109,13 @@ async function loadSettlement() {
   const container = document.getElementById('adminSettlementContent');
   if (!container) return;
 
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const todayMinus7 = new Date(today);
-  todayMinus7.setDate(todayMinus7.getDate() - 7);
-  const tomorrowMinus7 = new Date(tomorrow);
-  tomorrowMinus7.setDate(tomorrowMinus7.getDate() - 7);
+  const today = getTodayKST();
+  const todayD = new Date(today + 'T12:00:00+09:00');
+  const tomorrowD = new Date(todayD.getTime() + 86400000);
+  const todayMinus7D = new Date(todayD.getTime() - 7 * 86400000);
 
-  const dateToday = toDateKey(todayMinus7);
-  const dateTomorrow = toDateKey(tomorrowMinus7);
+  const dateToday = toDateKeyKST(todayMinus7D.getTime());
+  const dateTomorrow = toDateKeyKST(tomorrowD.getTime());
   const stRange = getStatementDefaultRange();
 
   const statementBlock =
@@ -1269,7 +1267,7 @@ function renderStats(container, data) {
   html += '</ul></div>';
   html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
-    const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR') : '—';
+    const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '—';
     html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
   });
   html += '</tbody></table></div>';
@@ -1313,12 +1311,10 @@ function getStatusLabel(status, cancelReason) {
 function formatAdminOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}.${m}.${day} ${h}:${min}`;
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
 }
 
 function formatAdminPrice(price) {

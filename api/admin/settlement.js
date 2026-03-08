@@ -7,6 +7,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
+const { toKSTDateKey } = require('../_kst');
 
 /** 날짜 문자열을 YYYY-MM-DD로 정규화 */
 function normalizeDate(str) {
@@ -42,8 +43,8 @@ module.exports = async (req, res) => {
     const targetDate = normalizeDate(dateStr);
     const filtered = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
-      const orderDate = (o.created_at || '').toString().slice(0, 10);
-      return normalizeDate(orderDate) === targetDate;
+      const orderDate = toKSTDateKey(o.created_at);
+      return orderDate === targetDate;
     });
 
     const bySlug = {};
