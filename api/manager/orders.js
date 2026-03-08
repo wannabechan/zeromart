@@ -30,11 +30,19 @@ function scopeOrderToManagerStores(order, managerEmail, stores) {
     scopedTotal += Number(item.price || 0) * Math.max(0, Number(item.quantity) || 0);
   }
 
+  // 원본 주문의 슬립 순서(-1, -2, ...)와 일치시키기: entries는 slug 오름차순이므로 index+1이 슬립 번호
+  const orderSlipNumbers = [];
+  for (let i = 0; i < entries.length; i++) {
+    if (managerSlugs.has(entries[i].slug)) orderSlipNumbers.push(i + 1);
+  }
+  orderSlipNumbers.sort((a, b) => a - b);
+
   return {
     ...order,
     order_items: scopedItems,
     orderItems: scopedItems,
     total_amount: scopedTotal,
+    orderSlipNumbers,
   };
 }
 

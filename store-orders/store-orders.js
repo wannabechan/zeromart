@@ -34,6 +34,9 @@ function escapeHtml(s) {
 
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
+  if (order?.orderSlipNumbers && order.orderSlipNumbers.length > 0) {
+    return order.orderSlipNumbers.map((n) => `#${id}-${n}`).join(', ');
+  }
   const items = order?.order_items || order?.orderItems || [];
   const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
   slugs.sort();
