@@ -338,6 +338,15 @@ body {
   color: var(--color-primary);
 }
 
+.header-admin-link-disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.header-admin-link-disabled:hover {
+  color: var(--color-text-secondary);
+}
+
 .logo {
   display: block;
   height: 32px;
