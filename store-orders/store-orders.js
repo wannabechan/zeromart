@@ -487,19 +487,12 @@ function renderList() {
     </div>
   `;
 
-  const isDeliveryWaitFilter = effectiveFilter === 'delivery_wait';
-
   const ordersHtml = sorted.map(order => {
     const isCancelled = order.status === 'cancelled';
 
     const orderIdEsc = escapeHtml(String(order.id));
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
-    let orderIdEl;
-    if (isDeliveryWaitFilter) {
-      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link store-orders-delivery-remind" data-order-detail="${orderIdEsc}" data-delivery-remind role="button" tabindex="0"><span class="store-orders-delivery-remind-id">${orderNumberDisplay}</span><span class="store-orders-delivery-remind-msg">발송 후 발송 완료 처리해주세요.</span></span>`;
-    } else {
-      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
-    }
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
 
     const isCountdownOrder = order.status === 'payment_completed' && isWithinPaymentCancelWindow(order);
     const paymentCompletedAt = order.payment_completed_at || order.paymentCompletedAt;
@@ -549,7 +542,7 @@ function renderList() {
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
             : showDeliveryInfo
             ? `<span class="admin-payment-delivery-info">${escapeHtml(deliveryInfoText)}</span>`
-            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>`}
+            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>${effectiveFilter === 'delivery_wait' ? '<span class="admin-payment-delivery-complete-hint">발송 후 발송 완료 처리해주세요.</span>' : ''}`}
         </div>
       </div>
     `;
@@ -563,12 +556,6 @@ function renderList() {
 
   storeOrdersFlashIntervals.forEach(id => clearInterval(id));
   storeOrdersFlashIntervals = [];
-  content.querySelectorAll('[data-delivery-remind]').forEach(el => {
-    const id = setInterval(() => {
-      el.classList.toggle('store-orders-delivery-remind-show-msg');
-    }, 1500);
-    storeOrdersFlashIntervals.push(id);
-  });
 
   function tickPaymentCountdown() {
     content.querySelectorAll('[data-payment-completed-at]').forEach(el => {
