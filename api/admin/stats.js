@@ -115,8 +115,11 @@ module.exports = async (req, res) => {
     let unacceptedCount = 0;
     let unpaidCount = 0;
 
+    const isConfirmedPaid = (o) => (o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping' || o.status === 'delivery_completed';
+
     orders.forEach((o) => {
       const status = o.status || 'submitted';
+      const confirmedPaid = isConfirmedPaid(o);
       byStatus[status] = (byStatus[status] || 0) + 1;
       const orderSlugs = getOrderStoreSlugs(o);
       for (const slug of orderSlugs) {
@@ -137,7 +140,7 @@ module.exports = async (req, res) => {
         else cancelledBeforePaymentCount++;
       }
 
-      if (status === 'payment_completed' || status === 'shipping' || status === 'delivery_completed') {
+      if (confirmedPaid) {
         revenueTotal += Number(o.total_amount) || 0;
         const items = o.order_items || o.orderItems || [];
         for (const item of items) {
@@ -161,7 +164,7 @@ module.exports = async (req, res) => {
         }
       }
       if (status === 'submitted') submittedCount++;
-      if (status === 'payment_completed' || status === 'shipping' || status === 'delivery_completed') paymentCompletedCount++;
+      if (confirmedPaid) paymentCompletedCount++;
       if (status === 'cancelled') cancelledCount++;
       if (status === 'delivery_completed') deliveryCompletedCount++;
       if (status === 'submitted') unacceptedCount++;
@@ -171,7 +174,6 @@ module.exports = async (req, res) => {
       if (orderDate) byDeliveryDate[orderDate] = (byDeliveryDate[orderDate] || 0) + 1;
 
       const items = o.order_items || o.orderItems || [];
-      const isPaid = ['payment_completed', 'shipping', 'delivery_completed'].includes(status);
       const isExpected = ['submitted', 'order_accepted', 'payment_link_issued'].includes(status);
       const isCancelled = status === 'cancelled';
       items.forEach((item) => {
@@ -181,22 +183,20 @@ module.exports = async (req, res) => {
         const price = Number(item.price) || 0;
         const slugFromItem = (id.split('-')[0] || '').toLowerCase();
         const key = slugFromItem + ':' + id;
-        if (!isCancelled && isPaid) menuOrderCount[key] = (menuOrderCount[key] || 0) + qty;
-        if (isPaid) menuRevenue[key] = (menuRevenue[key] || 0) + price * qty;
+        if (!isCancelled && confirmedPaid) menuOrderCount[key] = (menuOrderCount[key] || 0) + qty;
+        if (confirmedPaid) menuRevenue[key] = (menuRevenue[key] || 0) + price * qty;
         if (isExpected) menuExpectedRevenue[key] = (menuExpectedRevenue[key] || 0) + price * qty;
         if (!menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = name;
       });
 
       const dateKey = toDateKey(o.created_at);
-      if (dateKey) {
-        if (['payment_completed', 'shipping', 'delivery_completed'].includes(status)) {
-          dailyOrders[dateKey] = (dailyOrders[dateKey] || 0) + 1;
-          dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + (Number(o.total_amount) || 0);
-        }
+      if (dateKey && confirmedPaid) {
+        dailyOrders[dateKey] = (dailyOrders[dateKey] || 0) + 1;
+        dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + (Number(o.total_amount) || 0);
       }
 
       const email = (o.user_email || '').trim().toLowerCase();
-      if (email) {
+      if (email && confirmedPaid) {
         customerOrders[email] = (customerOrders[email] || 0) + 1;
         const createdAt = new Date(o.created_at).getTime();
         if (!customerFirstOrder[email] || createdAt < customerFirstOrder[email]) customerFirstOrder[email] = createdAt;
@@ -262,7 +262,7 @@ module.exports = async (req, res) => {
         let orderCount = 0;
         let totalAmount = 0;
         customerOrdersList.forEach((o) => {
-          if (['payment_completed', 'shipping', 'delivery_completed'].includes(o.status)) {
+          if (isConfirmedPaid(o)) {
             orderCount += 1;
             totalAmount += Number(o.total_amount) || 0;
           }
@@ -285,7 +285,7 @@ module.exports = async (req, res) => {
     orderSummaryByStatus.payment_completed = { count: deliveryWaitCount, label: '주문완료' };
     orderSummaryByStatus.delivery_completed = { count: byStatus.delivery_completed || 0, label: '발송완료' };
     orderSummaryByStatus.cancelled = { count: byStatus.cancelled || 0, label: '취소' };
-    const paymentCompletedOrMore = (byStatus.payment_completed || 0) + (byStatus.shipping || 0) + (byStatus.delivery_completed || 0);
+    const paymentCompletedOrMore = deliveryWaitCount + (byStatus.shipping || 0) + (byStatus.delivery_completed || 0);
     const byStoreWithTitle = {};
     Object.entries(byStore).forEach(([slug, count]) => {
       const cancelled = byStoreCancelled[slug] || 0;
