@@ -421,6 +421,25 @@ async function getProfileSettings(email) {
   return typeof raw === 'string' ? JSON.parse(raw) : raw;
 }
 
+/** 여러 이메일의 프로필 설정을 한 번에 조회 (배치 최적화) */
+async function getProfileSettingsBatch(emails) {
+  if (!Array.isArray(emails) || emails.length === 0) return {};
+  const redis = getRedis();
+  const normalized = [...new Set(emails.map((e) => (e && typeof e === 'string' ? e.trim().toLowerCase() : '')).filter(Boolean))];
+  if (normalized.length === 0) return {};
+  const keys = normalized.map((e) => PROFILE_SETTINGS_KEY_PREFIX + e);
+  const raws = await redis.mget(...keys);
+  const out = {};
+  normalized.forEach((email, i) => {
+    const raw = raws[i];
+    if (raw == null) return;
+    try {
+      out[email] = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {}
+  });
+  return out;
+}
+
 async function setProfileSettings(email, data) {
   if (!email || typeof email !== 'string') return false;
   const redis = getRedis();
@@ -470,5 +489,6 @@ module.exports = {
   getMenuDataForApp,
   getRedis,
   getProfileSettings,
+  getProfileSettingsBatch,
   setProfileSettings,
 };

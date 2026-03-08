@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getProfileSettings } = require('../_redis');
+const { getAllOrders, getProfileSettingsBatch } = require('../_redis');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -41,8 +41,11 @@ module.exports = async (req, res) => {
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 
+    const emails = orders.map((o) => o.user_email || '').filter(Boolean);
+    const profilesByEmail = await getProfileSettingsBatch(emails);
     for (const o of orders) {
-      const profile = await getProfileSettings(o.user_email || '');
+      const email = (o.user_email || '').trim().toLowerCase();
+      const profile = email ? profilesByEmail[email] : null;
       o.profileStoreName = (profile?.storeName || '').trim() || null;
     }
 

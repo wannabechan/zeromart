@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const emailAdmin = process.env.EMAIL_ADMIN || '';
+    const emailAdmin = (process.env.EMAIL_ADMIN || '').trim();
     return apiResponse(res, 200, { emailAdmin });
   } catch (error) {
     console.error('Config error:', error);

@@ -52,8 +52,8 @@ function generateCode() {
 }
 
 /**
- * CORS 헤더 설정
- * production에서는 APP_ORIGIN만 허용(미설정 시 빈 값 → 크로스오리진 차단). 개발 시 미설정이면 '*'.
+ * CORS 및 보안 헤더 설정
+ * production에서는 APP_ORIGIN만 허용. 개발 시 미설정이면 '*'.
  */
 function setCorsHeaders(response) {
   const envOrigin = (process.env.APP_ORIGIN || '').trim();
@@ -63,6 +63,8 @@ function setCorsHeaders(response) {
   response.setHeader('Access-Control-Allow-Origin', allowOrigin || 'null');
   response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+  response.setHeader('X-Content-Type-Options', 'nosniff');
+  response.setHeader('X-Frame-Options', 'DENY');
 }
 
 /**
