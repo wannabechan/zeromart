@@ -47,12 +47,13 @@
     .admin-payment-order-id-link:hover { opacity: 0.8; }
     .admin-payment-order-cancelled { opacity: 0.7; }
     .admin-payment-order-cancelled .admin-payment-order-id { text-decoration: line-through; }
+    .store-orders-delivery-remind { display: inline-block; min-height: 1.5em; }
+    .store-orders-delivery-remind .store-orders-delivery-remind-msg { display: none; color: var(--color-primary); font-weight: 600; }
+    .store-orders-delivery-remind.store-orders-delivery-remind-show-msg .store-orders-delivery-remind-id { display: none; }
+    .store-orders-delivery-remind.store-orders-delivery-remind-show-msg .store-orders-delivery-remind-msg { display: inline-block; }
     .store-orders-load-more-wrap { text-align: center; margin-top: 20px; margin-bottom: 16px; }
     .store-orders-load-more-btn { padding: 10px 24px; font-size: 0.9375rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
     .store-orders-load-more-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
-    .store-orders-overdue-flash .store-orders-overdue-msg { display: none; color: var(--color-primary); font-weight: 600; }
-    .store-orders-overdue-flash.store-orders-overdue-show-msg .store-orders-overdue-id { display: none; }
-    .store-orders-overdue-flash.store-orders-overdue-show-msg .store-orders-overdue-msg { display: inline-block; }
     .admin-order-detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0.25s; }
     .admin-order-detail-overlay.visible { opacity: 1; visibility: visible; }
     .admin-order-detail-panel { width: 100%; max-width: 400px; max-height: 70dvh; background: var(--color-surface); border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
@@ -139,10 +140,6 @@
     .admin-payment-order-notice { font-size: 90%; color: var(--color-error); }
     .admin-payment-link-row { display: flex; gap: 8px; align-items: center; }
     .admin-payment-delivery-info { font-size: 0.9rem; color: var(--color-text); }
-    .admin-overdue-flash { display: inline-block; min-height: 1.5em; }
-    .admin-overdue-flash .store-orders-overdue-msg { display: none; color: var(--color-primary); font-weight: 600; }
-    .admin-overdue-flash.admin-overdue-show-msg .store-orders-overdue-id { display: none; }
-    .admin-overdue-flash.admin-overdue-show-msg .store-orders-overdue-msg { display: inline-block; }
     @media (max-width: 768px) {
       .store-orders-tabs { display: flex; gap: 0; }
       .store-orders-tabs .store-orders-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }

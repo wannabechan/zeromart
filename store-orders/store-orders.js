@@ -131,11 +131,6 @@ function getActiveStatsPreset(startVal, endVal) {
   return null;
 }
 
-/** 신청 완료인데 아직 매장에서 수령/거부를 하지 않은 주문이면 true (목록 연체 강조용) */
-function isOverdueForAccept(order) {
-  return order.status === 'submitted';
-}
-
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
   const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -492,15 +487,16 @@ function renderList() {
     </div>
   `;
 
+  const isDeliveryWaitFilter = effectiveFilter === 'delivery_wait';
+
   const ordersHtml = sorted.map(order => {
     const isCancelled = order.status === 'cancelled';
-    const overdue = isOverdueForAccept(order);
 
     const orderIdEsc = escapeHtml(String(order.id));
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
     let orderIdEl;
-    if (overdue) {
-      orderIdEl = `<span class="admin-payment-order-id admin-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
+    if (isDeliveryWaitFilter) {
+      orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link store-orders-delivery-remind" data-order-detail="${orderIdEsc}" data-delivery-remind role="button" tabindex="0"><span class="store-orders-delivery-remind-id">${orderNumberDisplay}</span><span class="store-orders-delivery-remind-msg">발송 후 발송 완료 처리해주세요.</span></span>`;
     } else {
       orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
     }
@@ -567,9 +563,9 @@ function renderList() {
 
   storeOrdersFlashIntervals.forEach(id => clearInterval(id));
   storeOrdersFlashIntervals = [];
-  content.querySelectorAll('[data-overdue-flash]').forEach(el => {
+  content.querySelectorAll('[data-delivery-remind]').forEach(el => {
     const id = setInterval(() => {
-      el.classList.toggle('admin-overdue-show-msg');
+      el.classList.toggle('store-orders-delivery-remind-show-msg');
     }, 1500);
     storeOrdersFlashIntervals.push(id);
   });
