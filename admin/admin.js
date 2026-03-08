@@ -415,7 +415,28 @@ function isWithinPaymentCancelWindow(order) {
   return !Number.isNaN(ts) && Date.now() - ts < PAYMENT_CANCEL_WINDOW_MS;
 }
 
+/** 결제 완료 후 45분 이내인 경우 취소 가능 남은 시간 "mm:ss" 반환, 그 외 null */
+function getPaymentCompletedRemainingMmSs(order) {
+  if (order.status !== 'payment_completed') return null;
+  const at = order.payment_completed_at || order.paymentCompletedAt;
+  if (!at) return null;
+  const ts = new Date(at).getTime();
+  if (Number.isNaN(ts)) return null;
+  const remainingMs = PAYMENT_CANCEL_WINDOW_MS - (Date.now() - ts);
+  if (remainingMs <= 0) return null;
+  const totalSeconds = Math.min(45 * 60 - 1, Math.floor(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+let adminPaymentCountdownIntervalId = null;
+
 function renderPaymentList() {
+  if (adminPaymentCountdownIntervalId) {
+    clearInterval(adminPaymentCountdownIntervalId);
+    adminPaymentCountdownIntervalId = null;
+  }
   const content = document.getElementById('adminPaymentContent');
   const allOrders = adminPaymentOrders;
   const cancelled = (o) => o.status === 'cancelled';
@@ -472,7 +493,16 @@ function renderPaymentList() {
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
     const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
 
-    const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
+    const isCountdownOrder = order.status === 'payment_completed' && isWithinPaymentCancelWindow(order);
+    const paymentCompletedAt = order.payment_completed_at || order.paymentCompletedAt;
+    const initialRemaining = isCountdownOrder ? getPaymentCompletedRemainingMmSs(order) : null;
+    const statusLabel = initialRemaining != null
+      ? `결제 완료 ${initialRemaining} 남음`
+      : getStatusLabel(order.status, order.cancel_reason);
+    const statusLabelEsc = escapeHtml(statusLabel);
+    const statusCountdownAttr = isCountdownOrder && paymentCompletedAt
+      ? ` data-payment-completed-at="${escapeHtml(String(paymentCompletedAt))}"`
+      : '';
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
     const hideDeliveryBtn = effectiveFilter === 'new';
     const isDeliveryCompletedFilter = effectiveFilter === 'delivery_completed';
@@ -496,7 +526,7 @@ function renderPaymentList() {
       <div class="admin-payment-order ${isCancelled ? 'admin-payment-order-cancelled' : ''}" data-order-id="${orderIdEsc}">
         <div class="admin-payment-order-header">
           ${orderIdEl}
-          <span class="admin-payment-order-status ${order.status}">${statusLabelEsc}</span>
+          <span class="admin-payment-order-status ${order.status}"${statusCountdownAttr}>${statusLabelEsc}</span>
         </div>
         <div class="admin-payment-order-info">
           <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
@@ -505,7 +535,9 @@ function renderPaymentList() {
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
         </div>
         <div class="admin-payment-link-row">
-          ${hideDeliveryBtn
+          ${effectiveFilter === 'cancelled'
+            ? ''
+            : hideDeliveryBtn
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
             : showDeliveryInfo
             ? `<span class="admin-payment-delivery-info">${escapeHtml(deliveryInfoText)}</span>`
@@ -538,6 +570,28 @@ function renderPaymentList() {
     }, 1500);
     adminPaymentFlashIntervals.push(id);
   });
+
+  function tickPaymentCountdown() {
+    content.querySelectorAll('[data-payment-completed-at]').forEach(el => {
+      const at = el.getAttribute('data-payment-completed-at');
+      if (!at) return;
+      const ts = new Date(at).getTime();
+      if (Number.isNaN(ts)) return;
+      const remainingMs = PAYMENT_CANCEL_WINDOW_MS - (Date.now() - ts);
+      if (remainingMs <= 0) {
+        el.textContent = '결제 완료';
+        el.removeAttribute('data-payment-completed-at');
+        return;
+      }
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const mmss = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      el.textContent = `결제 완료 ${mmss} 남음`;
+    });
+  }
+  tickPaymentCountdown();
+  adminPaymentCountdownIntervalId = setInterval(tickPaymentCountdown, 1000);
 
   content.querySelectorAll('[data-sort]').forEach(btn => {
     btn.addEventListener('click', () => {
