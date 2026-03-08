@@ -107,7 +107,11 @@ function hideInitialLoadOverlay() {
 
 async function initAuth() {
   const user = await checkSession();
-  showApp(user);
+  if (user) {
+    showApp(user);
+  } else {
+    showLogin();
+  }
   hideInitialLoadOverlay();
 
   const loginForm = document.getElementById('loginForm');
