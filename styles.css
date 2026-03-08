@@ -987,6 +987,13 @@ body {
 
 /* 모바일: 메뉴명·가격 한 영역(60%)에 줄바꿈으로, 수량·담기 40% */
 @media (max-width: 768px) {
+  .category-tabs {
+    gap: 6.8px;
+  }
+  .category-tab {
+    padding: 8.5px 13.6px;
+    font-size: 0.796875rem;
+  }
   .menu-card-row {
     gap: 10px;
   }
