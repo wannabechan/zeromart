@@ -6,7 +6,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, updateOrderStatus, updateOrderAcceptToken, getStores } = require('../_redis');
-const { getStoreEmailForOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -41,9 +41,10 @@ module.exports = async (req, res) => {
       return apiResponse(res, 404, { error: '주문을 찾을 수 없습니다.' });
     }
 
-    const managerEmail = (getStoreEmailForOrder(order, stores) || '').trim().toLowerCase();
     const userEmail = (user.email || '').trim().toLowerCase();
-    if (!managerEmail || managerEmail !== userEmail) {
+    const entries = getStoresWithItemsInOrder(order, stores);
+    const hasManagerStore = entries.some((e) => (e.store?.storeContactEmail || '').trim().toLowerCase() === userEmail);
+    if (!userEmail || !hasManagerStore) {
       return apiResponse(res, 403, { error: '해당 주문의 담당자가 아닙니다.' });
     }
 

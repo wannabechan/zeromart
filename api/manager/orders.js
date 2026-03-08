@@ -1,11 +1,42 @@
 /**
  * GET /api/manager/orders
- * 매장 담당자 이메일로 등록된 매장의 주문만 조회 (담당자 전용)
+ * 매장 담당자 이메일로 등록된 매장의 주문만 조회 (담당자 전용).
+ * 복수 카테고리 주문 시 해당 담당자 매장에 해당하는 주문서(슬립)만 반환: order_items와 total_amount를 해당 매장 분만으로 한정.
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
-const { getStoreEmailForOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+
+function scopeOrderToManagerStores(order, managerEmail, stores) {
+  const entries = getStoresWithItemsInOrder(order, stores);
+  const managerSlugs = new Set();
+  for (const { store, slug } of entries) {
+    const email = (store?.storeContactEmail || '').trim().toLowerCase();
+    if (email === managerEmail) managerSlugs.add(slug);
+  }
+  if (managerSlugs.size === 0) return null;
+
+  const items = order.order_items || order.orderItems || [];
+  const scopedItems = items.filter((item) => {
+    const id = (item.id || '').toString();
+    const slug = (id.split('-')[0] || '').toLowerCase();
+    return managerSlugs.has(slug);
+  });
+  if (scopedItems.length === 0) return null;
+
+  let scopedTotal = 0;
+  for (const item of scopedItems) {
+    scopedTotal += Number(item.price || 0) * Math.max(0, Number(item.quantity) || 0);
+  }
+
+  return {
+    ...order,
+    order_items: scopedItems,
+    orderItems: scopedItems,
+    total_amount: scopedTotal,
+  };
+}
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -38,11 +69,12 @@ module.exports = async (req, res) => {
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
     const allOrders = await getAllOrders();
-    const filtered = (allOrders || []).filter((order) => {
-      const storeEmail = getStoreEmailForOrder(order, stores);
-      return storeEmail && storeEmail.trim().toLowerCase() === managerEmail;
-    });
-    const sorted = filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const scopedList = [];
+    for (const order of allOrders || []) {
+      const scoped = scopeOrderToManagerStores(order, managerEmail, stores);
+      if (scoped) scopedList.push(scoped);
+    }
+    const sorted = scopedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 

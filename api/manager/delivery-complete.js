@@ -5,7 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, getStores, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
-const { getStoreEmailForOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});
@@ -41,8 +41,9 @@ module.exports = async (req, res) => {
     }
 
     const stores = await getStores() || [];
-    const storeEmail = getStoreEmailForOrder(order, stores);
-    if (!storeEmail || storeEmail.trim().toLowerCase() !== managerEmail) {
+    const entries = getStoresWithItemsInOrder(order, stores);
+    const hasManagerStore = entries.some((e) => (e.store?.storeContactEmail || '').trim().toLowerCase() === managerEmail);
+    if (!hasManagerStore) {
       return apiResponse(res, 403, { error: '본인 매장 주문만 발송 완료 처리할 수 있습니다.' });
     }
 

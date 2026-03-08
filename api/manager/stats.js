@@ -6,7 +6,37 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
-const { getStoreEmailForOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+
+function scopeOrderToManagerStores(order, managerEmail, stores) {
+  const entries = getStoresWithItemsInOrder(order, stores);
+  const managerSlugs = new Set();
+  for (const { store, slug } of entries) {
+    const email = (store?.storeContactEmail || '').trim().toLowerCase();
+    if (email === managerEmail) managerSlugs.add(slug);
+  }
+  if (managerSlugs.size === 0) return null;
+
+  const items = order.order_items || order.orderItems || [];
+  const scopedItems = items.filter((item) => {
+    const id = (item.id || '').toString();
+    const slug = (id.split('-')[0] || '').toLowerCase();
+    return managerSlugs.has(slug);
+  });
+  if (scopedItems.length === 0) return null;
+
+  let scopedTotal = 0;
+  for (const item of scopedItems) {
+    scopedTotal += Number(item.price || 0) * Math.max(0, Number(item.quantity) || 0);
+  }
+
+  return {
+    ...order,
+    order_items: scopedItems,
+    orderItems: scopedItems,
+    total_amount: scopedTotal,
+  };
+}
 
 function parseDate(str) {
   if (!str) return null;
@@ -51,20 +81,17 @@ module.exports = async (req, res) => {
 
     const startDate = parseDate(req.query.startDate);
     const endDate = parseDate(req.query.endDate);
-    let orders = await getAllOrders() || [];
+    const allOrders = await getAllOrders() || [];
 
-    orders = orders.filter((o) => {
-      const storeEmail = getStoreEmailForOrder(o, stores);
-      return storeEmail && storeEmail.trim().toLowerCase() === managerEmail;
-    });
-
-    if (startDate || endDate) {
-      orders = orders.filter((o) => {
+    const orders = [];
+    for (const o of allOrders) {
+      if (startDate || endDate) {
         const t = new Date(o.created_at).getTime();
-        if (startDate && t < startDate.getTime()) return false;
-        if (endDate && t > endDate.getTime() + 86400000) return false;
-        return true;
-      });
+        if (startDate && t < startDate.getTime()) continue;
+        if (endDate && t > endDate.getTime() + 86400000) continue;
+      }
+      const scoped = scopeOrderToManagerStores(o, managerEmail, stores);
+      if (scoped) orders.push(scoped);
     }
 
     const storeTitles = {};

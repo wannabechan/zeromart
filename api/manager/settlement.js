@@ -5,7 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
-const { getStoreForOrder, getStoreEmailForOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 
 function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
@@ -13,6 +13,30 @@ function normalizeDate(str) {
   if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   if (s.length >= 10) return String(str).slice(0, 10);
   return '';
+}
+
+function scopeOrderToManagerStores(order, managerEmail, stores) {
+  const entries = getStoresWithItemsInOrder(order, stores);
+  const managerSlugs = new Set();
+  const storeBySlug = {};
+  for (const { store, slug } of entries) {
+    const email = (store?.storeContactEmail || '').trim().toLowerCase();
+    if (email === managerEmail) {
+      managerSlugs.add(slug);
+      storeBySlug[slug] = store;
+    }
+  }
+  if (managerSlugs.size === 0) return null;
+
+  const items = order.order_items || order.orderItems || [];
+  const scopedItems = items.filter((item) => {
+    const id = (item.id || '').toString();
+    const slug = (id.split('-')[0] || '').toLowerCase();
+    return managerSlugs.has(slug);
+  });
+  if (scopedItems.length === 0) return null;
+
+  return { order, scopedItems, storeBySlug };
 }
 
 module.exports = async (req, res) => {
@@ -42,29 +66,36 @@ module.exports = async (req, res) => {
     const stores = await getStores() || [];
     const targetDate = normalizeDate(dateStr);
 
-    const filtered = orders.filter((o) => {
-      if ((o.status || '') !== 'delivery_completed') return false;
-      const orderDate = normalizeDate((o.created_at || '').toString().slice(0, 10));
-      if (orderDate !== targetDate) return false;
-      const storeEmail = getStoreEmailForOrder(o, stores);
-      return storeEmail && storeEmail.trim().toLowerCase() === managerEmail;
-    });
-
     const bySlug = {};
-    filtered.forEach((o) => {
-      const store = getStoreForOrder(o, stores);
-      const slug = (store?.slug || store?.id || 'unknown').toString().toLowerCase();
-      if (!bySlug[slug]) {
-        bySlug[slug] = {
-          slug,
-          brandTitle: (store?.brand || store?.title || store?.id || slug).toString().trim() || slug,
-          orderCount: 0,
-          totalAmount: 0,
-        };
+    for (const o of orders) {
+      if ((o.status || '') !== 'delivery_completed') continue;
+      const orderDate = normalizeDate((o.created_at || '').toString().slice(0, 10));
+      if (orderDate !== targetDate) continue;
+
+      const scoped = scopeOrderToManagerStores(o, managerEmail, stores);
+      if (!scoped) continue;
+
+      const { scopedItems, storeBySlug } = scoped;
+      const amountBySlug = {};
+      for (const item of scopedItems) {
+        const slug = (item.id || '').toString().split('-')[0].toLowerCase() || 'unknown';
+        const amt = Number(item.price || 0) * Math.max(0, Number(item.quantity) || 0);
+        amountBySlug[slug] = (amountBySlug[slug] || 0) + amt;
       }
-      bySlug[slug].orderCount += 1;
-      bySlug[slug].totalAmount += Number(o.total_amount) || 0;
-    });
+      for (const slug of Object.keys(amountBySlug)) {
+        const store = storeBySlug[slug];
+        if (!bySlug[slug]) {
+          bySlug[slug] = {
+            slug,
+            brandTitle: (store?.brand || store?.title || store?.id || slug).toString().trim() || slug,
+            orderCount: 0,
+            totalAmount: 0,
+          };
+        }
+        bySlug[slug].orderCount += 1;
+        bySlug[slug].totalAmount += amountBySlug[slug];
+      }
+    }
 
     const byBrand = Object.values(bySlug).sort((a, b) =>
       (a.brandTitle || '').localeCompare(b.brandTitle || '', 'ko')
