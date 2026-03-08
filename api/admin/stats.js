@@ -6,6 +6,14 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 
+const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
+function isWithinPaymentCancelWindow(o) {
+  const at = o.payment_completed_at;
+  if (!at) return false;
+  const ts = new Date(at).getTime();
+  return !Number.isNaN(ts) && Date.now() - ts < PAYMENT_CANCEL_WINDOW_MS;
+}
+
 const STATUS_LABELS = {
   submitted: '신청완료',
   order_accepted: '결제준비중',
@@ -113,7 +121,7 @@ module.exports = async (req, res) => {
       const orderSlugs = getOrderStoreSlugs(o);
       for (const slug of orderSlugs) {
         byStore[slug] = (byStore[slug] || 0) + 1;
-        if (status === 'payment_completed') {
+        if (status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) {
           byStorePaymentCompleted[slug] = (byStorePaymentCompleted[slug] || 0) + 1;
         }
         if (status === 'delivery_completed') {
@@ -268,10 +276,13 @@ module.exports = async (req, res) => {
       })
       .sort((a, b) => b.totalAmount - a.totalAmount);
 
+    const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
+    const cancelledOrder = (o) => (o.status || '') === 'cancelled';
+    const newOrdersCount = orders.filter((o) => !cancelledOrder(o) && (orderWaitStatuses.includes(o.status || '') || (o.status === 'payment_completed' && isWithinPaymentCancelWindow(o)))).length;
+    const deliveryWaitCount = orders.filter((o) => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)).length;
     const orderSummaryByStatus = {};
-    const newOrdersCount = (byStatus.submitted || 0) + (byStatus.order_accepted || 0) + (byStatus.payment_link_issued || 0);
     orderSummaryByStatus.new_orders = { count: newOrdersCount, label: '주문대기' };
-    orderSummaryByStatus.payment_completed = { count: byStatus.payment_completed || 0, label: '주문완료' };
+    orderSummaryByStatus.payment_completed = { count: deliveryWaitCount, label: '주문완료' };
     orderSummaryByStatus.delivery_completed = { count: byStatus.delivery_completed || 0, label: '발송완료' };
     orderSummaryByStatus.cancelled = { count: byStatus.cancelled || 0, label: '취소' };
     const paymentCompletedOrMore = (byStatus.payment_completed || 0) + (byStatus.shipping || 0) + (byStatus.delivery_completed || 0);
