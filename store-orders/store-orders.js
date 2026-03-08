@@ -12,7 +12,7 @@ let storeOrdersStores = [];
 let storeOrdersStoreOrder = [];
 let storeOrdersSortBy = 'created_at';
 let storeOrdersSortDir = { created_at: 'desc' };
-let storeOrdersSubFilter = 'new';
+let storeOrdersSubFilter = 'delivery_wait';
 let storeOrdersFlashIntervals = [];
 
 const STORE_ORDERS_IDLE_MS = 180000; // 180초 무활동 시 주문 목록 리프레시
@@ -45,11 +45,11 @@ function getOrderNumberDisplay(order) {
 function getStatusLabel(status, cancelReason) {
   const s = (status || '').trim();
   const labels = {
-    submitted: '신청 완료',
-    order_accepted: '결제준비중',
-    payment_link_issued: '결제 링크 발급',
+    submitted: '주문 대기',
+    order_accepted: '주문 대기',
+    payment_link_issued: '주문 대기',
     payment_completed: '결제 완료',
-    shipping: '배송중',
+    shipping: '발송 완료',
     delivery_completed: '발송 완료',
     cancelled: '주문취소',
   };
@@ -139,6 +139,30 @@ function sortPaymentOrders(orders, sortBy, dir) {
   copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
   if ((dir || 'desc') === 'desc') copy.reverse();
   return copy;
+}
+
+const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
+
+function isWithinPaymentCancelWindow(order) {
+  if (order.status !== 'payment_completed') return false;
+  const at = order.payment_completed_at || order.paymentCompletedAt;
+  if (!at) return false;
+  const ts = new Date(at).getTime();
+  return !Number.isNaN(ts) && Date.now() - ts < PAYMENT_CANCEL_WINDOW_MS;
+}
+
+function getPaymentCompletedRemainingMmSs(order) {
+  if (order.status !== 'payment_completed') return null;
+  const at = order.payment_completed_at || order.paymentCompletedAt;
+  if (!at) return null;
+  const ts = new Date(at).getTime();
+  if (Number.isNaN(ts)) return null;
+  const remainingMs = PAYMENT_CANCEL_WINDOW_MS - (Date.now() - ts);
+  if (remainingMs <= 0) return null;
+  const totalSeconds = Math.min(45 * 60 - 1, Math.floor(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function renderOrderDetailHtml(order) {
@@ -323,30 +347,125 @@ function closeOrderDetail() {
   }
 }
 
+let storeDeliveryModalOrderId = null;
+
+function openDeliveryCompleteModal(orderId) {
+  storeDeliveryModalOrderId = orderId;
+  const modal = document.getElementById('storeDeliveryCompleteModal');
+  if (!modal) return;
+  const courierSelect = document.getElementById('storeDeliveryCourierSelect');
+  const trackingInput = document.getElementById('storeDeliveryTrackingInput');
+  if (courierSelect) courierSelect.value = '';
+  if (trackingInput) trackingInput.value = '';
+  modal.classList.add('admin-modal-visible');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeDeliveryCompleteModal() {
+  const modal = document.getElementById('storeDeliveryCompleteModal');
+  if (modal) {
+    modal.classList.remove('admin-modal-visible');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  storeDeliveryModalOrderId = null;
+}
+
+async function submitStoreDeliveryCompleteDirect() {
+  const orderId = storeDeliveryModalOrderId;
+  if (!orderId) return;
+  const token = getToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/manager/delivery-complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId, code: orderId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
+    const order = storeOrdersData.find(o => o.id === orderId);
+    if (order) order.status = 'delivery_completed';
+    alert('직접 배송 완료 처리되었습니다.');
+    closeDeliveryCompleteModal();
+    renderList();
+  } catch (e) {
+    alert(e.message || '처리에 실패했습니다.');
+  }
+}
+
+async function submitStoreDeliveryCompleteParcel() {
+  const orderId = storeDeliveryModalOrderId;
+  if (!orderId) return;
+  const courierSelect = document.getElementById('storeDeliveryCourierSelect');
+  const trackingInput = document.getElementById('storeDeliveryTrackingInput');
+  const courierCompany = courierSelect?.value?.trim() || '';
+  const trackingNumber = (trackingInput?.value || '').trim();
+  if (!trackingNumber) {
+    alert('송장 번호를 입력해 주세요.');
+    return;
+  }
+  const token = getToken();
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/manager/delivery-complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId, courierCompany, trackingNumber }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
+    const order = storeOrdersData.find(o => o.id === orderId);
+    if (order) order.status = 'delivery_completed';
+    alert('저장되었습니다.');
+    closeDeliveryCompleteModal();
+    renderList();
+  } catch (e) {
+    alert(e.message || '저장에 실패했습니다.');
+  }
+}
+
+(function bindStoreDeliveryCompleteModal() {
+  const modal = document.getElementById('storeDeliveryCompleteModal');
+  if (!modal) return;
+  document.getElementById('storeDeliveryCompleteModalClose')?.addEventListener('click', closeDeliveryCompleteModal);
+  document.getElementById('storeDeliveryCompleteDirectBtn')?.addEventListener('click', submitStoreDeliveryCompleteDirect);
+  document.getElementById('storeDeliveryParcelSaveBtn')?.addEventListener('click', submitStoreDeliveryCompleteParcel);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeDeliveryCompleteModal();
+  });
+})();
+
+let storePaymentCountdownIntervalId = null;
+
 function renderList() {
+  if (storePaymentCountdownIntervalId) {
+    clearInterval(storePaymentCountdownIntervalId);
+    storePaymentCountdownIntervalId = null;
+  }
   const content = document.getElementById('storeOrdersContent');
   const allOrders = storeOrdersData;
   const cancelled = (o) => o.status === 'cancelled';
 
-  const newCount = allOrders.filter(o => !cancelled(o) && (o.status === 'submitted' || o.status === 'order_accepted')).length;
-  const paymentWaitCount = allOrders.filter(o => !cancelled(o) && o.status === 'payment_link_issued').length;
-  const deliveryWaitCount = allOrders.filter(o => !cancelled(o) && o.status === 'payment_completed').length;
-  const shippingCount = allOrders.filter(o => !cancelled(o) && o.status === 'shipping').length;
+  const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
+  const isOrderWait = (o) => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o));
+  const isDeliveryWait = (o) => !cancelled(o) && o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o);
+  const newCount = allOrders.filter(isOrderWait).length;
+  const deliveryWaitCount = allOrders.filter(isDeliveryWait).length;
   const deliveryCompletedCount = allOrders.filter(o => !cancelled(o) && o.status === 'delivery_completed').length;
+  const cancelledCount = allOrders.filter(o => o.status === 'cancelled').length;
 
+  const effectiveFilter = storeOrdersSubFilter === 'all' ? 'delivery_wait' : storeOrdersSubFilter;
   let filtered;
-  if (storeOrdersSubFilter === 'new') {
-    filtered = allOrders.filter(o => o.status === 'submitted' || o.status === 'order_accepted');
-  } else if (storeOrdersSubFilter === 'payment_wait') {
-    filtered = allOrders.filter(o => o.status === 'payment_link_issued');
-  } else if (storeOrdersSubFilter === 'delivery_wait') {
-    filtered = allOrders.filter(o => o.status === 'payment_completed');
-  } else if (storeOrdersSubFilter === 'shipping') {
-    filtered = allOrders.filter(o => o.status === 'shipping');
-  } else if (storeOrdersSubFilter === 'delivery_completed') {
+  if (effectiveFilter === 'new') {
+    filtered = allOrders.filter(o => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o)));
+  } else if (effectiveFilter === 'delivery_wait') {
+    filtered = allOrders.filter(o => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o));
+  } else if (effectiveFilter === 'delivery_completed') {
     filtered = allOrders.filter(o => o.status === 'delivery_completed');
+  } else if (effectiveFilter === 'cancelled') {
+    filtered = allOrders.filter(o => o.status === 'cancelled');
   } else {
-    filtered = allOrders.slice();
+    filtered = allOrders.filter(o => o.status === 'payment_completed');
   }
 
   const sortBy = storeOrdersSortBy;
@@ -362,14 +481,10 @@ function renderList() {
     </div>
     <div class="admin-payment-subfilter">
       <div class="admin-payment-subfilter-row">
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'all' ? 'active' : ''}" data-subfilter="all" role="button" tabindex="0">전체보기</span>
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'new' ? 'active' : ''}" data-subfilter="new" role="button" tabindex="0">신규주문 ${newCount}개</span>
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'payment_wait' ? 'active' : ''}" data-subfilter="payment_wait" role="button" tabindex="0">결제대기 ${paymentWaitCount}개</span>
-      </div>
-      <div class="admin-payment-subfilter-row">
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_wait' ? 'active' : ''}" data-subfilter="delivery_wait" role="button" tabindex="0">배송대기 ${deliveryWaitCount}개</span>
-        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'shipping' ? 'active' : ''}" data-subfilter="shipping" role="button" tabindex="0">배송중 ${shippingCount}개</span>
+        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'new' ? 'active' : ''}" data-subfilter="new" role="button" tabindex="0">주문대기 ${newCount}개</span>
+        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_wait' ? 'active' : ''}" data-subfilter="delivery_wait" role="button" tabindex="0">주문완료 ${deliveryWaitCount}개</span>
         <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'delivery_completed' ? 'active' : ''}" data-subfilter="delivery_completed" role="button" tabindex="0">발송완료 ${deliveryCompletedCount}개</span>
+        <span class="admin-payment-subfilter-item ${storeOrdersSubFilter === 'cancelled' ? 'active' : ''}" data-subfilter="cancelled" role="button" tabindex="0">취소주문 ${cancelledCount}개</span>
       </div>
     </div>
   `;
@@ -382,38 +497,68 @@ function renderList() {
     const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
     let orderIdEl;
     if (overdue) {
-      orderIdEl = `<span class="admin-payment-order-id store-orders-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
+      orderIdEl = `<span class="admin-payment-order-id admin-overdue-flash admin-payment-order-id-link" data-order-detail="${orderIdEsc}" data-overdue-flash role="button" tabindex="0"><span class="store-orders-overdue-id">${orderNumberDisplay}</span><span class="store-orders-overdue-msg">주문 신청을 승인해 주세요.</span></span>`;
     } else {
       orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
     }
 
-    const deliveryAddressFull = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
+    const isCountdownOrder = order.status === 'payment_completed' && isWithinPaymentCancelWindow(order);
+    const paymentCompletedAt = order.payment_completed_at || order.paymentCompletedAt;
+    const initialRemaining = isCountdownOrder ? getPaymentCompletedRemainingMmSs(order) : null;
+    const statusLabel = initialRemaining != null
+      ? `결제 완료 ${initialRemaining} 남음`
+      : getStatusLabel(order.status, order.cancel_reason);
+    const statusLabelEsc = escapeHtml(statusLabel);
+    const statusCountdownAttr = isCountdownOrder && paymentCompletedAt
+      ? ` data-payment-completed-at="${escapeHtml(String(paymentCompletedAt))}"`
+      : '';
 
-    const orderInfoBlock = `
-        <div class="admin-payment-order-info">
-          <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
-          <div>배송주소: ${deliveryAddressFull}</div>
-          <div>주문자: ${escapeHtml((order.depositor || '').trim() || '—')}</div>
-          <div>연락처: ${escapeHtml((order.contact || '').trim() || '—')}</div>
-          <div>총액: ${formatAdminPrice(order.total_amount)}</div>
-        </div>
-      `;
+    const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
+    const hideDeliveryBtn = effectiveFilter === 'new';
+    const isDeliveryCompletedFilter = effectiveFilter === 'delivery_completed';
+    const showDeliveryInfo = isDeliveryCompletedFilter && order.status === 'delivery_completed';
+    const deliveryInfoText = showDeliveryInfo
+      ? (() => {
+          const cc = (order.courier_company || '').trim();
+          const tn = (order.tracking_number || '').trim();
+          const hasParcel = !!cc || !!tn;
+          if (order.delivery_type === 'direct') return '직접 배송 완료';
+          if (hasParcel) return `${cc || '—'} / ${tn}`;
+          return '배송 정보 없음';
+        })()
+      : '';
+    const ordererDisplay = effectiveFilter === 'delivery_wait'
+      ? `${escapeHtml((order.depositor || '').trim() || '—')} / ${escapeHtml(order.contact || '—')}`
+      : escapeHtml((order.depositor || '').trim() || '—');
 
-    const statusLabelEsc = escapeHtml(getStatusLabel(order.status, order.cancel_reason));
     return `
       <div class="admin-payment-order ${isCancelled ? 'admin-payment-order-cancelled' : ''}" data-order-id="${orderIdEsc}">
         <div class="admin-payment-order-header">
           ${orderIdEl}
-          <span class="admin-payment-order-status ${order.status}">${statusLabelEsc}</span>
+          <span class="admin-payment-order-status ${order.status}"${statusCountdownAttr}>${statusLabelEsc}</span>
         </div>
-        ${orderInfoBlock}
+        <div class="admin-payment-order-info">
+          <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
+          <div>배송주소: ${deliveryAddressEsc}</div>
+          <div>주문자: ${ordererDisplay}</div>
+          <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
+        </div>
+        <div class="admin-payment-link-row">
+          ${effectiveFilter === 'cancelled'
+            ? ''
+            : hideDeliveryBtn
+            ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
+            : showDeliveryInfo
+            ? `<span class="admin-payment-delivery-info">${escapeHtml(deliveryInfoText)}</span>`
+            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>`}
+        </div>
       </div>
     `;
   }).join('');
 
-  const showLoadMore = storeOrdersSubFilter === 'all' && storeOrdersData.length < storeOrdersTotal;
+  const showLoadMore = storeOrdersData.length < storeOrdersTotal;
   const loadMoreHtml = showLoadMore
-    ? `<div class="store-orders-load-more-wrap"><button type="button" class="store-orders-load-more-btn" data-store-orders-load-more>더 보기</button></div>`
+    ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-store-orders-load-more>더 보기</button></div>`
     : '';
   content.innerHTML = sortBar + ordersHtml + loadMoreHtml;
 
@@ -421,16 +566,32 @@ function renderList() {
   storeOrdersFlashIntervals = [];
   content.querySelectorAll('[data-overdue-flash]').forEach(el => {
     const id = setInterval(() => {
-      el.classList.toggle('store-orders-overdue-show-msg');
+      el.classList.toggle('admin-overdue-show-msg');
     }, 1500);
     storeOrdersFlashIntervals.push(id);
   });
-  content.querySelectorAll('[data-prepare-flash]').forEach(el => {
-    const id = setInterval(() => {
-      el.classList.toggle('store-orders-prepare-show-msg');
-    }, 1500);
-    storeOrdersFlashIntervals.push(id);
-  });
+
+  function tickPaymentCountdown() {
+    content.querySelectorAll('[data-payment-completed-at]').forEach(el => {
+      const at = el.getAttribute('data-payment-completed-at');
+      if (!at) return;
+      const ts = new Date(at).getTime();
+      if (Number.isNaN(ts)) return;
+      const remainingMs = PAYMENT_CANCEL_WINDOW_MS - (Date.now() - ts);
+      if (remainingMs <= 0) {
+        el.textContent = '결제 완료';
+        el.removeAttribute('data-payment-completed-at');
+        return;
+      }
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const mmss = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      el.textContent = `결제 완료 ${mmss} 남음`;
+    });
+  }
+  tickPaymentCountdown();
+  storePaymentCountdownIntervalId = setInterval(tickPaymentCountdown, 1000);
 
   content.querySelectorAll('[data-sort]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -465,6 +626,13 @@ function renderList() {
       const orderId = el.dataset.orderDetail;
       const order = storeOrdersData.find(o => o.id === orderId);
       if (order) openOrderDetail(order);
+    });
+  });
+
+  content.querySelectorAll('[data-open-delivery-modal]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const orderId = btn.dataset.openDeliveryModal;
+      openDeliveryCompleteModal(orderId);
     });
   });
 }
@@ -534,25 +702,22 @@ function renderStoreOrdersStats(container, data) {
   const byStore = orderSummary.byStore || {};
   Object.entries(byStore).forEach(function (e) {
     const v = e[1];
-    const progress = (v && v.count) ?? 0;
-    const cancelled = (v && v.cancelledCount) ?? 0;
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : 진행 <strong>' + progress + '</strong>건 (취소 <strong>' + cancelled + '</strong>건)</li>';
+    const paymentCompleted = (v && v.paymentCompletedCount) ?? 0;
+    const deliveryCompleted = (v && v.deliveryCompletedCount) ?? 0;
+    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : 주문완료 <strong>' + paymentCompleted + '</strong>건, 발송완료 <strong>' + deliveryCompleted + '</strong>건</li>';
   });
   html += '</ul></div>';
   const revTotal = Number(revenue.total) || 0;
-  const revExpected = Number(revenue.expected) || 0;
-  const totalRevText = formatMoney(revTotal) + (revExpected > 0 ? ' (+' + formatMoney(revExpected) + ' 예정)' : '');
+  const totalRevText = formatMoney(revTotal);
   html += '<div class="admin-stats-section"><h3>매출</h3><p class="admin-stats-big">총 매출 <strong>' + totalRevText + '</strong></p><br><h4 class="admin-stats-brand-heading">브랜드별 매출</h4><ul class="admin-stats-list">';
   const revByStore = revenue.byStore || {};
   Object.entries(revByStore).forEach(function (e) {
     const v = e[1];
     const amt = Number(v && v.amount) || 0;
-    const exp = Number(v && v.expected) || 0;
-    const line = formatMoney(amt) + (exp > 0 ? ' (+' + formatMoney(exp) + ' 예정)' : '');
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + line + '</li>';
+    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + formatMoney(amt) + '</li>';
   });
   html += '</ul></div>';
-  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출</h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   timeSeries.slice(-14).reverse().forEach(function (d) {
     html += '<tr><td>' + escapeHtml(d.date) + '</td><td>' + d.orders + '</td><td>' + formatMoney(d.revenue) + '</td></tr>';
   });
@@ -560,7 +725,7 @@ function renderStoreOrdersStats(container, data) {
   const menuFilterLimit = storeOrdersStatsMenuFilter === 'top10' ? 10 : (topMenus.length || 20);
   const menuList = topMenus.slice(0, menuFilterLimit);
   const menuFilterLabel = storeOrdersStatsMenuFilter === 'top10' ? 'top10' : 'all';
-  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출</h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   menuList.forEach(function (m) {
     html += '<tr><td>' + escapeHtml(m.name) + '</td><td>' + m.orderCount + '</td><td>' + formatMoney(m.revenue) + '</td></tr>';
   });
@@ -577,7 +742,7 @@ function renderStoreOrdersStats(container, data) {
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
   html += '</ul></div>';
-  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석<span class="admin-stats-section-hint">&nbsp;*매출은 예상매출 포함</span></h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
     const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR') : '—';
     html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
@@ -809,7 +974,6 @@ function setupStoreOrdersTabs() {
   const tabs = document.querySelectorAll('.store-orders-tab[data-store-tab]');
   const listView = document.getElementById('storeOrdersListView');
   const statsView = document.getElementById('storeOrdersStatsView');
-  const settlementView = document.getElementById('storeOrdersSettlementView');
 
   function activateTab(targetTab) {
     tabs.forEach((t) => {
@@ -818,7 +982,6 @@ function setupStoreOrdersTabs() {
     });
     listView?.classList.remove('active');
     statsView?.classList.remove('active');
-    settlementView?.classList.remove('active');
     const tabEl = document.querySelector(`.store-orders-tab[data-store-tab="${targetTab}"]`);
     if (tabEl) {
       tabEl.classList.add('active');
@@ -829,9 +992,6 @@ function setupStoreOrdersTabs() {
     } else if (targetTab === 'stats') {
       statsView?.classList.add('active');
       loadStoreOrdersStats();
-    } else if (targetTab === 'settlement') {
-      settlementView?.classList.add('active');
-      loadStoreSettlement();
     }
   }
 
@@ -846,8 +1006,7 @@ function setupStoreOrdersTabs() {
   const nav = performance.getEntriesByType?.('navigation')?.[0];
   const isReload = nav?.type === 'reload' || (typeof performance.navigation !== 'undefined' && performance.navigation.type === 1);
   const saved = sessionStorage.getItem(STORE_ORDERS_TAB_KEY);
-  const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
-  const tabToActivate = (saved && ['list', 'stats', 'settlement'].includes(saved) && (saved !== 'settlement' || !isMobile())) ? saved : (isMobile() ? 'list' : 'list');
+  const tabToActivate = (saved && ['list', 'stats'].includes(saved)) ? saved : 'list';
   if (isReload && saved) {
     activateTab(tabToActivate);
   }

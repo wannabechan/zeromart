@@ -79,6 +79,8 @@ module.exports = async (req, res) => {
     const byStatus = {};
     const byStore = {};
     const byStoreCancelled = {};
+    const byStorePaymentCompleted = {};
+    const byStoreDeliveryCompleted = {};
     let revenueTotal = 0;
     let revenueExpectedTotal = 0;
     const revenueByStore = {};
@@ -107,6 +109,12 @@ module.exports = async (req, res) => {
       byStatus[status] = (byStatus[status] || 0) + 1;
       const slug = getStoreSlugFromOrder(o);
       byStore[slug] = (byStore[slug] || 0) + 1;
+      if (status === 'payment_completed') {
+        byStorePaymentCompleted[slug] = (byStorePaymentCompleted[slug] || 0) + 1;
+      }
+      if (status === 'delivery_completed') {
+        byStoreDeliveryCompleted[slug] = (byStoreDeliveryCompleted[slug] || 0) + 1;
+      }
       if (status === 'cancelled') {
         byStoreCancelled[slug] = (byStoreCancelled[slug] || 0) + 1;
         const reason = (o.cancel_reason || '').trim();
@@ -172,25 +180,19 @@ module.exports = async (req, res) => {
     });
 
     const totalOrders = orders.length;
-    const newOrdersCount = (byStatus.submitted || 0) + (byStatus.order_accepted || 0);
+    const newOrdersCount = (byStatus.submitted || 0) + (byStatus.order_accepted || 0) + (byStatus.payment_link_issued || 0);
     const paymentCompletedOrMore = (byStatus.payment_completed || 0) + (byStatus.shipping || 0) + (byStatus.delivery_completed || 0);
-    const ORDER_STAGE_LABELS = {
-      new_orders: '신규주문',
-      payment_link_issued: '결제대기',
-      payment_completed: '배송대기',
-      shipping: '배송중',
-      delivery_completed: '발송완료',
-    };
     const orderSummaryByStatus = {};
-    orderSummaryByStatus.new_orders = { count: newOrdersCount, label: '신규주문' };
-    ['payment_link_issued', 'payment_completed', 'shipping', 'delivery_completed', 'cancelled'].forEach((k) => {
-      const count = byStatus[k] || 0;
-      orderSummaryByStatus[k] = { count, label: k === 'cancelled' ? '취소' : (ORDER_STAGE_LABELS[k] || k) };
-    });
+    orderSummaryByStatus.new_orders = { count: newOrdersCount, label: '주문대기' };
+    orderSummaryByStatus.payment_completed = { count: byStatus.payment_completed || 0, label: '주문완료' };
+    orderSummaryByStatus.delivery_completed = { count: byStatus.delivery_completed || 0, label: '발송완료' };
+    orderSummaryByStatus.cancelled = { count: byStatus.cancelled || 0, label: '취소' };
     const byStoreWithTitle = {};
     Object.entries(byStore).forEach(([slug, count]) => {
       const cancelled = byStoreCancelled[slug] || 0;
-      byStoreWithTitle[slug] = { count: count - cancelled, cancelledCount: cancelled, title: storeBrands[slug] || storeTitles[slug] || slug };
+      const paymentCompleted = byStorePaymentCompleted[slug] || 0;
+      const deliveryCompleted = byStoreDeliveryCompleted[slug] || 0;
+      byStoreWithTitle[slug] = { count: count - cancelled, cancelledCount: cancelled, paymentCompletedCount: paymentCompleted, deliveryCompletedCount: deliveryCompleted, title: storeBrands[slug] || storeTitles[slug] || slug };
     });
     const revenueByStoreWithTitle = {};
     const allRevenueSlugs = new Set([...Object.keys(revenueByStore), ...Object.keys(revenueExpectedByStore)]);
