@@ -28,8 +28,8 @@ const IMAGE_RULE = '가로·세로 1:1 비율, 권장 400×400px';
 
 const BUSINESS_HOURS_SLOTS = ['09:00-10:00', '10:00-11:00', '11:00-12:00', '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00', '17:00-18:00', '18:00-19:00', '19:00-20:00', '20:00-21:00'];
 
-/** 정산관리 탭 테스트용 목 데이터 사용. '정산관리 테스트 종료' 요청 시 false로 변경 후 실제 DB 적용 */
-const SETTLEMENT_MOCK_FOR_TEST = true;
+/** 정산관리 탭: true면 목 데이터, false면 실제 API/DB 기준 */
+const SETTLEMENT_MOCK_FOR_TEST = false;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
