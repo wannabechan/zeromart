@@ -31,7 +31,7 @@ const BUSINESS_HOURS_SLOTS = ['09:00-10:00', '10:00-11:00', '11:00-12:00', '12:0
 /** 정산관리 탭: true면 목 데이터, false면 실제 API/DB 기준 */
 const SETTLEMENT_MOCK_FOR_TEST = false;
 /** 정산관리 탭 UI 확인용 샘플 데이터. true면 실제 API/DB 대신 프론트에서만 가상 데이터 표시. 테스트 후 실제 데이터로 전환 시 false 로 변경. */
-const SETTLEMENT_SAMPLE_DATA = true;
+const SETTLEMENT_SAMPLE_DATA = false;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
