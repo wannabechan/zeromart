@@ -1636,12 +1636,13 @@ async function init() {
     const modalInput = document.getElementById('adminApiSettingsEnvVar');
     const businessDaysContainer = document.getElementById('adminApiSettingsBusinessDays');
     const businessHoursContainer = document.getElementById('adminApiSettingsBusinessHours');
-    const storeId = modal?.dataset?.currentStoreId;
+    const storeId = (modal?.dataset?.currentStoreId || '').trim();
     if (!storeId) return;
-    const storeEl = Array.from(document.querySelectorAll('.admin-store')).find((el) => el.dataset.storeId === storeId);
-    const apiKeyInput = storeEl?.querySelector('input[data-field="apiKeyEnvVar"]');
-    const businessDaysInput = storeEl?.querySelector('input[data-field="businessDays"]');
-    const businessHoursInput = storeEl?.querySelector('input[data-field="businessHours"]');
+    const storeEl = document.getElementById('admin-store-' + storeId) || Array.from(document.querySelectorAll('.admin-store')).find((el) => (el.dataset.storeId || el.getAttribute('data-store-id')) === storeId);
+    if (!storeEl) return;
+    const apiKeyInput = storeEl.querySelector('input[data-field="apiKeyEnvVar"]');
+    const businessDaysInput = storeEl.querySelector('input[data-field="businessDays"]');
+    const businessHoursInput = storeEl.querySelector('input[data-field="businessHours"]');
     if (apiKeyInput) apiKeyInput.value = (modalInput?.value || '').trim() || 'TOSS_SECRET_KEY';
     if (businessDaysContainer && businessDaysInput) {
       const checked = Array.from(businessDaysContainer.querySelectorAll('input[data-day]:checked'))
@@ -1657,11 +1658,12 @@ async function init() {
     }
     const listEl = document.getElementById('adminSettingsUserEmailsList');
     const emails = Array.from(listEl?.querySelectorAll('li') || []).map((li) => (li.textContent || '').trim()).filter(Boolean);
-    const allowedEmailsInput = storeEl?.querySelector('input[data-field="allowedEmails"]');
+    const allowedEmailsInput = storeEl.querySelector('input[data-field="allowedEmails"]');
     if (allowedEmailsInput) {
       allowedEmailsInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
     }
     closeApiSettingsModal();
+    alert('설정이 반영되었습니다. 메인 화면 아래 \'저장\' 버튼을 눌러 서버에 저장해 주세요.');
   }
   document.getElementById('adminApiSettingsModalClose')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsCancel')?.addEventListener('click', closeApiSettingsModal);
