@@ -186,7 +186,8 @@ async function generateOrderPdf(order, stores = [], options = {}) {
     doc.rect(MARGIN, y, CONTENT_WIDTH, orderBoxH).stroke('#ccc').fill('#fafafa');
     doc.fillColor('#000').fontSize(10);
     y += 14;
-    doc.text(`주문번호: ${getOrderNumberDisplay(order)}`, MARGIN + 12, y);
+    const orderNumberText = (options.orderNumberDisplay != null && options.orderNumberDisplay !== '') ? options.orderNumberDisplay : getOrderNumberDisplay(order);
+    doc.text(`주문번호: ${orderNumberText}`, MARGIN + 12, y);
     doc.text(`주문일시: ${formatDateKST(order.created_at)}`, MARGIN + 12, y + 18);
     doc.text(`주문매장: ${profileStoreName}`, MARGIN + 12, y + 36);
     doc.text(`배송주소: ${deliveryAddr}`, MARGIN + 12, y + 54);

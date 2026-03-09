@@ -7,6 +7,7 @@
 const { verifyToken, setCorsHeaders } = require('../_utils');
 const { getOrderById, getStores } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
+const { getOrderItemsByStore } = require('./_order-email');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -37,7 +38,14 @@ module.exports = async (req, res) => {
   }
 
   const storeSlug = (req.query.store || '').trim().toLowerCase();
+  let orderNumberDisplayOverride = null;
   if (storeSlug) {
+    const byStore = getOrderItemsByStore(order);
+    const slugs = Object.keys(byStore).filter(Boolean).sort();
+    const slipIndex = slugs.indexOf(storeSlug);
+    const slipNumber = slipIndex >= 0 ? slipIndex + 1 : 1;
+    orderNumberDisplayOverride = `#${order.id}-${slipNumber}`;
+
     const items = order.order_items || order.orderItems || [];
     const filtered = items.filter((item) => {
       const id = (item.id || '').toString();
@@ -71,7 +79,9 @@ module.exports = async (req, res) => {
   try {
     const stores = await getStores();
     const isCancelled = order.status === 'cancelled';
-    const pdfBuffer = await generateOrderPdf(order, stores, { isCancelled });
+    const pdfOptions = { isCancelled };
+    if (orderNumberDisplayOverride) pdfOptions.orderNumberDisplay = orderNumberDisplayOverride;
+    const pdfBuffer = await generateOrderPdf(order, stores, pdfOptions);
 
     setCorsHeaders(res);
     res.setHeader('Content-Type', 'application/pdf');
