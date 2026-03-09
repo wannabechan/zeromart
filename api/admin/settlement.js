@@ -1,7 +1,8 @@
 /**
  * GET /api/admin/settlement?date=YYYY-MM-DD
- * 해당 날짜에 주문된 건 중 발송완료된 주문을 브랜드별로 집계 (admin 전용)
- * zeromart: 배송희망일 없음 → 주문일(created_at) 기준
+ *   또는 ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ * 해당(기간) 주문일 기준 발송완료 건 브랜드별 집계 + 구간 내 미발송 주문 목록 (admin 전용)
+ * zeromart: 주문일(created_at) KST 기준
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
@@ -32,23 +33,30 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     if (user.level !== 'admin') return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
 
+    let startDate = (req.query.startDate || '').trim();
+    let endDate = (req.query.endDate || '').trim();
     const dateStr = (req.query.date || '').trim();
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return apiResponse(res, 400, { error: 'date 파라미터가 필요합니다. (YYYY-MM-DD)' });
+    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      startDate = endDate = normalizeDate(dateStr);
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      return apiResponse(res, 400, { error: 'date 또는 startDate·endDate (YYYY-MM-DD)가 필요합니다.' });
+    }
+    startDate = normalizeDate(startDate);
+    endDate = normalizeDate(endDate);
+    if (startDate > endDate) return apiResponse(res, 400, { error: 'startDate는 endDate 이전이어야 합니다.' });
 
     const orders = await getAllOrders() || [];
     const stores = await getStores() || [];
 
-    const targetDate = normalizeDate(dateStr);
-    const filtered = orders.filter((o) => {
+    const deliveryCompleted = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
       const orderDate = toKSTDateKey(o.created_at);
-      return orderDate === targetDate;
+      return orderDate >= startDate && orderDate <= endDate;
     });
 
     const bySlug = {};
-    filtered.forEach((o) => {
+    deliveryCompleted.forEach((o) => {
       const store = getStoreForOrder(o, stores);
       const slug = (store?.slug || store?.id || 'unknown').toString().toLowerCase();
       if (!bySlug[slug]) {
@@ -67,9 +75,32 @@ module.exports = async (req, res) => {
       (a.brandTitle || '').localeCompare(b.brandTitle || '', 'ko')
     );
 
+    const pendingShipment = orders.filter((o) => {
+      const status = (o.status || '').trim();
+      if (status === 'delivery_completed' || status === 'cancelled') return false;
+      if (status !== 'payment_completed' && status !== 'shipping') return false;
+      const orderDate = toKSTDateKey(o.created_at);
+      return orderDate >= startDate && orderDate <= endDate;
+    }).map((o) => {
+      const store = getStoreForOrder(o, stores);
+      const slug = (store?.slug || store?.id || 'unknown').toString().toLowerCase();
+      const brandTitle = (store?.brand || store?.title || store?.id || slug).toString().trim() || slug;
+      return {
+        id: o.id,
+        created_at: o.created_at,
+        orderDate: toKSTDateKey(o.created_at),
+        status: o.status,
+        total_amount: o.total_amount,
+        slug,
+        brandTitle,
+      };
+    }).sort((a, b) => (a.orderDate || '').localeCompare(b.orderDate || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+
     return apiResponse(res, 200, {
-      date: targetDate,
+      startDate,
+      endDate,
       byBrand,
+      pendingShipment,
     });
   } catch (error) {
     console.error('Admin settlement error:', error);

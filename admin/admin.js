@@ -30,6 +30,8 @@ const BUSINESS_HOURS_SLOTS = ['09:00-10:00', '10:00-11:00', '11:00-12:00', '12:0
 
 /** 정산관리 탭: true면 목 데이터, false면 실제 API/DB 기준 */
 const SETTLEMENT_MOCK_FOR_TEST = false;
+/** 정산관리 탭 UI 확인용 샘플 데이터. true면 실제 API/DB 대신 프론트에서만 가상 데이터 표시. 테스트 후 실제 데이터로 전환 시 false 로 변경. */
+const SETTLEMENT_SAMPLE_DATA = true;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -933,14 +935,15 @@ function formatSettlementClock() {
 }
 
 function renderSettlementTable(byBrand) {
+  const heading = '<h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
   if (!byBrand || byBrand.length === 0) {
-    return '<p class="admin-settlement-empty">해당 날짜에 발송 완료된 주문이 없습니다.</p>';
+    return heading + '<p class="admin-settlement-empty">해당 기간에 발송 완료된 주문이 없습니다.</p>';
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
-  let html = '<table class="admin-stats-table"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
+  let html = heading + '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
   byBrand.forEach((b) => {
     const sales = Number(b.totalAmount) || 0;
-    const fee = Math.round(sales * 0.15);
+    const fee = Math.round(sales * 0.04);
     const settlement = sales - fee;
     html += '<tr><td>' + escapeHtml(b.brandTitle || b.slug || '') + '</td><td>' + (b.orderCount || 0) + '</td><td>' + formatMoney(sales) + '</td><td>' + formatMoney(fee) + '</td><td>' + formatMoney(settlement) + '</td></tr>';
   });
@@ -948,7 +951,108 @@ function renderSettlementTable(byBrand) {
   return html;
 }
 
+function renderSettlementPendingList(pendingShipment) {
+  const heading = '<h4 class="admin-settlement-pending-heading">주문 완료 (발송 완료 미처리) 목록</h4>';
+  if (!pendingShipment || pendingShipment.length === 0) {
+    return heading + '<p class="admin-settlement-empty">정산 구간 내 미발송 주문이 없습니다.</p>';
+  }
+  const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
+  const statusLabel = (s) => (s === 'shipping' ? '배송중' : '결제완료');
+  let html = heading;
+  html += '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>주문일</th><th>브랜드</th><th>주문번호</th><th>금액</th><th>상태</th></tr></thead><tbody>';
+  pendingShipment.forEach((o) => {
+    html += '<tr><td>' + escapeHtml(o.orderDate || '') + '</td><td>' + escapeHtml(o.brandTitle || o.slug || '') + '</td><td>' + escapeHtml(String(o.id || '')) + '</td><td>' + formatMoney(Number(o.total_amount) || 0) + '</td><td>' + escapeHtml(statusLabel(o.status)) + '</td></tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
 let settlementClockIntervalId = null;
+
+/** 정산일(10일·20일·말일) 목록. 2026-01-01부터 오늘(KST) 이전까지, 최신순 */
+function getSettlementDateOptions() {
+  const today = getTodayKST();
+  const [tY, tM] = today.split('-').map(Number);
+  const list = [];
+  for (let y = 2026; y <= tY; y++) {
+    const mEnd = y === tY ? tM : 12;
+    for (let m = 1; m <= mEnd; m++) {
+      const lastDay = new Date(y, m, 0).getDate();
+      const pad = (n) => String(n).padStart(2, '0');
+      const d10 = `${y}-${pad(m)}-10`;
+      const d20 = `${y}-${pad(m)}-20`;
+      const dLast = `${y}-${pad(m)}-${pad(lastDay)}`;
+      if (d10 <= today) list.push(d10);
+      if (d20 <= today && d20 !== d10) list.push(d20);
+      if (dLast <= today && dLast !== d10 && dLast !== d20) list.push(dLast);
+    }
+  }
+  list.sort((a, b) => b.localeCompare(a));
+  return list;
+}
+
+/**
+ * 정산관리 탭 전용 샘플 데이터 생성 (DB 미반영, 화면 확인용).
+ * 2026-02-01부터 매일 09:00 KST 기준, 현재 등록 브랜드별 1건씩 주문·결제완료.
+ * 월요일=발송완료 미처리(pending), 화~일=발송완료 처리.
+ */
+function getSettlementSampleData(startDate, endDate, stores) {
+  const SAMPLE_START = '2026-02-01';
+  const list = (stores || []).filter((s) => (s.slug || s.id || '').toString().trim());
+  if (list.length === 0) return { startDate, endDate, byBrand: [], pendingShipment: [] };
+
+  const bySlug = {};
+  const pendingShipment = [];
+  const pad = (n) => String(n).padStart(2, '0');
+  const effectiveStart = startDate < SAMPLE_START ? SAMPLE_START : startDate;
+  if (effectiveStart > endDate) return { startDate, endDate, byBrand: Object.values(bySlug), pendingShipment };
+
+  const start = new Date(effectiveStart + 'T09:00:00+09:00');
+  const end = new Date(endDate + 'T09:00:00+09:00');
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const dateStr = `${y}-${pad(m)}-${pad(day)}`;
+    const isMonday = d.getDay() === 1;
+    const status = isMonday ? 'payment_completed' : 'delivery_completed';
+    list.forEach((store) => {
+      const slug = (store.slug || store.id || '').toString().toLowerCase();
+      const brandTitle = (store.brand || store.title || store.id || slug).toString().trim() || slug;
+      const amount = 50000;
+      const order = { id: 'sample-' + dateStr + '-' + slug, orderDate: dateStr, created_at: dateStr + 'T00:00:00.000Z', slug, brandTitle, total_amount: amount, status };
+      if (isMonday) {
+        pendingShipment.push(order);
+      } else {
+        if (!bySlug[slug]) bySlug[slug] = { slug, brandTitle, orderCount: 0, totalAmount: 0 };
+        bySlug[slug].orderCount += 1;
+        bySlug[slug].totalAmount += amount;
+      }
+    });
+  }
+
+  const byBrand = Object.values(bySlug).sort((a, b) => (a.brandTitle || '').localeCompare(b.brandTitle || '', 'ko'));
+  pendingShipment.sort((a, b) => (a.orderDate || '').localeCompare(b.orderDate || '') || (a.id || '').localeCompare(b.id || ''));
+  return { startDate, endDate, byBrand, pendingShipment };
+}
+
+/** 기준 정산일(10|20|말일)에 따른 정산 구간 { startDate, endDate } (YYYY-MM-DD)
+ * - 기준일 10일 → 전월 3차 기간 (21일~말일)
+ * - 기준일 20일 → 당월 1차 기간 (1일~10일)
+ * - 기준일 말일 → 당월 2차 기간 (11일~20일)
+ */
+function getSettlementPeriodFromBaseDate(baseDateStr) {
+  const [y, m, d] = baseDateStr.split('-').map(Number);
+  const pad = (n) => String(n).padStart(2, '0');
+  const lastDay = new Date(y, m, 0).getDate(); // 해당 월 마지막 날
+  if (d === 10) {
+    const prev = m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 };
+    const prevLast = new Date(prev.y, prev.m, 0).getDate();
+    return { startDate: `${prev.y}-${pad(prev.m)}-21`, endDate: `${prev.y}-${pad(prev.m)}-${pad(prevLast)}` };
+  }
+  if (d === 20) return { startDate: `${y}-${pad(m)}-01`, endDate: `${y}-${pad(m)}-10` };
+  return { startDate: `${y}-${pad(m)}-11`, endDate: `${y}-${pad(m)}-20` };
+}
 
 /** 정산서 출력용 기본 기간 (최근 7일) */
 function getStatementDefaultRange() {
@@ -956,6 +1060,54 @@ function getStatementDefaultRange() {
   const endD = new Date(end + 'T12:00:00+09:00');
   const startD = new Date(endD.getTime() - 6 * 86400000);
   return { start: toDateKeyKST(startD.getTime()), end };
+}
+
+/** 정산서 출력용 샘플 데이터 (SETTLEMENT_SAMPLE_DATA 시 사용). 기간 내 월요일 제외 일별 1건, 50_000원·수수료 4%. */
+function getSettlementStatementSampleData(startDate, endDate, stores, slugFilter) {
+  const list = (stores || []).filter((s) => (s.slug || s.id || '').toString().trim());
+  const pad = (n) => String(n).padStart(2, '0');
+  const SAMPLE_START = '2026-02-01';
+  const effectiveStart = startDate < SAMPLE_START ? SAMPLE_START : startDate;
+  if (effectiveStart > endDate) return [];
+
+  const start = new Date(effectiveStart + 'T09:00:00+09:00');
+  const end = new Date(endDate + 'T09:00:00+09:00');
+  const out = [];
+  list.forEach((store) => {
+    const sid = (store.slug || store.id || '').toString().toLowerCase();
+    if (slugFilter && sid !== slugFilter) return;
+    const days = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === 1) continue;
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      days.push({
+        date: `${y}-${pad(m)}-${pad(day)}`,
+        orderCount: 1,
+        totalAmount: 50000,
+        fee: 2000,
+        settlement: 48000,
+      });
+    }
+    if (days.length > 0 || !slugFilter) {
+      out.push({
+        store,
+        slug: sid,
+        brandTitle: (store.brand || store.title || store.id || sid).toString().trim() || sid,
+        storeContactEmail: (store.storeContactEmail || '').trim(),
+        representative: (store.representative || '').trim(),
+        startDate: effectiveStart,
+        endDate,
+        days,
+        totalOrderCount: days.length,
+        totalSales: days.length * 50000,
+        totalFee: days.length * 2000,
+        totalSettlement: days.length * 48000,
+      });
+    }
+  });
+  return slugFilter ? (out.length ? out : []) : out;
 }
 
 function renderSettlementStatementContent(data) {
@@ -977,7 +1129,7 @@ function renderSettlementStatementContent(data) {
   html += '</div>';
 
   html += '<div class="admin-settlement-statement-brand">';
-  html += '<br><p><strong>브랜드 정보</strong></p><br>';
+  html += '<br><p><strong>정산 브랜드 정보</strong></p><br>';
   html += '<p class="admin-settlement-statement-bullet">• 브랜드명: ' + brandName + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 담당자이메일: ' + contactEmail + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 대표자이름: ' + repName + '</p>';
@@ -995,46 +1147,44 @@ function renderSettlementStatementContent(data) {
   html += '</div>';
 
   html += '<div class="admin-settlement-statement-footer">';
-  html += '<p>* 수수료는 판매금액의 15%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
+  html += '<p>* 수수료는 판매금액의 4%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
   html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
   html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p>';
   html += '</div>';
   html += '<br><br>';
   html += '<div class="admin-settlement-statement-issuer">';
   html += '<p>정산서 발행일: ' + escapeHtml(issueDate) + '</p>';
-  html += '<p>정산서 발행처: (주)코코로키친</p>';
+  html += '<p>정산서 발행처: (주)플라토스호스피탈리티그룹</p>';
   html += '</div>';
   html += '</div></div>';
   return html;
 }
 
 async function runSettlementStatementSearch() {
-  const startEl = document.getElementById('adminSettlementStatementStart');
-  const endEl = document.getElementById('adminSettlementStatementEnd');
+  const dateSelectEl = document.getElementById('adminSettlementDateSelect');
   const slugEl = document.getElementById('adminSettlementBrandSelect');
   const resultBox = document.getElementById('adminSettlementStatementResult');
-  if (!startEl || !endEl || !slugEl || !resultBox) return;
-  const startDate = (startEl.value || '').trim();
-  const endDate = (endEl.value || '').trim();
+  if (!dateSelectEl || !slugEl || !resultBox) return;
+  const baseDate = (dateSelectEl.value || '').trim();
+  if (!baseDate) {
+    resultBox.innerHTML = '<p class="admin-stats-error">기준 정산일을 선택해 주세요.</p>';
+    return;
+  }
+  const period = getSettlementPeriodFromBaseDate(baseDate);
+  const startDate = period.startDate;
+  const endDate = period.endDate;
   const slug = (slugEl.value || '').trim().toLowerCase();
   if (!slug) {
     resultBox.innerHTML = '<p class="admin-stats-error">브랜드를 선택해 주세요.</p>';
     return;
   }
-  if (!startDate || !endDate) {
-    resultBox.innerHTML = '<p class="admin-stats-error">시작일·종료일을 입력해 주세요.</p>';
-    return;
-  }
-  if (startDate > endDate) {
-    resultBox.innerHTML = '<p class="admin-stats-error">시작일이 종료일보다 늦을 수 없습니다.</p>';
-    return;
-  }
+
   resultBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
   if (SETTLEMENT_MOCK_FOR_TEST) {
     const days = [];
     const d = new Date(startDate + 'T12:00:00+09:00');
     const endMs = new Date(endDate + 'T12:00:00+09:00').getTime();
-    const row = { orderCount: 1, totalAmount: 500000, fee: 75000, settlement: 425000 };
+    const row = { orderCount: 1, totalAmount: 500000, fee: 20000, settlement: 480000 };
     for (let t = d.getTime(); t <= endMs; t += 86400000) {
       days.push({ date: toDateKeyKST(t), ...row });
     }
@@ -1049,14 +1199,29 @@ async function runSettlementStatementSearch() {
       days,
       totalOrderCount: n,
       totalSales: 500000 * n,
-      totalFee: 75000 * n,
-      totalSettlement: 425000 * n,
+      totalFee: 20000 * n,
+      totalSettlement: 480000 * n,
     };
     resultBox.innerHTML = renderSettlementStatementContent(mockStatementData);
     return;
   }
+  if (SETTLEMENT_SAMPLE_DATA) {
+    try {
+      const storesRes = await fetchStores();
+      const stores = (storesRes && storesRes.stores) || [];
+      const items = getSettlementStatementSampleData(startDate, endDate, stores, slug);
+      let html = '';
+      (items || []).forEach((data) => {
+        if (data.days && data.days.length > 0) html += renderSettlementStatementContent(data);
+      });
+      resultBox.innerHTML = html || '<p class="admin-settlement-empty">선택한 정산구간에 정산 내역이 있는 브랜드가 없습니다.</p>';
+    } catch (e) {
+      resultBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산서를 불러올 수 없습니다.') + '</p>';
+    }
+    return;
+  }
+  const token = getToken();
   try {
-    const token = getToken();
     const res = await fetchWithTimeout(`${API_BASE}/api/admin/settlement-statement?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&slug=${encodeURIComponent(slug)}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1109,89 +1274,102 @@ async function loadSettlement() {
   const container = document.getElementById('adminSettlementContent');
   if (!container) return;
 
-  const today = getTodayKST();
-  const todayD = new Date(today + 'T12:00:00+09:00');
-  const tomorrowD = new Date(todayD.getTime() + 86400000);
-  const todayMinus7D = new Date(todayD.getTime() - 7 * 86400000);
+  const settlementDates = getSettlementDateOptions();
+  const defaultDate = settlementDates[0] || getTodayKST();
 
-  const dateToday = toDateKeyKST(todayMinus7D.getTime());
-  const dateTomorrow = toDateKeyKST(tomorrowD.getTime());
-  const stRange = getStatementDefaultRange();
+  const dateSelectOptions = settlementDates.map((d) => '<option value="' + escapeHtml(d) + '"' + (d === defaultDate ? ' selected' : '') + '>' + escapeHtml(d) + '</option>').join('');
 
   const statementBlock =
     '<div class="admin-settlement-statement-area">' +
     '<h3 class="admin-settlement-statement-heading">정산서 출력</h3>' +
-    '<div class="admin-stats-daterange" style="margin-bottom:12px;">' +
-    '<input type="date" id="adminSettlementStatementStart" value="' + escapeHtml(stRange.start) + '">' +
-    '<span>~</span>' +
-    '<input type="date" id="adminSettlementStatementEnd" value="' + escapeHtml(stRange.end) + '">' +
-    '</div>' +
     '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
-    '<select id="adminSettlementBrandSelect" class="admin-settlement-brand-select"><option value="">브랜드 선택</option></select>' +
+    '<select id="adminSettlementBrandSelect" class="admin-settlement-brand-select"></select>' +
     '<button type="button" class="admin-stats-search-btn" id="adminSettlementStatementSearch" title="검색" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>' +
     '</div>' +
     '<div id="adminSettlementStatementResult" class="admin-settlement-statement-result"></div>' +
     '<div style="margin-top:16px;"><button type="button" class="admin-btn admin-settlement-pdf-btn" id="adminSettlementPdfBtn">PDF 출력하기</button></div>' +
     '</div>';
 
+  const defaultPeriod = getSettlementPeriodFromBaseDate(defaultDate);
   container.innerHTML =
-    '<div class="admin-settlement-clock" id="adminSettlementClock">' + escapeHtml(formatSettlementClock()) + '</div>' +
-    '<section class="admin-stats-section"><h3>오늘 정산 내역</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateToday) + ' 기준</p><div id="adminSettlementToday"></div></section>' +
-    '<section class="admin-stats-section"><h3>내일 정산 예정</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateTomorrow) + ' 기준</p><div id="adminSettlementTomorrow"></div></section>' +
+    '<section class="admin-stats-section">' +
+    '<div class="admin-stats-daterange" style="margin-bottom:8px;">' +
+    '<label for="adminSettlementDateSelect" class="admin-settlement-date-label">기준 정산일</label>' +
+    '<select id="adminSettlementDateSelect" class="admin-settlement-date-select">' + dateSelectOptions + '</select>' +
+    '</div>' +
+    '<p class="admin-settlement-caption">&gt;&gt; 정산구간 : ' + escapeHtml(defaultPeriod.startDate) + ' ~ ' + escapeHtml(defaultPeriod.endDate) + '</p>' +
+    '<div id="adminSettlementByDate"></div>' +
+    '<div id="adminSettlementPending" class="admin-settlement-pending"></div>' +
+    '</section>' +
     statementBlock;
 
-  const clockEl = document.getElementById('adminSettlementClock');
   if (settlementClockIntervalId) clearInterval(settlementClockIntervalId);
-  settlementClockIntervalId = setInterval(() => {
-    if (clockEl) clockEl.textContent = formatSettlementClock();
-  }, 1000);
+  settlementClockIntervalId = null;
 
   const token = getToken();
-  const todayBox = document.getElementById('adminSettlementToday');
-  const tomorrowBox = document.getElementById('adminSettlementTomorrow');
-  if (todayBox) todayBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
-  if (tomorrowBox) tomorrowBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  const contentBox = document.getElementById('adminSettlementByDate');
+  if (contentBox) contentBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
 
+  async function fetchAndRenderSettlement(baseDateStr) {
+    const period = getSettlementPeriodFromBaseDate(baseDateStr);
+    const box = document.getElementById('adminSettlementByDate');
+    const pendingBox = document.getElementById('adminSettlementPending');
+    const caption = document.querySelector('.admin-settlement-caption');
+    if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
+    if (box) box.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+    if (pendingBox) pendingBox.innerHTML = '';
+    if (SETTLEMENT_MOCK_FOR_TEST) {
+      if (box) box.innerHTML = renderSettlementTable([{ brandTitle: 'Brand1', orderCount: 1, totalAmount: 500000 }]);
+      if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList([]);
+      return;
+    }
+    if (SETTLEMENT_SAMPLE_DATA) {
+      const storesRes = await fetchStores();
+      const stores = (storesRes && storesRes.stores) || [];
+      const data = getSettlementSampleData(period.startDate, period.endDate, stores);
+      if (box) box.innerHTML = '<p class="admin-settlement-sample-hint">&nbsp;</p>' + renderSettlementTable(data.byBrand || []);
+      if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(data.pendingShipment || []);
+      return;
+    }
+    try {
+      const url = `${API_BASE}/api/admin/settlement?startDate=${encodeURIComponent(period.startDate)}&endDate=${encodeURIComponent(period.endDate)}`;
+      const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+      const data = res.ok ? await res.json() : { byBrand: [], pendingShipment: [] };
+      if (box) box.innerHTML = renderSettlementTable(data.byBrand || []);
+      if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(data.pendingShipment || []);
+    } catch (e) {
+      if (box) box.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
+      if (pendingBox) pendingBox.innerHTML = '';
+    }
+  }
+
+  document.getElementById('adminSettlementDateSelect')?.addEventListener('change', function () {
+    fetchAndRenderSettlement(this.value);
+    const resultBox = document.getElementById('adminSettlementStatementResult');
+    if (resultBox) resultBox.innerHTML = '';
+  });
   document.getElementById('adminSettlementStatementSearch')?.addEventListener('click', runSettlementStatementSearch);
   document.getElementById('adminSettlementPdfBtn')?.addEventListener('click', printSettlementStatement);
 
-  if (SETTLEMENT_MOCK_FOR_TEST) {
-    const mockToday = { byBrand: [{ brandTitle: '오늘Brand1', orderCount: 1, totalAmount: 500000 }, { brandTitle: '오늘Brand2', orderCount: 1, totalAmount: 1000000 }] };
-    const mockTomorrow = { byBrand: [{ brandTitle: '내일Brand1', orderCount: 1, totalAmount: 500000 }, { brandTitle: '내일Brand2', orderCount: 1, totalAmount: 1000000 }] };
-    if (todayBox) todayBox.innerHTML = renderSettlementTable(mockToday.byBrand);
-    if (tomorrowBox) tomorrowBox.innerHTML = renderSettlementTable(mockTomorrow.byBrand);
-  }
-
   try {
-    const promises = SETTLEMENT_MOCK_FOR_TEST
-      ? [fetchStores()]
-      : [
-          fetchWithTimeout(`${API_BASE}/api/admin/settlement?date=${encodeURIComponent(dateToday)}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetchWithTimeout(`${API_BASE}/api/admin/settlement?date=${encodeURIComponent(dateTomorrow)}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetchStores(),
-        ];
-    const results = await Promise.all(promises);
-    const storesData = SETTLEMENT_MOCK_FOR_TEST ? results[0] : results[2];
-    if (!SETTLEMENT_MOCK_FOR_TEST) {
-      const dataToday = results[0].ok ? await results[0].json() : { byBrand: [] };
-      const dataTomorrow = results[1].ok ? await results[1].json() : { byBrand: [] };
-      if (todayBox) todayBox.innerHTML = renderSettlementTable(dataToday.byBrand || []);
-      if (tomorrowBox) tomorrowBox.innerHTML = renderSettlementTable(dataTomorrow.byBrand || []);
-    }
+    const storesPromise = fetchStores();
+    await fetchAndRenderSettlement(defaultDate);
 
+    const storesData = await storesPromise;
     const stores = (storesData && storesData.stores) || [];
     const sorted = stores.slice().sort((a, b) => (a.brand || a.title || a.id || '').toString().localeCompare((b.brand || b.title || b.id || '').toString(), 'ko'));
     const selectEl = document.getElementById('adminSettlementBrandSelect');
     if (selectEl) {
+      while (selectEl.options.length) selectEl.remove(0);
       sorted.forEach((s) => {
         const sid = (s.slug || s.id || '').toString().toLowerCase();
         const label = (s.brand || s.title || s.id || sid).toString().trim() || sid;
         if (sid) selectEl.appendChild(new Option(label, sid));
       });
+      if (selectEl.options.length) selectEl.selectedIndex = 0;
     }
   } catch (e) {
-    if (todayBox) todayBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '오늘 정산을 불러올 수 없습니다.') + '</p>';
-    if (tomorrowBox) tomorrowBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '내일 정산 예정을 불러올 수 없습니다.') + '</p>';
+    if (contentBox) contentBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
   }
 }
 

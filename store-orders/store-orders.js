@@ -793,7 +793,7 @@ function renderStoreSettlementTable(byBrand) {
   let html = '<table class="admin-stats-table"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
   byBrand.forEach((b) => {
     const sales = Number(b.totalAmount) || 0;
-    const fee = Math.round(sales * 0.15);
+    const fee = Math.round(sales * 0.04);
     const settlement = sales - fee;
     html += '<tr><td>' + escapeHtml(b.brandTitle || b.slug || '') + '</td><td>' + (b.orderCount || 0) + '</td><td>' + formatMoney(sales) + '</td><td>' + formatMoney(fee) + '</td><td>' + formatMoney(settlement) + '</td></tr>';
   });
