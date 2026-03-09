@@ -1365,12 +1365,13 @@ async function loadSettlement() {
     const selectEl = document.getElementById('adminSettlementBrandSelect');
     if (selectEl) {
       while (selectEl.options.length) selectEl.remove(0);
+      selectEl.appendChild(new Option('브랜드 선택', ''));
       sorted.forEach((s) => {
         const sid = (s.slug || s.id || '').toString().toLowerCase();
         const label = (s.brand || s.title || s.id || sid).toString().trim() || sid;
         if (sid) selectEl.appendChild(new Option(label, sid));
       });
-      if (selectEl.options.length) selectEl.selectedIndex = 0;
+      selectEl.selectedIndex = 0;
     }
   } catch (e) {
     if (contentBox) contentBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
