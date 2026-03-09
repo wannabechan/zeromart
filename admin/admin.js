@@ -176,7 +176,7 @@ function renderStore(store, menus) {
           <div class="admin-form-row">
             <div class="admin-form-field">
               <label>대분류</label>
-              <input type="text" data-field="title" value="${escapeHtml(store.title || '')}" placeholder="예: 도시락">
+              <input type="text" data-field="title" value="${escapeHtml(store.title || '')}" placeholder="예: 도시락"${store.registered ? ' readonly' : ''}>
             </div>
           </div>
           <input type="hidden" data-field="apiKeyEnvVar" value="${escapeHtml(payment.apiKeyEnvVar || 'TOSS_SECRET_KEY')}">
@@ -188,7 +188,7 @@ function renderStore(store, menus) {
           <div class="admin-form-row">
             <div class="admin-form-field">
               <label>브랜드명</label>
-              <input type="text" data-field="brand" value="${escapeHtml(store.brand || '')}" placeholder="예: OO브랜드">
+              <input type="text" data-field="brand" value="${escapeHtml(store.brand || '')}" placeholder="예: OO브랜드"${store.registered ? ' readonly' : ''}>
             </div>
             <div class="admin-form-field" style="flex: 2;">
               <label>매장주소</label>
@@ -1676,7 +1676,7 @@ async function init() {
     content.innerHTML = `
       ${indexHtml}
       <div class="admin-stores-list" id="adminStoresList">
-        ${stores.map((s) => renderStore(s, menus[s.id] || [])).join('')}
+        ${stores.map((s) => renderStore({ ...s, registered: true }, menus[s.id] || [])).join('')}
       </div>
       <div class="admin-add-store-row">
         <button type="button" class="admin-btn admin-btn-secondary admin-btn-add-store" data-add-store>+ 카테고리 추가</button>
