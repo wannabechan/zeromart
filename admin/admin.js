@@ -1655,6 +1655,12 @@ async function init() {
         .filter(Boolean);
       businessHoursInput.value = checked.length ? checked.join(',') : BUSINESS_HOURS_SLOTS.join(',');
     }
+    const listEl = document.getElementById('adminSettingsUserEmailsList');
+    const emails = Array.from(listEl?.querySelectorAll('li') || []).map((li) => (li.textContent || '').trim()).filter(Boolean);
+    const allowedEmailsInput = storeEl?.querySelector('input[data-field="allowedEmails"]');
+    if (allowedEmailsInput) {
+      allowedEmailsInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
+    }
     closeApiSettingsModal();
   }
   document.getElementById('adminApiSettingsModalClose')?.addEventListener('click', closeApiSettingsModal);
@@ -1679,19 +1685,6 @@ async function init() {
     }
     listEl.appendChild(Object.assign(document.createElement('li'), { textContent: email }));
     if (input) input.value = '';
-  });
-  document.getElementById('adminSettingsUserEmailsSave')?.addEventListener('click', () => {
-    const modal = document.getElementById('adminApiSettingsModal');
-    const storeId = modal?.dataset?.currentStoreId;
-    if (!storeId) return;
-    const listEl = document.getElementById('adminSettingsUserEmailsList');
-    const emails = Array.from(listEl?.querySelectorAll('li') || []).map((li) => (li.textContent || '').trim()).filter(Boolean);
-    const storeEl = Array.from(document.querySelectorAll('.admin-store')).find((el) => el.dataset.storeId === storeId);
-    const hiddenInput = storeEl?.querySelector('input[data-field="allowedEmails"]');
-    if (hiddenInput) {
-      hiddenInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
-    }
-    alert('목록이 반영되었습니다. 메인 화면에서 저장 버튼을 눌러 주세요.');
   });
   document.getElementById('adminApiSettingsModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'adminApiSettingsModal') closeApiSettingsModal();
