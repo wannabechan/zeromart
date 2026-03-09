@@ -221,7 +221,9 @@ function renderStore(store, menus) {
         <div class="admin-section">
           <div class="admin-section-title-row admin-section-title-row--menu">
             <span class="admin-section-title">메뉴</span>
-            <button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
+            <div class="admin-menu-title-buttons">
+              <button type="button" class="admin-btn-upload-menu" data-upload-menu="${storeIdEsc}">upload menu</button>&nbsp;<button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
+            </div>
           </div>
           <div class="admin-menu-list" data-store-id="${storeIdEsc}">
             ${items.map((item, i) => renderMenuItem(store.id, item, i)).join('')}
@@ -237,13 +239,8 @@ function renderStore(store, menus) {
 }
 
 function renderMenuItem(storeId, item, index) {
-  const safeUrl = safeImageUrl(item.imageUrl);
-  const imgContent = safeUrl
-    ? `<img src="${escapeHtml(safeUrl)}" alt="" onerror="this.parentElement.innerHTML='<span class=\\'placeholder\\'>📷</span>'">`
-    : '<span class="placeholder">📷</span>';
   return `
     <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
-      <div class="admin-menu-thumb">${imgContent}</div>
       <div class="admin-menu-fields">
         <div class="admin-form-field">
           <label>메뉴명</label>
@@ -263,10 +260,6 @@ function renderMenuItem(storeId, item, index) {
             </div>
             <div class="admin-image-rule">${IMAGE_RULE}</div>
           </div>
-        </div>
-        <div class="admin-form-field">
-          <label>설명</label>
-          <textarea data-field="description" placeholder="메뉴 설명">${escapeHtml(item.description || '')}</textarea>
         </div>
       </div>
       <div class="admin-menu-actions">
@@ -317,7 +310,6 @@ function collectData() {
     menuList?.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
       const nameInput = itemEl.querySelector('input[data-field="name"]');
       const priceInput = itemEl.querySelector('input[data-field="price"]');
-      const descInput = itemEl.querySelector('textarea[data-field="description"]');
       const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
       const name = nameInput?.value?.trim();
       if (!name) return;
@@ -325,7 +317,7 @@ function collectData() {
         id: itemEl.dataset.menuId || generateId(storeId),
         name,
         price: parseInt(priceInput?.value || '0', 10) || 0,
-        description: descInput?.value?.trim() || '',
+        description: '',
         imageUrl: imageInput?.value?.trim() || '',
       });
     });
@@ -394,7 +386,9 @@ function setupTabs() {
   const isReload = nav?.type === 'reload' || (typeof performance.navigation !== 'undefined' && performance.navigation.type === 1);
   const saved = sessionStorage.getItem(ADMIN_TAB_KEY);
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
-  const tabToActivate = (saved && ['stores', 'payments', 'stats', 'settlement'].includes(saved) && (saved !== 'settlement' || !isMobile())) ? saved : (isMobile() ? 'payments' : 'stores');
+  const tabToActivate = isMobile()
+    ? (saved && ['payments', 'stats'].includes(saved) ? saved : 'payments')
+    : (saved && ['stores', 'payments', 'stats', 'settlement'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
@@ -1803,13 +1797,12 @@ async function init() {
           list.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
             const nameInput = itemEl.querySelector('input[data-field="name"]');
             const priceInput = itemEl.querySelector('input[data-field="price"]');
-            const descInput = itemEl.querySelector('textarea[data-field="description"]');
             const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
             items.push({
               id: itemEl.dataset.menuId || generateId(storeId),
               name: nameInput?.value?.trim() || '',
               price: parseInt(priceInput?.value || '0', 10) || 0,
-              description: descInput?.value?.trim() || '',
+              description: '',
               imageUrl: imageInput?.value?.trim() || '',
             });
           });
@@ -1820,10 +1813,19 @@ async function init() {
           });
         }
       }
+      if (e.target.closest('[data-upload-menu]')) {
+        const storeId = e.target.closest('[data-upload-menu]').dataset.uploadMenu;
+        const csvInput = document.getElementById('adminMenuCsvInput');
+        if (csvInput && storeId) {
+          csvInput.dataset.uploadForStore = storeId;
+          csvInput.value = '';
+          csvInput.click();
+        }
+      }
       if (e.target.closest('[data-add-menu]')) {
         const storeId = e.target.closest('[data-add-menu]').dataset.addMenu;
         const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
-        const newItem = { id: generateId(storeId), name: '', price: 0, description: '', imageUrl: '' };
+        const newItem = { id: generateId(storeId), name: '', price: 0, imageUrl: '' };
         const div = document.createElement('div');
         div.innerHTML = renderMenuItem(storeId, newItem, list.children.length);
         const itemEl = div.firstElementChild;
@@ -1876,7 +1878,6 @@ async function init() {
       const file = input.files[0];
       const item = input.closest('.admin-menu-item');
       const urlInput = item?.querySelector('input[data-field="imageUrl"]');
-      const thumb = item?.querySelector('.admin-menu-thumb');
       const btn = item?.querySelector('[data-upload-btn]');
       if (!urlInput) return;
       const origText = btn?.textContent;
@@ -1885,10 +1886,6 @@ async function init() {
       try {
         const url = await uploadImage(file);
         urlInput.value = url;
-        if (thumb) {
-          const safeUrl = safeImageUrl(url);
-          thumb.innerHTML = safeUrl ? `<img src="${escapeHtml(safeUrl)}" alt="" onerror="this.parentElement.innerHTML='<span class=\\'placeholder\\'>📷</span>'">` : '<span class="placeholder">📷</span>';
-        }
       } catch (err) {
         alert(err.message);
       } finally {
@@ -1896,6 +1893,59 @@ async function init() {
         if (btn) { btn.disabled = false; btn.textContent = origText || '📤 업로드'; }
       }
     });
+
+    const csvInput = document.getElementById('adminMenuCsvInput');
+    if (csvInput && !csvInput.dataset.listenerAttached) {
+      csvInput.dataset.listenerAttached = '1';
+      csvInput.addEventListener('change', async (e) => {
+        const input = e.target;
+        const storeId = (input.dataset.uploadForStore || '').trim();
+        if (!storeId || !input.files?.length) {
+          input.value = '';
+          return;
+        }
+        const file = input.files[0];
+        const content = document.getElementById('adminContent');
+        const list = content?.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
+        if (!list) {
+          input.value = '';
+          input.removeAttribute('data-upload-for-store');
+          return;
+        }
+        let text = '';
+        try {
+          text = (await file.text()).replace(/^\uFEFF/, '');
+        } catch (err) {
+          alert('파일을 읽을 수 없습니다.');
+          input.value = '';
+          return;
+        }
+        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          alert('CSV 파일은 1행 제목(메뉴명, 가격), 2행부터 데이터가 필요합니다.');
+          input.value = '';
+          return;
+        }
+        const startIndex = list.children.length;
+        let added = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
+          const name = (parts[0] || '').trim();
+          if (!name) continue;
+          const price = parseInt(parts[1], 10) || 0;
+          const newItem = { id: generateId(storeId), name, price, imageUrl: '' };
+          const div = document.createElement('div');
+          div.innerHTML = renderMenuItem(storeId, newItem, startIndex + added);
+          const itemEl = div.firstElementChild;
+          itemEl.dataset.menuId = newItem.id;
+          list.appendChild(itemEl);
+          added++;
+        }
+        input.value = '';
+        input.removeAttribute('data-upload-for-store');
+        if (added > 0) alert(`${added}개 메뉴가 목록에 추가되었습니다. 저장 버튼을 눌러 반영해 주세요.`);
+      });
+    }
   } catch (err) {
     showLoadingError(err.message || '로딩에 실패했습니다.', true);
     document.getElementById('adminError').style.display = 'none';
