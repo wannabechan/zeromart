@@ -300,7 +300,7 @@ function renderMenuCards() {
   const category = document.querySelector('.category-tab.active')?.dataset.category || '_all';
   let items = [];
   if (category === '_all') {
-    menuSectionTitle.textContent = '-';
+    menuSectionTitle.style.display = 'none';
     const allItems = [];
     for (const data of Object.values(MENU_DATA)) {
       for (const item of data.items || []) {
@@ -309,21 +309,24 @@ function renderMenuCards() {
     }
     items = allItems.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
   } else if (category === '_recent') {
-    menuSectionTitle.textContent = '-';
+    menuSectionTitle.style.display = 'none';
     if (recentOrderItemsCache === null) {
       menuGrid.innerHTML = '<p class="menu-loading">로딩 중...</p>';
       return;
     }
     items = recentOrderItemsCache;
   } else {
+    menuSectionTitle.style.display = '';
     const data = MENU_DATA[category];
     if (!data) {
+      menuSectionTitle.className = 'section-title menu-title';
       menuSectionTitle.textContent = '카테고리를 선택하세요';
       menuGrid.innerHTML = '';
       return;
     }
     const groupDisplay = (data.suburl || '').trim() ? data.suburl : '-';
-    menuSectionTitle.textContent = groupDisplay;
+    menuSectionTitle.className = 'section-title menu-title menu-title-with-line';
+    menuSectionTitle.innerHTML = '<span class="menu-title-text">*' + escapeHtml(groupDisplay) + '</span>&nbsp;&nbsp;&nbsp;<span class="menu-title-line" aria-hidden="true"></span>';
     items = data.items || [];
   }
 

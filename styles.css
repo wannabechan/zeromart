@@ -567,6 +567,25 @@ body {
 
 .menu-title {
   margin-top: 20px;
+  margin-bottom: 25px;
+}
+
+.menu-title.menu-title-with-line {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+}
+
+.menu-title-text {
+  flex-shrink: 0;
+}
+
+.menu-title-line {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-left: 0;
 }
 
 .menu-section-group {
@@ -700,7 +719,7 @@ body {
   padding: 10px 8px;
 }
 .category-tab.category-tab-text + .category-tab.category-tab-text {
-  margin-left: -5px;
+  margin-left: -8px;
 }
 .category-tab.category-tab-text:hover {
   background: transparent;
