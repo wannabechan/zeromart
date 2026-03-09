@@ -159,7 +159,7 @@ function renderStore(store, menus, groupNames) {
   const items = menus || [];
   const storeIdEsc = escapeHtml(store.id || '');
   const groups = Array.isArray(groupNames) ? groupNames : adminGroupNames;
-  const suburlVal = (store.suburl || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+  const suburlVal = (store.suburl || '').trim();
   const groupOptions = groups.map((g) => '<option value="' + escapeHtml(g) + '"' + (g === suburlVal ? ' selected' : '') + '>' + escapeHtml(g) + '</option>').join('');
 
   const allowedEmailsJson = JSON.stringify(store.allowedEmails || []);
@@ -326,7 +326,7 @@ function collectData() {
     const businessDays = businessDaysStr.split(',').map((d) => parseInt(d, 10)).filter((n) => !isNaN(n) && n >= 0 && n <= 6);
     const businessHoursStr = businessHoursInput?.value?.trim() || BUSINESS_HOURS_SLOTS.join(',');
     const businessHours = businessHoursStr.split(',').map((s) => s.trim()).filter((s) => BUSINESS_HOURS_SLOTS.includes(s));
-    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlSelect?.value?.trim() || '').toLowerCase().replace(/[^a-z]/g, ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], allowedEmails, payment: {
+    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlSelect?.value?.trim() || ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], allowedEmails, payment: {
       apiKeyEnvVar: apiKeyEnvVarInput?.value?.trim() || 'TOSS_SECRET_KEY',
     } };
     stores.push(store);
@@ -1718,7 +1718,7 @@ async function init() {
 
   try {
     const { stores, menus } = await fetchStores();
-    adminGroupNames = [...new Set(stores.map((s) => (s.suburl || '').trim().toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean))].sort();
+    adminGroupNames = [...new Set(stores.map((s) => (s.suburl || '').trim()).filter(Boolean))].sort((a, b) => String(a).localeCompare(b, 'ko'));
     const content = document.getElementById('adminContent');
     const indexHtml = stores.length > 1
       ? `<div class="admin-index">
@@ -1953,7 +1953,7 @@ async function init() {
       if (e.target.closest('[data-add-group]')) {
         const btn = e.target.closest('[data-add-group]');
         const storeId = btn.dataset.addGroup;
-        const name = (prompt('새 그룹명을 입력하세요 (영어 소문자)') || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+        const name = (prompt('새 그룹명을 입력하세요') || '').trim();
         if (!name) return;
         if (!adminGroupNames.includes(name)) {
           adminGroupNames.push(name);

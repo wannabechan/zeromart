@@ -33,8 +33,7 @@ async function loadMenuData() {
 
 // 장바구니 상태: { [itemId]: quantity }
 let cart = {};
-/** 최근주문 탭용: 결제 완료 45분 지난 주문 상품 최대 20개 (최근 순) */
-const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
+/** 최근주문 탭용: 모든 주문의 상품 최대 20개 (최근 순) */
 let recentOrderItemsCache = null;
 // 메뉴 카드에 설정한 담을 수량 (담기 버튼으로 이만큼 담음)
 let pendingQty = {};
@@ -951,7 +950,7 @@ function openDeliveryInfoModal(order) {
   modal.setAttribute('aria-hidden', 'false');
 }
 
-// 최근주문 탭: 결제 완료 45분 지난 주문 상품 최대 20개 (최근 순)
+// 최근주문 탭: 모든 주문 진행 단계의 상품을 최근 순 최대 20개
 async function fetchRecentOrderItems() {
   const token = window.BzCatAuth?.getToken?.();
   if (!token) {
@@ -961,20 +960,19 @@ async function fetchRecentOrderItems() {
   try {
     const res = await fetch('/api/orders/my', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
-    const orders = (data.orders || []).filter((o) => o.status === 'payment_completed');
-    const completedAt = (o) => (o.paymentCompletedAt ? new Date(o.paymentCompletedAt).getTime() : 0);
-    const past45 = orders.filter((o) => Date.now() - completedAt(o) >= PAYMENT_CANCEL_WINDOW_MS);
-    past45.sort((a, b) => completedAt(b) - completedAt(a));
+    const orders = data.orders || [];
+    const orderDate = (o) => (o.createdAt ? new Date(o.createdAt).getTime() : 0);
+    orders.sort((a, b) => orderDate(b) - orderDate(a));
     const flattened = [];
-    for (const order of past45) {
-      const orderDate = completedAt(order);
+    for (const order of orders) {
+      const ts = orderDate(order);
       for (const oi of order.orderItems || []) {
         if (oi && (oi.id || oi.name)) {
           flattened.push({
             id: oi.id || '',
             name: oi.name || '',
             price: oi.price != null ? oi.price : 0,
-            _orderDate: orderDate,
+            _orderDate: ts,
           });
         }
       }
