@@ -23,6 +23,8 @@ let paymentIdleListenersAttached = false;
 let adminPaymentFlashIntervals = [];
 let adminDeliveryModalOrderId = null;
 let adminEmailFromServer = '';
+/** 매장관리 그룹명(suburl) 목록 - 콤보박스 옵션 및 새 그룹 추가 시 갱신 */
+let adminGroupNames = [];
 
 // 이미지 규칙: 1:1 비율, 권장 400x400px
 const IMAGE_RULE = '가로·세로 1:1 비율, 권장 400×400px';
@@ -152,10 +154,13 @@ function generateStoreId() {
   return `store-${Date.now().toString(36)}`;
 }
 
-function renderStore(store, menus) {
+function renderStore(store, menus, groupNames) {
   const payment = store.payment || { apiKeyEnvVar: 'TOSS_SECRET_KEY' };
   const items = menus || [];
   const storeIdEsc = escapeHtml(store.id || '');
+  const groups = Array.isArray(groupNames) ? groupNames : adminGroupNames;
+  const suburlVal = (store.suburl || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+  const groupOptions = groups.map((g) => '<option value="' + escapeHtml(g) + '"' + (g === suburlVal ? ' selected' : '') + '>' + escapeHtml(g) + '</option>').join('');
 
   const allowedEmailsJson = JSON.stringify(store.allowedEmails || []);
   return `
@@ -218,8 +223,14 @@ function renderStore(store, menus) {
               <input type="email" data-field="storeContactEmail" value="${escapeHtml(store.storeContactEmail || '')}" placeholder="예: contact@example.com">
           </div>
             <div class="admin-form-field">
-              <label>suburl</label>
-              <input type="text" data-field="suburl" value="${escapeHtml(store.suburl || '')}" placeholder="영어 소문자" pattern="[a-z]*" autocomplete="off">
+              <label>그룹명</label>
+              <div class="admin-group-combo-row">
+                <select data-field="suburl" class="admin-form-input admin-select-suburl" data-store-id="${storeIdEsc}">
+                  <option value="">그룹선택</option>
+                  ${groupOptions}
+                </select>
+                <button type="button" class="admin-btn admin-btn-add-group" data-add-group="${storeIdEsc}" title="새 그룹명 추가" aria-label="새 그룹명 추가">+</button>
+              </div>
             </div>
           </div>
         </div>
@@ -300,7 +311,7 @@ function collectData() {
     const storeContactEmailInput = storeEl.querySelector('input[data-field="storeContactEmail"]');
     const representativeInput = storeEl.querySelector('input[data-field="representative"]');
     const bizNoInput = storeEl.querySelector('input[data-field="bizNo"]');
-    const suburlInput = storeEl.querySelector('input[data-field="suburl"]');
+    const suburlSelect = storeEl.querySelector('select[data-field="suburl"]');
     const apiKeyEnvVarInput = storeEl.querySelector('input[data-field="apiKeyEnvVar"]');
     const businessDaysInput = storeEl.querySelector('input[data-field="businessDays"]');
     const businessHoursInput = storeEl.querySelector('input[data-field="businessHours"]');
@@ -315,7 +326,7 @@ function collectData() {
     const businessDays = businessDaysStr.split(',').map((d) => parseInt(d, 10)).filter((n) => !isNaN(n) && n >= 0 && n <= 6);
     const businessHoursStr = businessHoursInput?.value?.trim() || BUSINESS_HOURS_SLOTS.join(',');
     const businessHours = businessHoursStr.split(',').map((s) => s.trim()).filter((s) => BUSINESS_HOURS_SLOTS.includes(s));
-    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlInput?.value?.trim() || '').toLowerCase().replace(/[^a-z]/g, ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], allowedEmails, payment: {
+    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlSelect?.value?.trim() || '').toLowerCase().replace(/[^a-z]/g, ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], allowedEmails, payment: {
       apiKeyEnvVar: apiKeyEnvVarInput?.value?.trim() || 'TOSS_SECRET_KEY',
     } };
     stores.push(store);
@@ -1707,6 +1718,7 @@ async function init() {
 
   try {
     const { stores, menus } = await fetchStores();
+    adminGroupNames = [...new Set(stores.map((s) => (s.suburl || '').trim().toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean))].sort();
     const content = document.getElementById('adminContent');
     const indexHtml = stores.length > 1
       ? `<div class="admin-index">
@@ -1719,7 +1731,7 @@ async function init() {
     content.innerHTML = `
       ${indexHtml}
       <div class="admin-stores-list" id="adminStoresList">
-        ${stores.map((s) => renderStore({ ...s, registered: true }, menus[s.id] || [])).join('')}
+        ${stores.map((s) => renderStore({ ...s, registered: true }, menus[s.id] || [], adminGroupNames)).join('')}
       </div>
       <div class="admin-add-store-row">
         <button type="button" class="admin-btn admin-btn-secondary admin-btn-add-store" data-add-store>+ 카테고리 추가</button>
@@ -1822,7 +1834,7 @@ async function init() {
           payment: { apiKeyEnvVar: 'TOSS_SECRET_KEY' },
         };
         const div = document.createElement('div');
-        div.innerHTML = renderStore(newStore, []);
+        div.innerHTML = renderStore(newStore, [], adminGroupNames);
         list.appendChild(div.firstElementChild);
         if (indexBtns) {
           const btn = document.createElement('button');
@@ -1938,23 +1950,32 @@ async function init() {
           if (menuTitle && list) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
         }
       }
+      if (e.target.closest('[data-add-group]')) {
+        const btn = e.target.closest('[data-add-group]');
+        const storeId = btn.dataset.addGroup;
+        const name = (prompt('새 그룹명을 입력하세요 (영어 소문자)') || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+        if (!name) return;
+        if (!adminGroupNames.includes(name)) {
+          adminGroupNames.push(name);
+          adminGroupNames.sort();
+          content.querySelectorAll('select[data-field="suburl"]').forEach((sel) => {
+            const hasOpt = Array.from(sel.options).some((o) => o.value === name);
+            if (!hasOpt) {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              sel.appendChild(opt);
+            }
+          });
+        }
+        const currentSelect = btn.closest('.admin-store')?.querySelector('select[data-field="suburl"]');
+        if (currentSelect) currentSelect.value = name;
+      }
       if (e.target.closest('[data-save]')) {
         handleSave();
       }
     });
 
-    content.addEventListener('input', (e) => {
-      const input = e.target;
-      if (input?.getAttribute('data-field') === 'suburl') {
-        const cursor = input.selectionStart;
-        const raw = input.value;
-        const filtered = raw.toLowerCase().replace(/[^a-z]/g, '');
-        if (raw !== filtered) {
-          input.value = filtered;
-          input.setSelectionRange(Math.min(cursor, filtered.length), Math.min(cursor, filtered.length));
-        }
-      }
-    });
 
     content.addEventListener('change', async (e) => {
       const input = e.target.closest('[data-upload-input]');

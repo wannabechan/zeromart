@@ -33,6 +33,9 @@ async function loadMenuData() {
 
 // 장바구니 상태: { [itemId]: quantity }
 let cart = {};
+/** 최근주문 탭용: 결제 완료 45분 지난 주문 상품 최대 20개 (최근 순) */
+const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
+let recentOrderItemsCache = null;
 // 메뉴 카드에 설정한 담을 수량 (담기 버튼으로 이만큼 담음)
 let pendingQty = {};
 
@@ -265,42 +268,72 @@ function addToCartFromPending(itemId) {
 // 카테고리 탭 렌더 (API 데이터 기반). initialSlug: suburl 접근 시 먼저 보여줄 카테고리 slug
 function renderCategoryTabs(initialSlug) {
   const slugs = Object.keys(MENU_DATA);
-  if (slugs.length === 0) {
+  const specialTabs = [
+    { slug: '_all', title: '전체보기' },
+    { slug: '_recent', title: '최근주문' },
+  ];
+  const allTabSlugs = ['_all', '_recent', ...slugs];
+  const firstSlug = (initialSlug && allTabSlugs.includes(initialSlug)) ? initialSlug : '_all';
+  const tabButtons = [
+    ...specialTabs.map(({ slug, title }) => {
+      const active = slug === firstSlug ? ' active' : '';
+      return `<button class="category-tab category-tab-text${active}" data-category="${escapeHtml(slug)}">${escapeHtml(title)}</button>`;
+    }),
+    ...slugs.map((slug) => {
+      const title = escapeHtml(MENU_DATA[slug]?.title || slug);
+      const slugEsc = escapeHtml(slug);
+      const active = slug === firstSlug ? ' active' : '';
+      return `<button class="category-tab${active}" data-category="${slugEsc}">${title}</button>`;
+    }),
+  ];
+  if (tabButtons.length === 0) {
     categoryTabs.innerHTML = '<p class="category-empty">등록된 카테고리가 없습니다.</p>';
     menuSectionTitle.textContent = '';
     menuGrid.innerHTML = '';
     return;
   }
-  const firstSlug = (initialSlug && slugs.includes(initialSlug)) ? initialSlug : slugs[0];
-  categoryTabs.innerHTML = slugs
-    .map((slug) => {
-      const title = escapeHtml(MENU_DATA[slug]?.title || slug);
-      const slugEsc = escapeHtml(slug);
-      const active = slug === firstSlug ? ' active' : '';
-      return `<button class="category-tab${active}" data-category="${slugEsc}">${title}</button>`;
-    })
-    .join('');
+  categoryTabs.innerHTML = tabButtons.join('');
 }
 
 // 메뉴 카드 렌더
 function renderMenuCards() {
   const slugs = Object.keys(MENU_DATA);
-  const category = document.querySelector('.category-tab.active')?.dataset.category || slugs[0];
-  const data = MENU_DATA[category];
-  if (!data) {
-    menuSectionTitle.textContent = slugs.length ? '카테고리를 선택하세요' : '';
-    menuGrid.innerHTML = '';
-    return;
+  const category = document.querySelector('.category-tab.active')?.dataset.category || '_all';
+  let items = [];
+  if (category === '_all') {
+    menuSectionTitle.textContent = '-';
+    const allItems = [];
+    for (const data of Object.values(MENU_DATA)) {
+      for (const item of data.items || []) {
+        allItems.push(item);
+      }
+    }
+    items = allItems.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+  } else if (category === '_recent') {
+    menuSectionTitle.textContent = '-';
+    if (recentOrderItemsCache === null) {
+      menuGrid.innerHTML = '<p class="menu-loading">로딩 중...</p>';
+      return;
+    }
+    items = recentOrderItemsCache;
+  } else {
+    const data = MENU_DATA[category];
+    if (!data) {
+      menuSectionTitle.textContent = '카테고리를 선택하세요';
+      menuGrid.innerHTML = '';
+      return;
+    }
+    const groupDisplay = (data.suburl || '').trim() ? data.suburl : '-';
+    menuSectionTitle.textContent = groupDisplay;
+    items = data.items || [];
   }
 
-  menuSectionTitle.textContent = data.title || '';
-  const emoji = getCategoryEmoji(category);
-
-  const items = data.items || [];
+  const emoji = category === '_all' || category === '_recent' ? '' : getCategoryEmoji(category);
   menuGrid.innerHTML = items
     .map((item) => {
       const qty = pendingQty[item.id] || 0;
-      const addDisabled = qty === 0;
+      const notInMenu = category === '_recent' && !findItemById(item.id);
+      const addDisabled = notInMenu || qty === 0;
       const qtyDisabled = false;
       const idEsc = escapeHtml(item.id);
       const nameEsc = escapeHtml(item.name);
@@ -918,10 +951,50 @@ function openDeliveryInfoModal(order) {
   modal.setAttribute('aria-hidden', 'false');
 }
 
+// 최근주문 탭: 결제 완료 45분 지난 주문 상품 최대 20개 (최근 순)
+async function fetchRecentOrderItems() {
+  const token = window.BzCatAuth?.getToken?.();
+  if (!token) {
+    recentOrderItemsCache = [];
+    return;
+  }
+  try {
+    const res = await fetch('/api/orders/my', { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    const orders = (data.orders || []).filter((o) => o.status === 'payment_completed');
+    const completedAt = (o) => (o.paymentCompletedAt ? new Date(o.paymentCompletedAt).getTime() : 0);
+    const past45 = orders.filter((o) => Date.now() - completedAt(o) >= PAYMENT_CANCEL_WINDOW_MS);
+    past45.sort((a, b) => completedAt(b) - completedAt(a));
+    const flattened = [];
+    for (const order of past45) {
+      const orderDate = completedAt(order);
+      for (const oi of order.orderItems || []) {
+        if (oi && (oi.id || oi.name)) {
+          flattened.push({
+            id: oi.id || '',
+            name: oi.name || '',
+            price: oi.price != null ? oi.price : 0,
+            _orderDate: orderDate,
+          });
+        }
+      }
+    }
+    flattened.sort((a, b) => (b._orderDate || 0) - (a._orderDate || 0));
+    recentOrderItemsCache = flattened.slice(0, 20).map(({ id, name, price }) => ({ id, name, price }));
+  } catch (err) {
+    console.warn('Recent orders fetch failed:', err);
+    recentOrderItemsCache = [];
+  }
+}
+
 // 카테고리 탭 클릭
-function handleCategoryClick(e) {
+async function handleCategoryClick(e) {
   const tab = e.target.closest('.category-tab');
   if (!tab) return;
+  const category = tab.dataset.category;
+  if (category === '_recent' && recentOrderItemsCache === null) {
+    await fetchRecentOrderItems();
+  }
   document.querySelectorAll('.category-tab').forEach((t) => t.classList.remove('active'));
   tab.classList.add('active');
   // 클릭한 탭이 잘려 보이면 스크롤해서 전체가 보이도록
@@ -1575,7 +1648,7 @@ function init() {
     }
   });
 
-  loadMenuData().then(() => {
+  loadMenuData().then(async () => {
     const pathSeg = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || '';
     let initialSlug = null;
     if (pathSeg) {
@@ -1586,6 +1659,10 @@ function init() {
       }
     }
     renderCategoryTabs(initialSlug || undefined);
+    const activeCategory = document.querySelector('.category-tab.active')?.dataset.category;
+    if (activeCategory === '_recent') {
+      await fetchRecentOrderItems();
+    }
     renderMenuCards();
     renderCartItems();
     updateCartCount();

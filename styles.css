@@ -569,6 +569,13 @@ body {
   margin-top: 20px;
 }
 
+.menu-section-group {
+  font-size: 0.8em;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 0.35em;
+}
+
 .menu-section-madeby {
   margin-left: 5px;
   color: var(--color-text-muted);
@@ -684,6 +691,28 @@ body {
   color: var(--color-primary);
   background: var(--color-accent-light);
   border-color: var(--color-primary);
+}
+
+/* 전체보기, 최근주문: 테두리/박스 없이 텍스트 버튼 */
+.category-tab.category-tab-text {
+  background: transparent;
+  border: none;
+  padding: 10px 8px;
+}
+.category-tab.category-tab-text + .category-tab.category-tab-text {
+  margin-left: -5px;
+}
+.category-tab.category-tab-text:hover {
+  background: transparent;
+  color: var(--color-text);
+}
+.category-tab.category-tab-text.active {
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 /* ===== Menu Grid (한 줄 per 상품, 5:2:2:1) ===== */
