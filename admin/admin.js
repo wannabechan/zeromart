@@ -1787,9 +1787,9 @@ async function init() {
           const userEmailInputEl = document.getElementById('adminSettingsUserEmailInput');
           if (userEmailInputEl) userEmailInputEl.value = '';
           modal.querySelectorAll('.admin-modal-tab').forEach((t) => t.classList.remove('active'));
-          modal.querySelector('[data-settings-tab="payment-env"]')?.classList.add('active');
+          modal.querySelector('[data-settings-tab="user-emails"]')?.classList.add('active');
           modal.querySelectorAll('.admin-modal-panel').forEach((p) => p.classList.remove('active'));
-          document.getElementById('adminSettingsPanelPaymentEnv')?.classList.add('active');
+          document.getElementById('adminSettingsPanelUserEmails')?.classList.add('active');
           modal.classList.add('admin-modal-visible');
           modal.setAttribute('aria-hidden', 'false');
         }

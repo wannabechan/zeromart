@@ -386,17 +386,18 @@
         </div>
         <p class="admin-modal-store-name" id="adminApiSettingsStoreTitle">—</p>
         <div class="admin-modal-tabs">
-          <button type="button" class="admin-modal-tab active" data-settings-tab="payment-env">결제키 환경변수</button>
+          <button type="button" class="admin-modal-tab active" data-settings-tab="user-emails">사용자 등록</button>
           <button type="button" class="admin-modal-tab" data-settings-tab="business-days">영업 요일</button>
           <button type="button" class="admin-modal-tab" data-settings-tab="business-hours">영업 시간</button>
-          <button type="button" class="admin-modal-tab" data-settings-tab="user-emails">사용자 등록</button>
+          <button type="button" class="admin-modal-tab" data-settings-tab="payment-env">결제키 환경변수</button>
         </div>
         <div class="admin-modal-body">
-          <div class="admin-modal-panel active" id="adminSettingsPanelPaymentEnv">
-            <div class="admin-form-field">
-              <label class="admin-form-label" for="adminApiSettingsEnvVar">환경변수 명칭</label>
-              <input type="text" id="adminApiSettingsEnvVar" class="admin-form-input" placeholder="ENV. Variable" value="">
+          <div class="admin-modal-panel active" id="adminSettingsPanelUserEmails">
+            <div class="admin-form-row admin-user-emails-row">
+              <input type="email" id="adminSettingsUserEmailInput" class="admin-form-input" placeholder="사용자 이메일을 등록하세요.">
+              <button type="button" class="admin-btn admin-btn-primary" id="adminSettingsUserEmailAdd">추가</button>
             </div>
+            <ul class="admin-user-emails-list" id="adminSettingsUserEmailsList"></ul>
           </div>
           <div class="admin-modal-panel" id="adminSettingsPanelBusinessDays">
             <p class="admin-modal-hint">매장 운영 요일 (참고용)</p>
@@ -427,12 +428,11 @@
               <label class="admin-business-hour"><input type="checkbox" data-slot="20:00-21:00"> 20:00-21:00</label>
             </div>
           </div>
-          <div class="admin-modal-panel" id="adminSettingsPanelUserEmails">
-            <div class="admin-form-row admin-user-emails-row">
-              <input type="email" id="adminSettingsUserEmailInput" class="admin-form-input" placeholder="사용자 이메일을 등록하세요.">
-              <button type="button" class="admin-btn admin-btn-primary" id="adminSettingsUserEmailAdd">추가</button>
+          <div class="admin-modal-panel" id="adminSettingsPanelPaymentEnv">
+            <div class="admin-form-field">
+              <label class="admin-form-label" for="adminApiSettingsEnvVar">환경변수 명칭</label>
+              <input type="text" id="adminApiSettingsEnvVar" class="admin-form-input" placeholder="ENV. Variable" value="">
             </div>
-            <ul class="admin-user-emails-list" id="adminSettingsUserEmailsList"></ul>
           </div>
         </div>
         <div class="admin-modal-footer">
