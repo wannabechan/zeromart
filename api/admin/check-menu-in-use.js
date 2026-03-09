@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
 
     const allOrders = await getAllOrders();
     for (const order of allOrders) {
-      if (order.status === 'cancelled') continue;
+      if (order.status === 'cancelled' || order.status === 'delivery_completed') continue;
       const items = order.order_items || [];
       for (const oi of items) {
         if (oi.id === menuId) {

@@ -226,7 +226,7 @@ function renderStore(store, menus) {
             </div>
           </div>
           <div class="admin-menu-list" data-store-id="${storeIdEsc}">
-            ${items.map((item, i) => renderMenuItem(store.id, item, i)).join('')}
+            ${items.map((item, i) => renderMenuItem(store.id, { ...item, registered: true }, i)).join('')}
           </div>
           <button type="button" class="admin-btn admin-btn-secondary admin-btn-add" data-add-menu="${storeIdEsc}">+ 메뉴 추가</button>
         </div>
@@ -239,12 +239,13 @@ function renderStore(store, menus) {
 }
 
 function renderMenuItem(storeId, item, index) {
+  const nameReadonly = item.registered === true;
   return `
-    <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
+    <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}"${nameReadonly ? ' data-menu-registered="1"' : ''}>
       <div class="admin-menu-fields">
         <div class="admin-form-field">
           <label>메뉴명</label>
-          <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명">
+          <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명"${nameReadonly ? ' readonly' : ''}>
         </div>
         <div class="admin-form-row">
           <div class="admin-form-field">
@@ -1804,6 +1805,7 @@ async function init() {
               price: parseInt(priceInput?.value || '0', 10) || 0,
               description: '',
               imageUrl: imageInput?.value?.trim() || '',
+              registered: itemEl.dataset.menuRegistered === '1',
             });
           });
           items.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
