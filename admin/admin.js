@@ -154,8 +154,10 @@ function renderStore(store, menus) {
   const items = menus || [];
   const storeIdEsc = escapeHtml(store.id || '');
 
+  const allowedEmailsJson = JSON.stringify(store.allowedEmails || []);
   return `
     <div class="admin-store" id="admin-store-${storeIdEsc.replace(/"/g, '')}" data-store-id="${storeIdEsc}">
+      <input type="hidden" data-field="allowedEmails" value="${escapeHtml(allowedEmailsJson.replace(/"/g, '&quot;'))}">
       <div class="admin-store-header">
         <span class="admin-store-title">${escapeHtml(store.title || store.id || '')}</span>
         <div class="admin-store-header-actions">
@@ -297,11 +299,18 @@ function collectData() {
     const apiKeyEnvVarInput = storeEl.querySelector('input[data-field="apiKeyEnvVar"]');
     const businessDaysInput = storeEl.querySelector('input[data-field="businessDays"]');
     const businessHoursInput = storeEl.querySelector('input[data-field="businessHours"]');
+    const allowedEmailsInput = storeEl.querySelector('input[data-field="allowedEmails"]');
+    let allowedEmails = [];
+    try {
+      const raw = (allowedEmailsInput?.value || '').replace(/&quot;/g, '"').trim() || '[]';
+      allowedEmails = JSON.parse(raw);
+      if (!Array.isArray(allowedEmails)) allowedEmails = [];
+    } catch (_) {}
     const businessDaysStr = businessDaysInput?.value?.trim() || '0,1,2,3,4,5,6';
     const businessDays = businessDaysStr.split(',').map((d) => parseInt(d, 10)).filter((n) => !isNaN(n) && n >= 0 && n <= 6);
     const businessHoursStr = businessHoursInput?.value?.trim() || BUSINESS_HOURS_SLOTS.join(',');
     const businessHours = businessHoursStr.split(',').map((s) => s.trim()).filter((s) => BUSINESS_HOURS_SLOTS.includes(s));
-    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlInput?.value?.trim() || '').toLowerCase().replace(/[^a-z]/g, ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], payment: {
+    const store = { id: storeId, slug: storeId, title: titleInput?.value?.trim() || storeId, brand: brandInput?.value?.trim() || '', storeAddress: storeAddressInput?.value?.trim() || '', storeContact: storeContactInput?.value?.trim() || '', storeContactEmail: storeContactEmailInput?.value?.trim() || '', representative: representativeInput?.value?.trim() || '', bizNo: bizNoInput?.value?.trim() || '', suburl: (suburlInput?.value?.trim() || '').toLowerCase().replace(/[^a-z]/g, ''), businessDays: businessDays.length ? businessDays.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6], businessHours: businessHours.length ? businessHours : [...BUSINESS_HOURS_SLOTS], allowedEmails, payment: {
       apiKeyEnvVar: apiKeyEnvVarInput?.value?.trim() || 'TOSS_SECRET_KEY',
     } };
     stores.push(store);
@@ -1647,6 +1656,39 @@ async function init() {
   document.getElementById('adminApiSettingsModalClose')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsCancel')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsApply')?.addEventListener('click', applyApiSettingsModal);
+  document.getElementById('adminSettingsUserEmailAdd')?.addEventListener('click', () => {
+    const input = document.getElementById('adminSettingsUserEmailInput');
+    const listEl = document.getElementById('adminSettingsUserEmailsList');
+    const email = (input?.value || '').trim().toLowerCase();
+    if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert('올바른 이메일을 입력해 주세요.');
+      return;
+    }
+    const modal = document.getElementById('adminApiSettingsModal');
+    const storeId = modal?.dataset?.currentStoreId;
+    if (!storeId || !listEl) return;
+    const existing = Array.from(listEl.querySelectorAll('li')).map((li) => (li.textContent || '').trim().toLowerCase());
+    if (existing.includes(email)) {
+      alert('이미 등록된 이메일입니다.');
+      return;
+    }
+    listEl.appendChild(Object.assign(document.createElement('li'), { textContent: email }));
+    if (input) input.value = '';
+  });
+  document.getElementById('adminSettingsUserEmailsSave')?.addEventListener('click', () => {
+    const modal = document.getElementById('adminApiSettingsModal');
+    const storeId = modal?.dataset?.currentStoreId;
+    if (!storeId) return;
+    const listEl = document.getElementById('adminSettingsUserEmailsList');
+    const emails = Array.from(listEl?.querySelectorAll('li') || []).map((li) => (li.textContent || '').trim()).filter(Boolean);
+    const storeEl = Array.from(document.querySelectorAll('.admin-store')).find((el) => el.dataset.storeId === storeId);
+    const hiddenInput = storeEl?.querySelector('input[data-field="allowedEmails"]');
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
+    }
+    alert('목록이 반영되었습니다. 메인 화면에서 저장 버튼을 눌러 주세요.');
+  });
   document.getElementById('adminApiSettingsModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'adminApiSettingsModal') closeApiSettingsModal();
     if (e.target.closest('[data-settings-tab]')) {
@@ -1655,7 +1697,7 @@ async function init() {
       if (!modal) return;
       const tabId = tab.dataset.settingsTab;
       modal.querySelectorAll('.admin-modal-tab').forEach((t) => t.classList.toggle('active', t.dataset.settingsTab === tabId));
-      const panelMap = { 'payment-env': 'adminSettingsPanelPaymentEnv', 'business-days': 'adminSettingsPanelBusinessDays', 'business-hours': 'adminSettingsPanelBusinessHours' };
+      const panelMap = { 'payment-env': 'adminSettingsPanelPaymentEnv', 'business-days': 'adminSettingsPanelBusinessDays', 'business-hours': 'adminSettingsPanelBusinessHours', 'user-emails': 'adminSettingsPanelUserEmails' };
       const panelId = panelMap[tabId];
       modal.querySelectorAll('.admin-modal-panel').forEach((p) => p.classList.remove('active'));
       if (panelId) document.getElementById(panelId)?.classList.add('active');
@@ -1714,6 +1756,19 @@ async function init() {
           businessHoursContainer?.querySelectorAll('input[data-slot]').forEach((cb) => {
             cb.checked = hoursSet.has(cb.dataset.slot);
           });
+          const allowedEmailsInput = storeEl.querySelector('input[data-field="allowedEmails"]');
+          let emailsList = [];
+          try {
+            const raw = (allowedEmailsInput?.value || '').replace(/&quot;/g, '"').trim() || '[]';
+            emailsList = JSON.parse(raw);
+            if (!Array.isArray(emailsList)) emailsList = [];
+          } catch (_) {}
+          const userEmailsListEl = document.getElementById('adminSettingsUserEmailsList');
+          if (userEmailsListEl) {
+            userEmailsListEl.innerHTML = emailsList.map((e) => '<li>' + escapeHtml(String(e || '').trim()) + '</li>').join('');
+          }
+          const userEmailInputEl = document.getElementById('adminSettingsUserEmailInput');
+          if (userEmailInputEl) userEmailInputEl.value = '';
           modal.querySelectorAll('.admin-modal-tab').forEach((t) => t.classList.remove('active'));
           modal.querySelector('[data-settings-tab="payment-env"]')?.classList.add('active');
           modal.querySelectorAll('.admin-modal-panel').forEach((p) => p.classList.remove('active'));
@@ -1746,6 +1801,7 @@ async function init() {
           suburl: '',
           businessDays: [0, 1, 2, 3, 4, 5, 6],
           businessHours: [...BUSINESS_HOURS_SLOTS],
+          allowedEmails: [],
           payment: { apiKeyEnvVar: 'TOSS_SECRET_KEY' },
         };
         const div = document.createElement('div');

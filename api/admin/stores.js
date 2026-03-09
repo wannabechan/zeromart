@@ -52,7 +52,20 @@ module.exports = async (req, res) => {
       if (totalMenus > 2000) {
         return apiResponse(res, 400, { error: '전체 메뉴 수는 2000개를 초과할 수 없습니다.' });
       }
-      await saveStoresAndMenus(stores, menus);
+      let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
+      if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
+      if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
+      adminEmail = adminEmail.toLowerCase().trim();
+      const storesWithAdmin = (stores || []).map((s) => {
+        const list = Array.isArray(s.allowedEmails) ? [...s.allowedEmails] : [];
+        let normalizedList = list.map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+        if (adminEmail) {
+          normalizedList = normalizedList.filter((e) => e !== adminEmail);
+          normalizedList.unshift(adminEmail);
+        }
+        return { ...s, allowedEmails: normalizedList };
+      });
+      await saveStoresAndMenus(storesWithAdmin, menus);
       return apiResponse(res, 200, { success: true });
     }
   } catch (error) {

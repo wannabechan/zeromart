@@ -16,7 +16,10 @@ let MENU_DATA = { ...MENU_DATA_FALLBACK };
 
 async function loadMenuData() {
   try {
-    const res = await fetch('/api/menu-data');
+    const token = window.BzCatAuth?.getToken?.();
+    const res = await fetch('/api/menu-data', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (res.ok) {
       const data = await res.json();
       MENU_DATA = data;

@@ -9,6 +9,7 @@
  */
 
 const { Redis } = require('@upstash/redis');
+const { getUserLevel } = require('./_utils');
 
 let _redisClient = null;
 
@@ -389,12 +390,24 @@ async function saveStoresAndMenus(stores, menusByStore) {
   }
 }
 
-async function getMenuDataForApp() {
-  const stores = await getStores();
+/**
+ * @param {string} [userEmail] - 로그인 사용자 이메일. 있으면 관리자는 전체, 일반 사용자는 allowedEmails에 포함된 매장만 반환.
+ */
+async function getMenuDataForApp(userEmail) {
+  let stores = await getStores();
   if (!stores || stores.length === 0) return {};
+  if (userEmail && typeof userEmail === 'string') {
+    if (getUserLevel(userEmail) !== 'admin') {
+      const normalized = userEmail.trim().toLowerCase();
+      stores = stores.filter((s) => {
+        const list = (s.allowedEmails || []).map((e) => String(e).trim().toLowerCase());
+        return list.includes(normalized);
+      });
+    }
+  }
   const redis = getRedis();
   const menuKeys = stores.map((s) => `app:menus:${s.id}`);
-  const menusRaw = await redis.mget(...menuKeys);
+  const menusRaw = menuKeys.length ? await redis.mget(...menuKeys) : [];
   const result = {};
   for (let i = 0; i < stores.length; i++) {
     const raw = menusRaw[i];
