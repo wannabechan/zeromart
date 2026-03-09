@@ -2029,6 +2029,14 @@ async function handleSave() {
       }
     }
     await saveStores(stores, menus);
+    const indexBtns = document.querySelector('.admin-index-btns');
+    if (indexBtns) {
+      indexBtns.querySelectorAll('[data-goto-store]').forEach((btn) => {
+        const storeId = btn.dataset.gotoStore;
+        const store = stores.find((s) => s.id === storeId);
+        if (store) btn.textContent = (store.title || storeId || '').trim() || storeId;
+      });
+    }
     alert('저장되었습니다.');
   } catch (err) {
     showError(err.message);
