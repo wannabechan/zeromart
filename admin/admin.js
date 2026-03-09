@@ -225,15 +225,17 @@ function renderStore(store, menus) {
         </div>
         <div class="admin-section">
           <div class="admin-section-title-row admin-section-title-row--menu">
-            <span class="admin-section-title">메뉴</span>
+            <span class="admin-menu-title-with-toggle"><span class="admin-section-title">메뉴 (${items.length})</span>&nbsp;<button type="button" class="admin-btn admin-menu-toggle" data-menu-toggle="${storeIdEsc}" aria-label="메뉴 목록 펼치기" title="메뉴 목록 펼치기"><span class="admin-menu-toggle-icon" aria-hidden="true">▼</span></button></span>
             <div class="admin-menu-title-buttons">
               <button type="button" class="admin-btn-upload-menu" data-upload-menu="${storeIdEsc}">upload menu</button>&nbsp;<button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
             </div>
           </div>
-          <div class="admin-menu-list" data-store-id="${storeIdEsc}">
-            ${items.map((item, i) => renderMenuItem(store.id, { ...item, registered: true }, i)).join('')}
+          <div class="admin-menu-list-wrap is-collapsed">
+            <div class="admin-menu-list" data-store-id="${storeIdEsc}">
+              ${items.map((item, i) => renderMenuItem(store.id, { ...item, registered: true }, i)).join('')}
+            </div>
+            <button type="button" class="admin-btn admin-btn-secondary admin-btn-add" data-add-menu="${storeIdEsc}">+ 메뉴 추가</button>
           </div>
-          <button type="button" class="admin-btn admin-btn-secondary admin-btn-add" data-add-menu="${storeIdEsc}">+ 메뉴 추가</button>
         </div>
         <div class="admin-save-bar">
           <button type="button" class="admin-btn admin-btn-primary" data-save>저장</button>
@@ -1663,7 +1665,7 @@ async function init() {
       allowedEmailsInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
     }
     closeApiSettingsModal();
-    alert('설정이 반영되었습니다. 메인 화면 아래 \'저장\' 버튼을 눌러 서버에 저장해 주세요.');
+    alert('매장 하단 [저장] 버튼을 눌러 저장을 완료하세요.');
   }
   document.getElementById('adminApiSettingsModalClose')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsCancel')?.addEventListener('click', closeApiSettingsModal);
@@ -1728,6 +1730,18 @@ async function init() {
     content.addEventListener('click', async (e) => {
       if (e.target.closest('[data-scroll-top]')) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (e.target.closest('[data-menu-toggle]')) {
+        const btn = e.target.closest('[data-menu-toggle]');
+        const storeEl = btn.closest('.admin-store');
+        const wrap = storeEl?.querySelector('.admin-menu-list-wrap');
+        const icon = btn?.querySelector('.admin-menu-toggle-icon');
+        if (wrap && icon) {
+          const isCollapsed = wrap.classList.toggle('is-collapsed');
+          icon.textContent = isCollapsed ? '▼' : '▲';
+          btn.setAttribute('aria-label', isCollapsed ? '메뉴 목록 펼치기' : '메뉴 목록 접기');
+          btn.setAttribute('title', isCollapsed ? '메뉴 목록 펼치기' : '메뉴 목록 접기');
+        }
       }
       if (e.target.closest('[data-store-settings]')) {
         const btn = e.target.closest('[data-store-settings]');
@@ -1892,11 +1906,15 @@ async function init() {
         const itemEl = div.firstElementChild;
         itemEl.dataset.menuId = newItem.id;
         list.appendChild(itemEl);
+        const menuTitle = list.closest('.admin-store')?.querySelector('.admin-section-title-row--menu .admin-section-title');
+        if (menuTitle) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
       }
       if (e.target.closest('[data-remove-menu]')) {
         const btn = e.target.closest('[data-remove-menu]');
         const itemEl = btn?.closest('.admin-menu-item');
         const menuId = itemEl?.dataset?.menuId;
+        const storeEl = itemEl?.closest('.admin-store');
+        const storeId = storeEl?.dataset?.storeId;
         if (menuId) {
           try {
             const token = getToken();
@@ -1914,6 +1932,11 @@ async function init() {
           }
         }
         itemEl?.remove();
+        if (storeId) {
+          const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
+          const menuTitle = storeEl?.querySelector('.admin-section-title-row--menu .admin-section-title');
+          if (menuTitle && list) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
+        }
       }
       if (e.target.closest('[data-save]')) {
         handleSave();
@@ -2004,7 +2027,11 @@ async function init() {
         }
         input.value = '';
         input.removeAttribute('data-upload-for-store');
-        if (added > 0) alert(`${added}개 메뉴가 목록에 추가되었습니다. 저장 버튼을 눌러 반영해 주세요.`);
+        if (added > 0) {
+          const menuTitle = list.closest('.admin-store')?.querySelector('.admin-section-title-row--menu .admin-section-title');
+          if (menuTitle) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
+          alert(`${added}개 메뉴가 목록에 추가되었습니다. 저장 버튼을 눌러 반영해 주세요.`);
+        }
       });
     }
   } catch (err) {

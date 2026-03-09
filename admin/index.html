@@ -132,7 +132,13 @@
     .admin-section-title-row .admin-section-title { margin-bottom: 0; }
     .admin-btn-sort-abc { background: none; border: none; padding: 0; font-size: 0.875rem; color: var(--color-text-secondary); cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
     .admin-btn-sort-abc:hover { color: var(--color-primary); }
+    .admin-menu-title-with-toggle { display: inline-flex; align-items: center; gap: 0; }
+    .admin-menu-title-with-toggle .admin-section-title { margin-right: 0; }
     .admin-menu-title-buttons { display: flex; align-items: center; gap: 4px; }
+    .admin-menu-toggle { padding: 4px 8px; min-width: auto; font-size: 0.75rem; line-height: 1; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; transform: scale(0.8); transform-origin: left center; vertical-align: middle; }
+    .admin-menu-toggle:hover { color: var(--color-primary); }
+    .admin-menu-toggle .admin-menu-toggle-icon { display: inline-block; transition: transform 0.2s; }
+    .admin-menu-list-wrap.is-collapsed { display: none; }
     .admin-btn-upload-menu { background: none; border: none; padding: 0; font-size: 0.875rem; color: var(--color-text-secondary); cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
     .admin-btn-upload-menu:hover { color: var(--color-primary); }
     .admin-form-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
