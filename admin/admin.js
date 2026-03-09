@@ -22,6 +22,7 @@ let paymentIdleTimerId = null;
 let paymentIdleListenersAttached = false;
 let adminPaymentFlashIntervals = [];
 let adminDeliveryModalOrderId = null;
+let adminEmailFromServer = '';
 
 // 이미지 규칙: 1:1 비율, 권장 400x400px
 const IMAGE_RULE = '가로·세로 1:1 비율, 권장 400×400px';
@@ -94,7 +95,9 @@ async function fetchStores() {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || '데이터를 불러올 수 없습니다.');
     }
-    return res.json();
+    const data = await res.json();
+    if (data && data.adminEmail !== undefined) adminEmailFromServer = data.adminEmail || '';
+    return data;
   } catch (e) {
     if (e.name === 'AbortError') throw new Error('요청 시간이 초과되었습니다. 네트워크를 확인하고 다시 시도해 주세요.');
     throw e;
@@ -1671,7 +1674,7 @@ async function init() {
     if (!storeId || !listEl) return;
     const existing = Array.from(listEl.querySelectorAll('li')).map((li) => (li.textContent || '').trim().toLowerCase());
     if (existing.includes(email)) {
-      alert('이미 등록된 이메일입니다.');
+      alert('이미 등록된 메일입니다.');
       return;
     }
     listEl.appendChild(Object.assign(document.createElement('li'), { textContent: email }));
@@ -1764,9 +1767,13 @@ async function init() {
             emailsList = JSON.parse(raw);
             if (!Array.isArray(emailsList)) emailsList = [];
           } catch (_) {}
+          const adminNorm = (adminEmailFromServer || '').trim().toLowerCase();
+          const displayList = adminNorm
+            ? [adminNorm, ...emailsList.map((e) => String(e || '').trim().toLowerCase()).filter((e) => e && e !== adminNorm)]
+            : emailsList.map((e) => String(e || '').trim()).filter(Boolean);
           const userEmailsListEl = document.getElementById('adminSettingsUserEmailsList');
           if (userEmailsListEl) {
-            userEmailsListEl.innerHTML = emailsList.map((e) => '<li>' + escapeHtml(String(e || '').trim()) + '</li>').join('');
+            userEmailsListEl.innerHTML = displayList.map((e) => '<li>' + escapeHtml(e) + '</li>').join('');
           }
           const userEmailInputEl = document.getElementById('adminSettingsUserEmailInput');
           if (userEmailInputEl) userEmailInputEl.value = '';

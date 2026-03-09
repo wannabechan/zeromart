@@ -36,7 +36,11 @@ module.exports = async (req, res) => {
       for (const store of stores) {
         menusByStore[store.id] = await getMenus(store.id);
       }
-      return apiResponse(res, 200, { stores, menus: menusByStore });
+      let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
+      if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
+      if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
+      adminEmail = adminEmail.toLowerCase().trim();
+      return apiResponse(res, 200, { stores, menus: menusByStore, adminEmail: adminEmail || null });
     }
 
     if (req.method === 'PUT') {
