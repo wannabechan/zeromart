@@ -606,6 +606,77 @@ body {
   margin-bottom: 8px;
 }
 
+.category-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-tabs-row .category-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.search-toggle,
+.search-close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search-toggle:hover,
+.search-close:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-text);
+}
+
+.search-toggle-icon,
+.search-close-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: none;
+  border-radius: var(--radius);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.search-input:focus {
+  outline: none;
+}
+
 .category-notice {
   font-size: 0.75rem;
   color: var(--color-text-muted);

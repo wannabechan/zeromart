@@ -110,8 +110,23 @@
     <main class="main">
       <!-- Category Section -->
       <section class="category-section">
-        <div class="category-tabs" id="categoryTabs">
-          <!-- 동적으로 로드 -->
+        <div class="category-tabs-row" id="categoryTabsRow">
+          <button type="button" class="header-icon-btn search-toggle" id="searchToggle" aria-label="검색">
+            <svg class="search-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          <div class="category-tabs" id="categoryTabs">
+            <!-- 동적으로 로드 -->
+          </div>
+        </div>
+        <div class="search-bar-row" id="searchBarRow" style="display: none;">
+          <button type="button" class="header-icon-btn search-close" id="searchClose" aria-label="검색 닫기">
+            <svg class="search-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+          <input type="search" class="search-input" id="searchInput" placeholder="상품 검색" autocomplete="off" />
         </div>
       </section>
 

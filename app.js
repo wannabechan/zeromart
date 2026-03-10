@@ -39,7 +39,12 @@ let recentOrderItemsCache = null;
 let pendingQty = {};
 
 // DOM 요소
+const categoryTabsRow = document.getElementById('categoryTabsRow');
 const categoryTabs = document.getElementById('categoryTabs');
+const searchBarRow = document.getElementById('searchBarRow');
+const searchToggle = document.getElementById('searchToggle');
+const searchClose = document.getElementById('searchClose');
+const searchInput = document.getElementById('searchInput');
 const menuSectionTitle = document.getElementById('menuSectionTitle');
 const menuGrid = document.getElementById('menuGrid');
 const cartToggle = document.getElementById('cartToggle');
@@ -239,7 +244,8 @@ function setPendingQty(itemId, delta) {
   const next = Math.max(0, current + delta);
   if (next === 0) delete pendingQty[itemId];
   else pendingQty[itemId] = next;
-  renderMenuCards();
+  if (isSearchMode && searchInput) renderSearchResults(searchInput.value);
+  else renderMenuCards();
 }
 
 // 장바구니 수량 변경 (장바구니 내 +/- 버튼용)
@@ -260,7 +266,8 @@ function addToCartFromPending(itemId) {
   cart[itemId] = (cart[itemId] || 0) + qty;
   delete pendingQty[itemId];
   updateCartCount();
-  renderMenuCards();
+  if (isSearchMode && searchInput) renderSearchResults(searchInput.value);
+  else renderMenuCards();
   renderCartItems();
 }
 
@@ -296,6 +303,7 @@ function renderCategoryTabs(initialSlug) {
 
 // 메뉴 카드 렌더
 function renderMenuCards() {
+  if (isSearchMode) return;
   const slugs = Object.keys(MENU_DATA);
   const category = document.querySelector('.category-tab.active')?.dataset.category || '_all';
   let items = [];
@@ -363,6 +371,75 @@ function renderMenuCards() {
       `;
     })
     .join('');
+}
+
+let isSearchMode = false;
+
+function getAllMenuItems() {
+  const all = [];
+  for (const data of Object.values(MENU_DATA)) {
+    for (const item of data.items || []) all.push(item);
+  }
+  return all.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+}
+
+function renderSearchResults(query) {
+  menuSectionTitle.style.display = 'none';
+  const q = (query || '').trim().toLowerCase();
+  const all = getAllMenuItems();
+  const items = q === '' ? all : all.filter((item) => (item.name || '').toLowerCase().includes(q));
+  menuGrid.innerHTML = items
+    .map((item) => {
+      const qty = pendingQty[item.id] || 0;
+      const idEsc = escapeHtml(item.id);
+      const nameEsc = escapeHtml(item.name);
+      return `
+        <article class="menu-card menu-card-row" data-id="${idEsc}">
+          <div class="menu-card-left">
+            <div class="menu-card-cell menu-card-cell-name">${nameEsc}</div>
+            <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}</div>
+          </div>
+          <div class="menu-card-cell menu-card-cell-actions">
+            <div class="menu-qty-controls">
+              <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
+              <span class="menu-qty-value">${qty}</span>
+              <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
+            </div>
+            <button class="menu-add-btn" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''} aria-label="장바구니 담기">
+              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join('');
+}
+
+function openSearchMode() {
+  isSearchMode = true;
+  if (categoryTabsRow) categoryTabsRow.style.display = 'none';
+  if (searchBarRow) searchBarRow.style.display = 'flex';
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.focus();
+  }
+  renderSearchResults('');
+}
+
+function closeSearchMode() {
+  isSearchMode = false;
+  if (searchBarRow) searchBarRow.style.display = 'none';
+  if (categoryTabsRow) categoryTabsRow.style.display = 'flex';
+  if (searchInput) searchInput.value = '';
+  const tabs = categoryTabs?.querySelectorAll('.category-tab');
+  if (tabs?.length) {
+    tabs.forEach((el, i) => el.classList.toggle('active', i === 0));
+  }
+  renderMenuCards();
 }
 
 // 장바구니 아이템 렌더
@@ -1113,6 +1190,11 @@ function handleMenuGridClick(e) {
 function init() {
   window.BzCatAppOpenProfile = openProfile;
   categoryTabs.addEventListener('click', handleCategoryClick);
+  searchToggle?.addEventListener('click', openSearchMode);
+  searchClose?.addEventListener('click', closeSearchMode);
+  searchInput?.addEventListener('input', () => {
+    if (isSearchMode) renderSearchResults(searchInput.value);
+  });
   menuGrid.addEventListener('click', handleMenuGridClick);
   cartItems.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
