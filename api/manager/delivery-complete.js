@@ -6,6 +6,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, getStores, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { validateTrackingWithApi } = require('../_tracking');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});
@@ -58,6 +59,10 @@ module.exports = async (req, res) => {
       const tracking = String(trackingNumber || '').trim();
       if (!tracking) {
         return apiResponse(res, 400, { error: '송장 번호를 입력해 주세요.' });
+      }
+      const { valid, errorMessage } = await validateTrackingWithApi(courier, tracking);
+      if (!valid) {
+        return apiResponse(res, 400, { error: errorMessage || '유효하지 않은 송장 번호입니다.' });
       }
       await updateOrderParcelAndDeliveryComplete(orderId.trim(), courier || null, tracking);
       return apiResponse(res, 200, { success: true });
