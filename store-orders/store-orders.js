@@ -314,7 +314,11 @@ async function submitStoreDeliveryCompleteParcel() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
     const order = storeOrdersData.find(o => o.id === orderId);
-    if (order) order.status = 'delivery_completed';
+    if (order) {
+      order.status = 'delivery_completed';
+      order.courier_company = courierCompany || null;
+      order.tracking_number = (trackingNumber || '').replace(/\D/g, '') || null;
+    }
     alert('저장되었습니다.');
     closeDeliveryCompleteModal();
     renderList();
@@ -442,7 +446,7 @@ function renderList() {
             : hideDeliveryBtn
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
             : showDeliveryInfo
-            ? `<span class="admin-payment-delivery-info">${escapeHtml(deliveryInfoText)}</span>`
+            ? `<span class="admin-payment-delivery-info">*배송정보 : ${escapeHtml(deliveryInfoText)}</span>`
             : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>${effectiveFilter === 'delivery_wait' ? '<span class="admin-payment-delivery-complete-hint">발송 후 발송 완료 처리해주세요.</span>' : ''}`}
         </div>
       </div>
