@@ -31,10 +31,15 @@ const COURIER_NAME_TO_CODE = {
  * @param {string} trackingNumber - 송장 번호
  * @returns {Promise<{ valid: boolean, errorMessage?: string }>}
  */
+/** 스윗트래커 전달용: 숫자만 추출 (하이픈·공백 등 제거) */
+function normalizeTrackingForApi(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
 async function validateTrackingWithApi(courierCompany, trackingNumber) {
   const courier = (courierCompany || '').trim();
-  const tracking = (trackingNumber || '').trim();
-  if (!tracking) {
+  const raw = (trackingNumber || '').trim();
+  if (!raw) {
     return { valid: false, errorMessage: '송장 번호를 입력해 주세요.' };
   }
 
@@ -48,11 +53,16 @@ async function validateTrackingWithApi(courierCompany, trackingNumber) {
     return { valid: true };
   }
 
+  const tInvoice = normalizeTrackingForApi(raw);
+  if (!tInvoice) {
+    return { valid: false, errorMessage: '송장 번호를 입력해 주세요.' };
+  }
+
   try {
     const params = new URLSearchParams({
       t_key: apiKey,
       t_code: tCode,
-      t_invoice: tracking,
+      t_invoice: tInvoice,
     });
     const res = await fetch(`${TRACKING_API_BASE}/api/v1/trackingInfo?${params.toString()}`, {
       method: 'GET',
@@ -75,4 +85,4 @@ async function validateTrackingWithApi(courierCompany, trackingNumber) {
   }
 }
 
-module.exports = { validateTrackingWithApi, COURIER_NAME_TO_CODE };
+module.exports = { validateTrackingWithApi, normalizeTrackingForApi, COURIER_NAME_TO_CODE };
