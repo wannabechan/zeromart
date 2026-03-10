@@ -1696,6 +1696,20 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 3px;
+}
+
+.profile-menu-email-logout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.profile-menu-email-logout-row .profile-menu-copy-second-line {
+  display: inline;
+  margin-top: 0;
 }
 
 .profile-menu-copy,
