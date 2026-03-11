@@ -138,7 +138,7 @@ function renderSettlementStatementContent(data) {
   html += '<div class="admin-settlement-statement-footer">';
   html += '<p>* 수수료는 상품 판매가액(부가세 포함)의 4.8%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
   html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
-  html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p>';
+  html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p><br><br><br>';
   html += '<div class="admin-settlement-statement-issuer">';
   html += '<p>정산서 발행일: ' + escapeHtml(issueDate) + '</p>';
   html += '<p>정산서 발행처: (주)플라토스호스피탈리티그룹</p>';
@@ -358,6 +358,8 @@ async function loadSettlementView() {
       fetchAndRenderSettlement(this.value, storeList, slugToSuburl);
       const resultBox = document.getElementById('brandManagerStatementResult');
       if (resultBox) resultBox.innerHTML = '';
+      const brandSelect = document.getElementById('brandManagerBrandSelect');
+      if (brandSelect) brandSelect.selectedIndex = 0;
     });
     document.getElementById('brandManagerGroupSelect')?.addEventListener('change', function () {
       const selGroup = this.value || '';

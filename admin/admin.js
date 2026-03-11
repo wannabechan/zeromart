@@ -1724,6 +1724,8 @@ async function loadSettlement() {
     fetchAndRenderSettlement(this.value, stores, slugToSuburl);
     const resultBox = document.getElementById('adminSettlementStatementResult');
     if (resultBox) resultBox.innerHTML = '';
+    const brandSelect = document.getElementById('adminSettlementBrandSelect');
+    if (brandSelect) brandSelect.selectedIndex = 0;
   });
 
   document.getElementById('adminSettlementBrandSelect')?.addEventListener('change', runSettlementStatementSearch);
