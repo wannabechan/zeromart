@@ -122,7 +122,7 @@ function renderSettlementStatementContent(data) {
   html += '</div>';
   html += '<div class="admin-settlement-statement-brand">';
   html += '<br><p><strong>정산 브랜드 정보</strong></p><br>';
-  html += '<p class="admin-settlement-statement-bullet">• 브랜드명: ' + brandName + '</p>';
+  html += '<p class="admin-settlement-statement-bullet">• 매장명: ' + brandName + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 담당자이메일: ' + contactEmail + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 대표자이름: ' + repName + '</p>';
   html += '</div>';
@@ -156,8 +156,7 @@ function buildSlugToSuburl(stores) {
   const map = {};
   (stores || []).forEach((s) => {
     const slug = (s.slug || s.id || '').toString().toLowerCase();
-    const suburl = (s.suburl || '').toString().trim();
-    if (slug) map[slug] = suburl || '';
+    if (slug) map[slug] = getStoreGroup(s) || '';
   });
   return map;
 }
@@ -169,18 +168,23 @@ function filterSettlementByGroup(data, selectedGroup, slugToSuburl) {
   return { ...data, byBrand, pendingShipment };
 }
 
+function getStoreGroup(store) {
+  return (store.suburl || store.group || '').toString().trim() || '';
+}
+
 function populateBrandSelect(stores, selectedGroup) {
   const selectEl = document.getElementById('brandManagerBrandSelect');
   if (!selectEl) return;
   while (selectEl.options.length) selectEl.remove(0);
-  selectEl.appendChild(new Option('브랜드 선택', ''));
+  selectEl.appendChild(new Option('매장 선택', ''));
+  const groupNorm = (selectedGroup || '').toString().trim();
   let list = (stores || []).slice();
-  if (selectedGroup) {
-    list = list.filter((s) => ((s.suburl || '').toString().trim() || '') === selectedGroup);
+  if (groupNorm) {
+    list = list.filter((s) => getStoreGroup(s) === groupNorm);
   }
   list.sort((a, b) => {
-    const ga = (a.suburl || a.id || '').toString().trim() || '';
-    const gb = (b.suburl || b.id || '').toString().trim() || '';
+    const ga = getStoreGroup(a) || (a.id || '').toString().trim() || '';
+    const gb = getStoreGroup(b) || (b.id || '').toString().trim() || '';
     const c = ga.localeCompare(gb, 'ko');
     if (c !== 0) return c;
     const ba = (a.brand || a.title || a.id || '').toString().trim() || '';
@@ -189,7 +193,7 @@ function populateBrandSelect(stores, selectedGroup) {
   });
   list.forEach((s) => {
     const sid = (s.slug || s.id || '').toString().toLowerCase();
-    const groupName = (s.suburl || s.id || sid).toString().trim() || sid;
+    const groupName = getStoreGroup(s) || sid;
     const brandName = (s.brand || s.title || s.id || sid).toString().trim() || sid;
     const label = groupName + '/ ' + brandName;
     if (sid) selectEl.appendChild(new Option(label, sid));
@@ -310,7 +314,7 @@ async function loadSettlementView() {
     const defaultDate = settlementDates[0] || getTodayKST();
     const defaultPeriod = getSettlementPeriodFromBaseDate(defaultDate);
     const dateSelectOptions = settlementDates.map((d) => '<option value="' + escapeHtml(d) + '"' + (d === defaultDate ? ' selected' : '') + '>' + escapeHtml(d) + '</option>').join('');
-    const groupNames = [...new Set(storeList.map((s) => (s.suburl || '').toString().trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+    const groupNames = [...new Set(storeList.map((s) => getStoreGroup(s)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
     const firstGroup = groupNames[0] || '';
     const groupOptions = groupNames.map((g) => '<option value="' + escapeHtml(g) + '"' + (g === firstGroup ? ' selected' : '') + '>' + escapeHtml(g) + '</option>').join('');
     container.innerHTML =

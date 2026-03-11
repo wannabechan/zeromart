@@ -1450,7 +1450,7 @@ function renderSettlementStatementContent(data) {
 
   html += '<div class="admin-settlement-statement-brand">';
   html += '<br><p><strong>정산 브랜드 정보</strong></p><br>';
-  html += '<p class="admin-settlement-statement-bullet">• 브랜드명: ' + brandName + '</p>';
+  html += '<p class="admin-settlement-statement-bullet">• 매장명: ' + brandName + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 담당자이메일: ' + contactEmail + '</p>';
   html += '<p class="admin-settlement-statement-bullet">• 대표자이름: ' + repName + '</p>';
   html += '</div>';
@@ -1656,7 +1656,7 @@ async function loadSettlement() {
     const selectEl = document.getElementById('adminSettlementBrandSelect');
     if (!selectEl) return;
     while (selectEl.options.length) selectEl.remove(0);
-    selectEl.appendChild(new Option('브랜드 선택', ''));
+    selectEl.appendChild(new Option('매장 선택', ''));
     let list = (stores || []).slice();
     if (selectedGroup) {
       list = list.filter((s) => ((s.suburl || '').toString().trim() || '') === selectedGroup);
