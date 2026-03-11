@@ -87,7 +87,7 @@ function getSampleOrders(stores, menusByStore) {
   const { mondays, tuesdays, thursdays } = getSampleOrderDates();
   const todayKST = getTodayKSTDateStr();
 
-  /** 매장 id → 대분류 표시명 (주문 상세에서 slug별 정확한 매장명 표시용) */
+  /** 매장 id → 대분류 표시명. 매장 정보의 '대분류' 입력란(title)에 저장된 값을 사용. */
   function storeDisplayName(store) {
     if (!store) return '';
     return (store.title || store.brand || store.id || '').toString().trim() || (store.id || '');
