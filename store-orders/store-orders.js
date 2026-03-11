@@ -679,7 +679,7 @@ async function loadStoreOrders() {
   const content = document.getElementById('storeOrdersContent');
   const token = getToken();
   if (!token) {
-    showStoreOrdersError('로그인이 필요합니다.');
+    window.location.replace('/');
     return;
   }
 
@@ -688,13 +688,13 @@ async function loadStoreOrders() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!sessionRes.ok) {
-      showStoreOrdersError('세션 확인에 실패했습니다. 다시 로그인해 주세요.');
+      window.location.replace('/');
       return;
     }
     const sessionData = await sessionRes.json();
     const user = sessionData.user;
     if (!user || !user.isStoreManager) {
-      showStoreOrdersError('담당자로 등록된 매장이 없습니다. 매장·메뉴 관리에서 담당자 이메일이 설정된 매장만 접근할 수 있습니다.');
+      window.location.replace('/');
       return;
     }
 
@@ -703,7 +703,7 @@ async function loadStoreOrders() {
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
-        showStoreOrdersError('접근 권한이 없습니다.');
+        window.location.replace('/');
         return;
       }
       content.innerHTML = '<div class="admin-loading">주문 목록을 불러올 수 없습니다.</div>';

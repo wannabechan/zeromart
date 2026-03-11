@@ -168,7 +168,110 @@ async function loadStoresView() {
   }
 }
 
+function openPermissionsAddModal(storeId) {
+  const modal = document.getElementById('adminPermissionsAddModal');
+  const textarea = document.getElementById('adminPermissionsAddTextarea');
+  if (!modal || !textarea) return;
+  modal.dataset.storeId = storeId || '';
+  textarea.value = '';
+  modal.classList.add('admin-modal-visible');
+  modal.setAttribute('aria-hidden', 'false');
+  textarea.focus();
+}
+
+function closePermissionsAddModal() {
+  const modal = document.getElementById('adminPermissionsAddModal');
+  if (modal) {
+    modal.classList.remove('admin-modal-visible');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function openPermissionsRemoveModal(storeId, email) {
+  const modal = document.getElementById('adminPermissionsRemoveModal');
+  const msgEl = document.getElementById('adminPermissionsRemoveMessage');
+  const emailEl = document.getElementById('adminPermissionsRemoveEmail');
+  if (!modal) return;
+  modal.dataset.storeId = storeId || '';
+  modal.dataset.email = email || '';
+  if (msgEl) msgEl.textContent = '이용 권한을 삭제하시겠습니까?';
+  if (emailEl) emailEl.textContent = email || '';
+  modal.classList.add('admin-modal-visible');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closePermissionsRemoveModal() {
+  const modal = document.getElementById('adminPermissionsRemoveModal');
+  if (modal) {
+    modal.classList.remove('admin-modal-visible');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function initPermissionsModalsOnce() {
+  if (window._permissionsModalsInited) return;
+  window._permissionsModalsInited = true;
+
+  const addModal = document.getElementById('adminPermissionsAddModal');
+  const addClose = document.getElementById('adminPermissionsAddModalClose');
+  const addCancel = document.getElementById('adminPermissionsAddCancel');
+  const addSubmit = document.getElementById('adminPermissionsAddSubmit');
+  const addTextarea = document.getElementById('adminPermissionsAddTextarea');
+
+  if (addClose) addClose.addEventListener('click', closePermissionsAddModal);
+  if (addCancel) addCancel.addEventListener('click', closePermissionsAddModal);
+  if (addSubmit) {
+    addSubmit.addEventListener('click', async () => {
+      const storeId = addModal && addModal.dataset.storeId;
+      if (!storeId) return;
+      const raw = (addTextarea && addTextarea.value) || '';
+      const lines = raw.split(/\r?\n/).map((line) => line.split(/[,;\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)).flat();
+      const emails = [...new Set(lines)].filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+      if (emails.length === 0) {
+        alert('올바른 이메일을 한 줄에 하나씩 입력해 주세요.');
+        return;
+      }
+      addSubmit.disabled = true;
+      try {
+        for (const email of emails) {
+          await patchStoreAllowedEmails(storeId, email, 'add');
+        }
+        closePermissionsAddModal();
+        loadPermissionsView();
+      } catch (e) {
+        alert(e.message || '추가에 실패했습니다.');
+      } finally {
+        addSubmit.disabled = false;
+      }
+    });
+  }
+
+  const removeModal = document.getElementById('adminPermissionsRemoveModal');
+  const removeClose = document.getElementById('adminPermissionsRemoveModalClose');
+  const removeConfirm = document.getElementById('adminPermissionsRemoveConfirm');
+
+  if (removeClose) removeClose.addEventListener('click', closePermissionsRemoveModal);
+  if (removeConfirm) {
+    removeConfirm.addEventListener('click', async () => {
+      const storeId = removeModal && removeModal.dataset.storeId;
+      const email = removeModal && removeModal.dataset.email;
+      if (!storeId || !email) return;
+      removeConfirm.disabled = true;
+      try {
+        await patchStoreAllowedEmails(storeId, email, 'remove');
+        closePermissionsRemoveModal();
+        loadPermissionsView();
+      } catch (e) {
+        alert(e.message || '삭제에 실패했습니다.');
+      } finally {
+        removeConfirm.disabled = false;
+      }
+    });
+  }
+}
+
 async function loadPermissionsView() {
+  initPermissionsModalsOnce();
   const container = document.getElementById('adminPermissionsContent');
   if (!container) return;
   container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
@@ -184,7 +287,20 @@ async function loadPermissionsView() {
         const storeIdEsc = escapeHtml(s.id || '');
         const emails = Array.isArray(s.allowedEmails) ? s.allowedEmails : [];
         const emailsHtml = emails.length
-          ? '<ul class="admin-permissions-emails-list">' + emails.map((e) => '<li>' + escapeHtml(e) + '</li>').join('') + '</ul>'
+          ? '<ul class="admin-permissions-emails-list">' +
+            emails
+              .map(
+                (e) =>
+                  '<li><button type="button" class="admin-permissions-email-chip" data-permissions-remove data-store-id="' +
+                  escapeHtml(s.id || '') +
+                  '" data-email="' +
+                  escapeHtml(e) +
+                  '">' +
+                  escapeHtml(e) +
+                  '</button></li>'
+              )
+              .join('') +
+            '</ul>'
           : '<span class="admin-permissions-empty">등록된 사용자 없음</span>';
         return (
           '<div class="admin-permissions-row" data-store-id="' + storeIdEsc + '">' +
@@ -195,28 +311,21 @@ async function loadPermissionsView() {
         );
       })
       .join('');
-    container.innerHTML = '<p class="admin-modal-hint" style="margin-bottom:12px;">그룹(카테고리)별로 접근 가능한 사용자 이메일을 등록하세요. 등록된 사용자는 해당 그룹의 상품에 접근할 수 있습니다.</p><div class="admin-permissions-list">' + listHtml + '</div>';
+    container.innerHTML =
+      '<p class="admin-modal-hint" style="margin-bottom:12px;">그룹(카테고리)별로 접근 가능한 사용자 이메일을 등록하세요. 등록된 사용자는 해당 그룹의 상품에 접근할 수 있습니다.</p><div class="admin-permissions-list">' +
+      listHtml +
+      '</div>';
     container.querySelectorAll('[data-permissions-add]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         const storeId = btn.dataset.permissionsAdd;
-        const store = stores.find((s) => s.id === storeId);
-        if (!store) return;
-        const email = window.prompt('추가할 사용자 이메일을 입력하세요.');
-        if (email == null || (email && !email.trim())) return;
-        const trimmed = email.trim().toLowerCase();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-          alert('올바른 이메일을 입력해 주세요.');
-          return;
-        }
-        try {
-          btn.disabled = true;
-          await patchStoreAllowedEmails(storeId, trimmed, 'add');
-          loadPermissionsView();
-        } catch (e) {
-          alert(e.message || '추가에 실패했습니다.');
-        } finally {
-          btn.disabled = false;
-        }
+        if (storeId) openPermissionsAddModal(storeId);
+      });
+    });
+    container.querySelectorAll('[data-permissions-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const storeId = btn.dataset.storeId;
+        const email = btn.dataset.email;
+        if (storeId && email) openPermissionsRemoveModal(storeId, email);
       });
     });
   } catch (e) {
@@ -1731,7 +1840,7 @@ function closeAdminOrderDetail() {
 async function init() {
   const authResult = await checkAdmin();
   if (!authResult.ok) {
-    showLoadingError(authResult.error || '접근할 수 없습니다.');
+    window.location.replace('/');
     return;
   }
   

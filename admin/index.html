@@ -311,6 +311,9 @@
     .admin-permissions-emails-list li { padding: 2px 0; }
     .admin-permissions-empty { color: var(--color-text-muted); font-size: 0.8125rem; }
     .admin-permissions-add-btn { flex-shrink: 0; }
+    .admin-permissions-email-chip { display: inline-block; margin: 2px 4px 2px 0; padding: 4px 10px; font-size: 0.8125rem; color: var(--color-primary); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .admin-permissions-email-chip:hover { border-color: var(--color-primary); background: rgba(44,44,44,0.06); }
+    .admin-permissions-remove-email { font-size: 0.9375rem; font-weight: 500; color: var(--color-text); margin: 8px 0 0; word-break: break-all; }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
@@ -378,6 +381,39 @@
     <div id="permissionsView" class="admin-view">
       <div id="adminPermissionsContent">
         <div class="admin-loading">로딩 중...</div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminPermissionsAddModal" aria-hidden="true">
+      <div class="admin-modal">
+        <div class="admin-modal-header">
+          <h3>사용자 추가</h3>
+          <button type="button" class="admin-modal-close" id="adminPermissionsAddModalClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint">추가할 이메일을 한 줄에 하나씩 입력하세요. 여러 계정을 한 번에 등록할 수 있습니다.</p>
+          <textarea id="adminPermissionsAddTextarea" class="admin-form-input" rows="6" placeholder="user1@example.com&#10;user2@example.com"></textarea>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-secondary" id="adminPermissionsAddCancel">취소</button>
+          <button type="button" class="admin-btn admin-btn-primary" id="adminPermissionsAddSubmit">추가</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminPermissionsRemoveModal" aria-hidden="true">
+      <div class="admin-modal">
+        <div class="admin-modal-header">
+          <h3>이용 권한 삭제</h3>
+          <button type="button" class="admin-modal-close" id="adminPermissionsRemoveModalClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint" id="adminPermissionsRemoveMessage">이용 권한을 삭제하시겠습니까?</p>
+          <p class="admin-permissions-remove-email" id="adminPermissionsRemoveEmail"></p>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-danger" id="adminPermissionsRemoveConfirm">삭제</button>
+        </div>
       </div>
     </div>
 
