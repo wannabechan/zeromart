@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     return apiResponse(res, 200, {});
   }
 
-  if (req.method !== 'GET' && req.method !== 'PUT') {
+  if (req.method !== 'GET' && req.method !== 'PUT' && req.method !== 'PATCH') {
     return apiResponse(res, 405, { error: 'Method not allowed' });
   }
 
@@ -70,6 +70,41 @@ module.exports = async (req, res) => {
         return { ...s, allowedEmails: normalizedList };
       });
       await saveStoresAndMenus(storesWithAdmin, menus);
+      return apiResponse(res, 200, { success: true });
+    }
+
+    if (req.method === 'PATCH') {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const { storeId, email, action } = body;
+      const emailTrim = (email && String(email).trim().toLowerCase()) || '';
+      if (!storeId || typeof storeId !== 'string' || !emailTrim || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+        return apiResponse(res, 400, { error: 'storeId와 유효한 email이 필요합니다.' });
+      }
+      if (action !== 'add' && action !== 'remove') {
+        return apiResponse(res, 400, { error: 'action은 add 또는 remove여야 합니다.' });
+      }
+      const stores = await getStores();
+      const storeIndex = (stores || []).findIndex((s) => s.id === storeId.trim());
+      if (storeIndex === -1) {
+        return apiResponse(res, 404, { error: '해당 그룹(매장)을 찾을 수 없습니다.' });
+      }
+      const menusByStore = {};
+      for (const s of stores) {
+        menusByStore[s.id] = await getMenus(s.id);
+      }
+      let list = Array.isArray(stores[storeIndex].allowedEmails) ? [...stores[storeIndex].allowedEmails] : [];
+      list = list.map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+      if (action === 'add') {
+        if (list.includes(emailTrim)) {
+          return apiResponse(res, 200, { success: true });
+        }
+        list.push(emailTrim);
+      } else {
+        list = list.filter((e) => e !== emailTrim);
+      }
+      const updatedStores = stores.slice();
+      updatedStores[storeIndex] = { ...updatedStores[storeIndex], allowedEmails: list };
+      await saveStoresAndMenus(updatedStores, menusByStore);
       return apiResponse(res, 200, { success: true });
     }
   } catch (error) {

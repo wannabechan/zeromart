@@ -303,11 +303,21 @@
     .admin-settlement-statement-issuer p { margin: 2px 0; }
     .admin-settlement-pdf-btn { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
     .admin-settlement-pdf-btn:hover { opacity: 0.9; }
+    .admin-permissions-list { display: flex; flex-direction: column; gap: 12px; }
+    .admin-permissions-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius); flex-wrap: wrap; }
+    .admin-permissions-group { font-weight: 600; color: var(--color-text); min-width: 120px; }
+    .admin-permissions-users { flex: 1; min-width: 0; font-size: 0.875rem; color: var(--color-text-secondary); }
+    .admin-permissions-emails-list { list-style: none; margin: 0; padding: 0; }
+    .admin-permissions-emails-list li { padding: 2px 0; }
+    .admin-permissions-empty { color: var(--color-text-muted); font-size: 0.8125rem; }
+    .admin-permissions-add-btn { flex-shrink: 0; }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
+      .admin-tab[data-tab="permissions"] { display: none; }
       #storesView { display: none !important; }
       #settlementView { display: none !important; }
+      #permissionsView { display: none !important; }
       .admin-tabs { display: flex; gap: 0; }
       .admin-tabs .admin-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
       .admin-payment-subfilter-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -337,6 +347,7 @@
       <button class="admin-tab active" data-tab="payments">결제관리</button>
       <button class="admin-tab" data-tab="stats">통계관리</button>
       <button class="admin-tab" data-tab="settlement">정산관리</button>
+      <button class="admin-tab" data-tab="permissions">권한관리</button>
     </div>
 
     <div id="adminError" class="admin-error" style="display: none;"></div>
@@ -364,6 +375,12 @@
       <div id="adminSettlementContent"></div>
     </div>
 
+    <div id="permissionsView" class="admin-view">
+      <div id="adminPermissionsContent">
+        <div class="admin-loading">로딩 중...</div>
+      </div>
+    </div>
+
     <div class="admin-order-detail-overlay" id="adminOrderDetailOverlay" aria-hidden="true">
       <div class="admin-order-detail-panel">
         <div class="admin-order-detail-header">
@@ -389,20 +406,12 @@
         </div>
         <p class="admin-modal-store-name" id="adminApiSettingsStoreTitle">—</p>
         <div class="admin-modal-tabs">
-          <button type="button" class="admin-modal-tab active" data-settings-tab="user-emails">사용자 등록</button>
-          <button type="button" class="admin-modal-tab" data-settings-tab="business-days">영업 요일</button>
+          <button type="button" class="admin-modal-tab active" data-settings-tab="business-days">영업 요일</button>
           <button type="button" class="admin-modal-tab" data-settings-tab="business-hours">영업 시간</button>
           <button type="button" class="admin-modal-tab" data-settings-tab="payment-env">결제키 환경변수</button>
         </div>
         <div class="admin-modal-body">
-          <div class="admin-modal-panel active" id="adminSettingsPanelUserEmails">
-            <div class="admin-form-row admin-user-emails-row">
-              <input type="email" id="adminSettingsUserEmailInput" class="admin-form-input" placeholder="사용자 이메일을 등록하세요.">
-              <button type="button" class="admin-btn admin-btn-primary" id="adminSettingsUserEmailAdd">추가</button>
-            </div>
-            <ul class="admin-user-emails-list" id="adminSettingsUserEmailsList"></ul>
-          </div>
-          <div class="admin-modal-panel" id="adminSettingsPanelBusinessDays">
+          <div class="admin-modal-panel active" id="adminSettingsPanelBusinessDays">
             <p class="admin-modal-hint">매장 운영 요일 (참고용)</p>
             <div class="admin-business-days" id="adminApiSettingsBusinessDays">
               <label class="admin-business-day"><input type="checkbox" data-day="0" value="0"> 일</label>

@@ -122,6 +122,108 @@ async function saveStores(stores, menus) {
   }
 }
 
+async function patchStoreAllowedEmails(storeId, email, action) {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/api/admin/stores`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ storeId, email: email.trim().toLowerCase(), action }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || '처리에 실패했습니다.');
+  }
+}
+
+async function loadStoresView() {
+  const content = document.getElementById('adminContent');
+  if (!content) return;
+  try {
+    const { stores, menus } = await fetchStores();
+    adminGroupNames = [...new Set(stores.map((s) => (s.suburl || '').trim()).filter(Boolean))].sort((a, b) => String(a).localeCompare(b, 'ko'));
+    const indexHtml = stores.length > 1
+      ? `<div class="admin-index">
+          <span class="admin-index-label">바로가기</span>
+          <div class="admin-index-btns">
+            ${stores.map((s) => `<button type="button" class="admin-btn admin-btn-index" data-goto-store="${escapeHtml(s.id || '')}">${escapeHtml(s.title || s.id || '')}</button>`).join('')}
+          </div>
+        </div>`
+      : '';
+    content.innerHTML = `
+      ${indexHtml}
+      <div class="admin-stores-list" id="adminStoresList">
+        ${stores.map((s) => renderStore({ ...s, registered: true }, menus[s.id] || [], adminGroupNames)).join('')}
+      </div>
+      <div class="admin-add-store-row">
+        <button type="button" class="admin-btn admin-btn-secondary admin-btn-add-store" data-add-store>+ 카테고리 추가</button>
+        <button type="button" class="admin-btn admin-btn-reorder-stores" data-reorder-stores aria-label="카테고리 순서 변경" title="카테고리 순서 변경"><span class="admin-reorder-icon" aria-hidden="true">↕</span></button>
+      </div>
+    `;
+  } catch (e) {
+    content.innerHTML = '<div class="admin-loading">로딩에 실패했습니다.</div>';
+    showError(e.message);
+  }
+}
+
+async function loadPermissionsView() {
+  const container = document.getElementById('adminPermissionsContent');
+  if (!container) return;
+  container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  try {
+    const { stores } = await fetchStores();
+    if (!Array.isArray(stores) || stores.length === 0) {
+      container.innerHTML = '<p class="admin-modal-hint">등록된 그룹(카테고리)이 없습니다. 매장관리에서 카테고리를 추가한 뒤 이용하세요.</p>';
+      return;
+    }
+    const listHtml = stores
+      .map((s) => {
+        const titleEsc = escapeHtml(s.title || s.id || '');
+        const storeIdEsc = escapeHtml(s.id || '');
+        const emails = Array.isArray(s.allowedEmails) ? s.allowedEmails : [];
+        const emailsHtml = emails.length
+          ? '<ul class="admin-permissions-emails-list">' + emails.map((e) => '<li>' + escapeHtml(e) + '</li>').join('') + '</ul>'
+          : '<span class="admin-permissions-empty">등록된 사용자 없음</span>';
+        return (
+          '<div class="admin-permissions-row" data-store-id="' + storeIdEsc + '">' +
+          '<div class="admin-permissions-group">' + titleEsc + '</div>' +
+          '<div class="admin-permissions-users">' + emailsHtml + '</div>' +
+          '<button type="button" class="admin-btn admin-btn-primary admin-permissions-add-btn" data-permissions-add="' + storeIdEsc + '">사용자 추가</button>' +
+          '</div>'
+        );
+      })
+      .join('');
+    container.innerHTML = '<p class="admin-modal-hint" style="margin-bottom:12px;">그룹(카테고리)별로 접근 가능한 사용자 이메일을 등록하세요. 등록된 사용자는 해당 그룹의 상품에 접근할 수 있습니다.</p><div class="admin-permissions-list">' + listHtml + '</div>';
+    container.querySelectorAll('[data-permissions-add]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const storeId = btn.dataset.permissionsAdd;
+        const store = stores.find((s) => s.id === storeId);
+        if (!store) return;
+        const email = window.prompt('추가할 사용자 이메일을 입력하세요.');
+        if (email == null || (email && !email.trim())) return;
+        const trimmed = email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+          alert('올바른 이메일을 입력해 주세요.');
+          return;
+        }
+        try {
+          btn.disabled = true;
+          await patchStoreAllowedEmails(storeId, trimmed, 'add');
+          loadPermissionsView();
+        } catch (e) {
+          alert(e.message || '추가에 실패했습니다.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (e) {
+    container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
+  }
+}
+
 async function uploadImage(file) {
   const token = getToken();
   const formData = new FormData();
@@ -387,17 +489,21 @@ function setupTabs() {
       if (targetTab === 'stores') {
         document.getElementById('storesView').classList.add('active');
         clearPaymentIdleTimer();
+        loadStoresView();
       } else if (targetTab === 'payments') {
         document.getElementById('paymentsView').classList.add('active');
         adminPaymentSubFilter = 'delivery_wait';
         loadPaymentManagement().then(() => startPaymentIdleRefresh());
-    } else     if (targetTab === 'stats') {
-      document.getElementById('statsView').classList.add('active');
-      loadStats();
-    } else if (targetTab === 'settlement') {
-      document.getElementById('settlementView').classList.add('active');
-      loadSettlement();
-    }
+      } else if (targetTab === 'stats') {
+        document.getElementById('statsView').classList.add('active');
+        loadStats();
+      } else if (targetTab === 'settlement') {
+        document.getElementById('settlementView').classList.add('active');
+        loadSettlement();
+      } else if (targetTab === 'permissions') {
+        document.getElementById('permissionsView').classList.add('active');
+        loadPermissionsView();
+      }
   }
 
   tabs.forEach(tab => {
@@ -413,8 +519,8 @@ function setupTabs() {
   const saved = sessionStorage.getItem(ADMIN_TAB_KEY);
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
-    ? (saved && ['payments', 'stats'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement'].includes(saved) ? saved : 'stores');
+    ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
@@ -1669,38 +1775,12 @@ async function init() {
         .filter(Boolean);
       businessHoursInput.value = checked.length ? checked.join(',') : BUSINESS_HOURS_SLOTS.join(',');
     }
-    const listEl = document.getElementById('adminSettingsUserEmailsList');
-    const emails = Array.from(listEl?.querySelectorAll('li') || []).map((li) => (li.textContent || '').trim()).filter(Boolean);
-    const allowedEmailsInput = storeEl.querySelector('input[data-field="allowedEmails"]');
-    if (allowedEmailsInput) {
-      allowedEmailsInput.value = JSON.stringify(emails).replace(/"/g, '&quot;');
-    }
     closeApiSettingsModal();
     alert('매장 하단 [저장] 버튼을 눌러 저장을 완료하세요.');
   }
   document.getElementById('adminApiSettingsModalClose')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsCancel')?.addEventListener('click', closeApiSettingsModal);
   document.getElementById('adminApiSettingsApply')?.addEventListener('click', applyApiSettingsModal);
-  document.getElementById('adminSettingsUserEmailAdd')?.addEventListener('click', () => {
-    const input = document.getElementById('adminSettingsUserEmailInput');
-    const listEl = document.getElementById('adminSettingsUserEmailsList');
-    const email = (input?.value || '').trim().toLowerCase();
-    if (!email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      alert('올바른 이메일을 입력해 주세요.');
-      return;
-    }
-    const modal = document.getElementById('adminApiSettingsModal');
-    const storeId = modal?.dataset?.currentStoreId;
-    if (!storeId || !listEl) return;
-    const existing = Array.from(listEl.querySelectorAll('li')).map((li) => (li.textContent || '').trim().toLowerCase());
-    if (existing.includes(email)) {
-      alert('이미 등록된 메일입니다.');
-      return;
-    }
-    listEl.appendChild(Object.assign(document.createElement('li'), { textContent: email }));
-    if (input) input.value = '';
-  });
   document.getElementById('adminApiSettingsModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'adminApiSettingsModal') closeApiSettingsModal();
     if (e.target.closest('[data-settings-tab]')) {
@@ -1709,7 +1789,7 @@ async function init() {
       if (!modal) return;
       const tabId = tab.dataset.settingsTab;
       modal.querySelectorAll('.admin-modal-tab').forEach((t) => t.classList.toggle('active', t.dataset.settingsTab === tabId));
-      const panelMap = { 'payment-env': 'adminSettingsPanelPaymentEnv', 'business-days': 'adminSettingsPanelBusinessDays', 'business-hours': 'adminSettingsPanelBusinessHours', 'user-emails': 'adminSettingsPanelUserEmails' };
+      const panelMap = { 'payment-env': 'adminSettingsPanelPaymentEnv', 'business-days': 'adminSettingsPanelBusinessDays', 'business-hours': 'adminSettingsPanelBusinessHours' };
       const panelId = panelMap[tabId];
       modal.querySelectorAll('.admin-modal-panel').forEach((p) => p.classList.remove('active'));
       if (panelId) document.getElementById(panelId)?.classList.add('active');
@@ -1781,27 +1861,10 @@ async function init() {
           businessHoursContainer?.querySelectorAll('input[data-slot]').forEach((cb) => {
             cb.checked = hoursSet.has(cb.dataset.slot);
           });
-          const allowedEmailsInput = storeEl.querySelector('input[data-field="allowedEmails"]');
-          let emailsList = [];
-          try {
-            const raw = (allowedEmailsInput?.value || '').replace(/&quot;/g, '"').trim() || '[]';
-            emailsList = JSON.parse(raw);
-            if (!Array.isArray(emailsList)) emailsList = [];
-          } catch (_) {}
-          const adminNorm = (adminEmailFromServer || '').trim().toLowerCase();
-          const displayList = adminNorm
-            ? [adminNorm, ...emailsList.map((e) => String(e || '').trim().toLowerCase()).filter((e) => e && e !== adminNorm)]
-            : emailsList.map((e) => String(e || '').trim()).filter(Boolean);
-          const userEmailsListEl = document.getElementById('adminSettingsUserEmailsList');
-          if (userEmailsListEl) {
-            userEmailsListEl.innerHTML = displayList.map((e) => '<li>' + escapeHtml(e) + '</li>').join('');
-          }
-          const userEmailInputEl = document.getElementById('adminSettingsUserEmailInput');
-          if (userEmailInputEl) userEmailInputEl.value = '';
           modal.querySelectorAll('.admin-modal-tab').forEach((t) => t.classList.remove('active'));
-          modal.querySelector('[data-settings-tab="user-emails"]')?.classList.add('active');
+          modal.querySelector('[data-settings-tab="business-days"]')?.classList.add('active');
           modal.querySelectorAll('.admin-modal-panel').forEach((p) => p.classList.remove('active'));
-          document.getElementById('adminSettingsPanelUserEmails')?.classList.add('active');
+          document.getElementById('adminSettingsPanelBusinessDays')?.classList.add('active');
           modal.classList.add('admin-modal-visible');
           modal.setAttribute('aria-hidden', 'false');
         }
