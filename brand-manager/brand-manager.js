@@ -168,8 +168,14 @@ function filterSettlementByGroup(data, selectedGroup, slugToSuburl) {
   return { ...data, byBrand, pendingShipment };
 }
 
+function normalizeGroup(g) {
+  return (g == null ? '' : String(g)).trim().replace(/\s+/g, ' ') || '';
+}
+
 function getStoreGroup(store) {
-  return (store.suburl || store.group || '').toString().trim() || '';
+  if (!store || typeof store !== 'object') return '';
+  const raw = store.suburl ?? store.group ?? '';
+  return normalizeGroup(raw);
 }
 
 function populateBrandSelect(stores, selectedGroup) {
@@ -177,11 +183,7 @@ function populateBrandSelect(stores, selectedGroup) {
   if (!selectEl) return;
   while (selectEl.options.length) selectEl.remove(0);
   selectEl.appendChild(new Option('매장 선택', ''));
-  const groupNorm = (selectedGroup || '').toString().trim();
   let list = (stores || []).slice();
-  if (groupNorm) {
-    list = list.filter((s) => getStoreGroup(s) === groupNorm);
-  }
   list.sort((a, b) => {
     const ga = getStoreGroup(a) || (a.id || '').toString().trim() || '';
     const gb = getStoreGroup(b) || (b.id || '').toString().trim() || '';
@@ -308,8 +310,13 @@ async function loadSettlementView() {
       container.innerHTML = '<p class="admin-stats-error">' + escapeHtml(err.error || '매장 목록을 불러올 수 없습니다.') + '</p>';
       return;
     }
-    const { stores } = await storesRes.json();
-    const storeList = Array.isArray(stores) ? stores : [];
+    const data = await storesRes.json();
+    const rawStores = data.stores != null ? data.stores : data;
+    const storeList = Array.isArray(rawStores)
+      ? rawStores.flat().filter((s) => s && typeof s === 'object')
+      : (rawStores && typeof rawStores === 'object' && !Array.isArray(rawStores))
+        ? Object.values(rawStores).flat().filter((s) => s && typeof s === 'object')
+        : [];
     const settlementDates = getSettlementDateOptions();
     const defaultDate = settlementDates[0] || getTodayKST();
     const defaultPeriod = getSettlementPeriodFromBaseDate(defaultDate);
