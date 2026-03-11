@@ -1921,10 +1921,12 @@ function renderAdminOrderDetailHtml(order) {
       </div>
     </div>
   `;
+  // 샘플 주문 등 서버에서 내려준 slug별 표시명이 있으면 우선 사용 (4번 매장 id가 'store'일 때 대분류명 정상 표시)
+  const storeDisplayNames = order.store_display_names || {};
   return categoryOrder
     .filter(slug => byCategory[slug]?.length)
     .map(slug => {
-      const title = adminStoresMap[slug] || slug;
+      const title = storeDisplayNames[slug] || adminStoresMap[slug] || slug;
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderItem).join('');
       return `

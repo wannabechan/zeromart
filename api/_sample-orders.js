@@ -224,6 +224,11 @@ function getSampleOrders(stores, menusByStore) {
       price: price5,
       quantity: 3,
     };
+    // 주문 상세에서 slug별 대분류명 표시용 (4·5번 매장 id가 'store' 등일 때 클라이언트 매핑 누락 방지)
+    const storeDisplayNames = {
+      [fourthStore.id]: (fourthStore.title || fourthStore.brand || fourthStore.id || '').toString().trim() || fourthStore.id,
+      [fifthStore.id]: (fifthStore.title || fifthStore.brand || fifthStore.id || '').toString().trim() || fifthStore.id,
+    };
     thursdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -246,6 +251,7 @@ function getSampleOrders(stores, menusByStore) {
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
+        store_display_names: storeDisplayNames,
       });
     });
   }
