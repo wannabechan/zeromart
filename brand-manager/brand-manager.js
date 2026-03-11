@@ -344,12 +344,11 @@ async function loadSettlementView() {
       '<div id="brandManagerPending" class="admin-settlement-pending"></div>' +
       '</section>' +
       '<div class="admin-settlement-statement-area">' +
-      '<h3 class="admin-settlement-statement-heading">정산서 출력</h3>' +
+      '<h3 class="admin-settlement-statement-heading">정산 분석</h3>' +
       '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
       '<select id="brandManagerBrandSelect" class="admin-settlement-brand-select"></select>' +
       '</div>' +
       '<div id="brandManagerStatementResult" class="admin-settlement-statement-result"></div>' +
-      '<div style="margin-top:16px;"><button type="button" class="admin-btn admin-settlement-pdf-btn" id="brandManagerPdfBtn">PDF 출력하기</button></div>' +
       '</div>';
     const slugToSuburl = buildSlugToSuburl(storeList);
     populateBrandSelect(storeList, firstGroup);
@@ -370,7 +369,6 @@ async function loadSettlementView() {
       if (resultBox) resultBox.innerHTML = '';
     });
     document.getElementById('brandManagerBrandSelect')?.addEventListener('change', runStatementSearch);
-    document.getElementById('brandManagerPdfBtn')?.addEventListener('click', printStatement);
   } catch (e) {
     container.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
   }
