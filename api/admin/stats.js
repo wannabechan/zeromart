@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
     const endDateStr = (req.query.endDate || '').trim();
     const startRange = /^\d{4}-\d{2}-\d{2}$/.test(startDateStr) ? getKSTDayRange(startDateStr) : null;
     const endRange = /^\d{4}-\d{2}-\d{2}$/.test(endDateStr) ? getKSTDayRange(endDateStr) : null;
-    let orders = await getAllOrders() || [];
+    let orders = await getOrdersForAdmin() || [];
     const stores = await getStores() || [];
     const storeTitles = {};
     const storeBrands = {};

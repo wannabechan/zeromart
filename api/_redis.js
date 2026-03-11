@@ -296,6 +296,23 @@ async function getAllOrders() {
   return orders;
 }
 
+/**
+ * 어드민 전용: 환경변수 ADMIN_USE_SAMPLE_ORDERS === 'true' 이면 샘플 주문 반환, 아니면 실제 DB 주문.
+ * 주문관리/통계관리/정산관리 테스트용.
+ */
+async function getOrdersForAdmin() {
+  if (String(process.env.ADMIN_USE_SAMPLE_ORDERS || '').trim().toLowerCase() === 'true') {
+    const { getSampleOrders } = require('./_sample-orders');
+    const stores = await getStores() || [];
+    const menusByStore = {};
+    for (const s of stores) {
+      menusByStore[s.id] = await getMenus(s.id) || [];
+    }
+    return getSampleOrders(stores, menusByStore);
+  }
+  return getAllOrders();
+}
+
 // ===== Stores & Menus (Admin) =====
 
 const STORES_KEY = 'app:stores';
@@ -498,6 +515,7 @@ module.exports = {
   updateOrderTossPaymentKey,
   updateOrderUserAsOrderSent,
   getAllOrders,
+  getOrdersForAdmin,
   getStores,
   getMenus,
   saveStoresAndMenus,

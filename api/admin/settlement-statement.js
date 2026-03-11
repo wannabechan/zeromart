@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
 
@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     }
     if (!slug) return apiResponse(res, 400, { error: 'slug(브랜드)가 필요합니다.' });
 
-    const orders = await getAllOrders() || [];
+    const orders = await getOrdersForAdmin() || [];
     const stores = await getStores() || [];
 
     const filtered = orders.filter((o) => {

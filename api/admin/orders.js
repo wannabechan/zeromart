@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getProfileSettingsBatch } = require('../_redis');
+const { getOrdersForAdmin, getProfileSettingsBatch } = require('../_redis');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 25), 100);
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
-    const allOrders = await getAllOrders();
+    const allOrders = await getOrdersForAdmin();
     const sorted = (allOrders || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
