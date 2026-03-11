@@ -91,7 +91,7 @@ function renderSettlementTable(byBrand) {
 function renderSettlementPendingList(pendingShipment) {
   const heading = '<h4 class="admin-settlement-pending-heading">주문 완료 (발송 완료 미처리) 목록</h4>';
   if (!pendingShipment || pendingShipment.length === 0) {
-    return heading + '<p class="admin-settlement-empty">정산 구간 내 미발송 주문이 없습니다.</p>';
+    return heading + '<p class="admin-settlement-empty">정산 구간 내 발송 완료 미처리 주문이 없습니다.</p>';
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
   const statusLabel = (s) => (s === 'shipping' ? '배송중' : '결제완료');
@@ -342,33 +342,17 @@ async function loadSettlementView() {
       '<p class="brand-manager-settlement-caption admin-settlement-caption">&gt;&gt; 정산구간 : ' + escapeHtml(defaultPeriod.startDate) + ' ~ ' + escapeHtml(defaultPeriod.endDate) + '</p>' +
       '<div id="brandManagerByDate"></div>' +
       '<div id="brandManagerPending" class="admin-settlement-pending"></div>' +
-      '</section>' +
-      '<div class="admin-settlement-statement-area">' +
-      '<h3 class="admin-settlement-statement-heading">정산 분석</h3>' +
-      '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
-      '<select id="brandManagerBrandSelect" class="admin-settlement-brand-select"></select>' +
-      '</div>' +
-      '<div id="brandManagerStatementResult" class="admin-settlement-statement-result"></div>' +
-      '</div>';
+      '</section>';
     const slugToSuburl = buildSlugToSuburl(storeList);
-    populateBrandSelect(storeList, firstGroup);
     await fetchAndRenderSettlement(defaultDate, storeList, slugToSuburl);
     document.getElementById('brandManagerDateSelect')?.addEventListener('change', function () {
       fetchAndRenderSettlement(this.value, storeList, slugToSuburl);
-      const resultBox = document.getElementById('brandManagerStatementResult');
-      if (resultBox) resultBox.innerHTML = '';
-      const brandSelect = document.getElementById('brandManagerBrandSelect');
-      if (brandSelect) brandSelect.selectedIndex = 0;
     });
     document.getElementById('brandManagerGroupSelect')?.addEventListener('change', function () {
       const selGroup = this.value || '';
-      populateBrandSelect(storeList, selGroup);
       const dateSelect = document.getElementById('brandManagerDateSelect');
       fetchAndRenderSettlement(dateSelect?.value || defaultDate, storeList, slugToSuburl);
-      const resultBox = document.getElementById('brandManagerStatementResult');
-      if (resultBox) resultBox.innerHTML = '';
     });
-    document.getElementById('brandManagerBrandSelect')?.addEventListener('change', runStatementSearch);
   } catch (e) {
     container.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
   }

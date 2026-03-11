@@ -1274,7 +1274,7 @@ function renderSettlementTable(byBrand) {
 function renderSettlementPendingList(pendingShipment) {
   const heading = '<h4 class="admin-settlement-pending-heading">주문 완료 (발송 완료 미처리) 목록</h4>';
   if (!pendingShipment || pendingShipment.length === 0) {
-    return heading + '<p class="admin-settlement-empty">정산 구간 내 미발송 주문이 없습니다.</p>';
+    return heading + '<p class="admin-settlement-empty">정산 구간 내 발송 완료 미처리 주문이 없습니다.</p>';
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
   const statusLabel = (s) => (s === 'shipping' ? '배송중' : '결제완료');

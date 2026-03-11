@@ -24,9 +24,17 @@ module.exports = async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+    const codeTrimmed = (code || '').toString().trim();
 
-    // 코드 검증 및 삭제 (1회용)
-    const valid = await getAndDeleteAuthCode(normalizedEmail, code);
+    // 테스트 계정: USERTEST_ACCOUNT + USERTEST_PASSWORD(6자리 코드)로 로그인 허용
+    const testAccount = (process.env.USERTEST_ACCOUNT || '').trim().toLowerCase();
+    const testPassword = (process.env.USERTEST_PASSWORD || '').toString().trim();
+    const isTestLogin = testAccount && testPassword && normalizedEmail === testAccount && codeTrimmed === testPassword;
+
+    let valid = isTestLogin;
+    if (!valid) {
+      valid = await getAndDeleteAuthCode(normalizedEmail, codeTrimmed);
+    }
     if (!valid) {
       return apiResponse(res, 401, { error: '인증 코드가 유효하지 않거나 만료되었습니다.' });
     }
