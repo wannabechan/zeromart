@@ -87,6 +87,12 @@ function getSampleOrders(stores, menusByStore) {
   const { mondays, tuesdays, thursdays } = getSampleOrderDates();
   const todayKST = getTodayKSTDateStr();
 
+  /** 매장 id → 대분류 표시명 (주문 상세에서 slug별 정확한 매장명 표시용) */
+  function storeDisplayName(store) {
+    if (!store) return '';
+    return (store.title || store.brand || store.id || '').toString().trim() || (store.id || '');
+  }
+
   /** 주문일(YYYY-MM-DD) 기준: 다음날 11시에 발송완료 처리되므로, 오늘이 배송일 이상이면 delivery_completed */
   function sampleOrderStatusAndDeliveryAt(orderDateStr) {
     const [y, m, d] = orderDateStr.split('-').map(Number);
@@ -109,6 +115,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
+    const storeDisplayNames = { [firstStore.id]: storeDisplayName(firstStore) };
     mondays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -131,6 +138,7 @@ function getSampleOrders(stores, menusByStore) {
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
+        store_display_names: storeDisplayNames,
       });
     });
   }
@@ -145,6 +153,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
+    const storeDisplayNames = { [secondStore.id]: storeDisplayName(secondStore) };
     tuesdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -167,6 +176,7 @@ function getSampleOrders(stores, menusByStore) {
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
+        store_display_names: storeDisplayNames,
       });
     });
   }
@@ -181,6 +191,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
+    const storeDisplayNames = { [thirdStore.id]: storeDisplayName(thirdStore) };
     tuesdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -203,6 +214,7 @@ function getSampleOrders(stores, menusByStore) {
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
+        store_display_names: storeDisplayNames,
       });
     });
   }
@@ -224,10 +236,9 @@ function getSampleOrders(stores, menusByStore) {
       price: price5,
       quantity: 3,
     };
-    // 주문 상세에서 slug별 대분류명 표시용 (4·5번 매장 id가 'store' 등일 때 클라이언트 매핑 누락 방지)
     const storeDisplayNames = {
-      [fourthStore.id]: (fourthStore.title || fourthStore.brand || fourthStore.id || '').toString().trim() || fourthStore.id,
-      [fifthStore.id]: (fifthStore.title || fifthStore.brand || fifthStore.id || '').toString().trim() || fifthStore.id,
+      [fourthStore.id]: storeDisplayName(fourthStore),
+      [fifthStore.id]: storeDisplayName(fifthStore),
     };
     thursdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
