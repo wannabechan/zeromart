@@ -1053,7 +1053,9 @@ async function loadPaymentManagement() {
         adminStoreOrder = [];
         (stores || []).forEach(s => {
           const slug = s.slug || s.id;
-          adminStoresMap[slug] = s.title || slug;
+          const title = (s.title || s.brand || slug).toString().trim() || slug;
+          adminStoresMap[slug] = title;
+          if (s.id && s.id !== slug) adminStoresMap[s.id] = title;
           adminStoreOrder.push(slug);
         });
       }
@@ -1919,17 +1921,10 @@ function renderAdminOrderDetailHtml(order) {
       </div>
     </div>
   `;
-  /** slug가 'store'이고 매장 제목이 없을 때 대분류명으로 '점포' 표시 (복수 카테고리 주문 시 현상 방지) */
-  function getCategoryDisplayTitle(slug) {
-    const fromMap = adminStoresMap[slug];
-    if (fromMap && fromMap !== slug) return fromMap;
-    if (slug === 'store') return '점포';
-    return slug || '';
-  }
   return categoryOrder
     .filter(slug => byCategory[slug]?.length)
     .map(slug => {
-      const title = getCategoryDisplayTitle(slug);
+      const title = adminStoresMap[slug] || slug;
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderItem).join('');
       return `
