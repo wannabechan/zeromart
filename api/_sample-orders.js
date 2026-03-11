@@ -7,10 +7,29 @@
  * - 사용자-2: 2026-01-15부터 매주 화요일, 2번 매장 첫 메뉴 5개, 동일
  * - 사용자-3: 2026-01-15부터 매주 화요일, 3번 매장 첫 메뉴 5개, 동일
  * - 사용자-4: 2026-01-15부터 매주 목요일, 4번 매장 첫 메뉴 5개 + 5번 매장 첫 메뉴 3개, 동일
+ * 현실감: 모든 주문은 주문일 다음날 10시 배송 완료, 11시 주문관리 탭에서 '직접 배송' 발송 완료 처리.
+ * 따라서 '오늘(KST)'이 주문일+1일 이후일 때만 status=delivery_completed, 그렇지 않으면 payment_completed.
  */
 
 function getKSTDateStr(date) {
   const kst = new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + (9 * 3600000));
+  const y = kst.getFullYear();
+  const m = String(kst.getMonth() + 1).padStart(2, '0');
+  const d = String(kst.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** YYYY-MM-DD 기준 다음날 11:00 KST를 ISO 문자열로 */
+function nextDay11KSTISO(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1, 2, 0, 0, 0)); // 11:00 KST = 02:00 UTC
+  return next.toISOString();
+}
+
+/** 오늘(KST) 날짜 문자열 YYYY-MM-DD */
+function getTodayKSTDateStr() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
   const y = kst.getFullYear();
   const m = String(kst.getMonth() + 1).padStart(2, '0');
   const d = String(kst.getDate()).padStart(2, '0');
@@ -66,6 +85,19 @@ function getSampleOrders(stores, menusByStore) {
 
   const orders = [];
   const { mondays, tuesdays, thursdays } = getSampleOrderDates();
+  const todayKST = getTodayKSTDateStr();
+
+  /** 주문일(YYYY-MM-DD) 기준: 다음날 11시에 발송완료 처리되므로, 오늘이 배송일 이상이면 delivery_completed */
+  function sampleOrderStatusAndDeliveryAt(orderDateStr) {
+    const [y, m, d] = orderDateStr.split('-').map(Number);
+    const nextDay = new Date(Date.UTC(y, m - 1, d + 1));
+    const deliveryDateStr = `${nextDay.getUTCFullYear()}-${String(nextDay.getUTCMonth() + 1).padStart(2, '0')}-${String(nextDay.getUTCDate()).padStart(2, '0')}`;
+    const isCompleted = todayKST >= deliveryDateStr;
+    return {
+      status: isCompleted ? 'delivery_completed' : 'payment_completed',
+      delivery_completed_at: isCompleted ? nextDay11KSTISO(orderDateStr) : null,
+    };
+  }
 
   // 사용자-1: 매주 월요일, 1번 매장 첫 메뉴 5개
   if (firstStore && firstMenu1) {
@@ -78,6 +110,7 @@ function getSampleOrders(stores, menusByStore) {
       quantity: 5,
     };
     mondays.forEach((dateStr) => {
+      const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
       const orderDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 9 * 3600000);
       const orderDateIso = orderDate.toISOString();
@@ -91,9 +124,10 @@ function getSampleOrders(stores, menusByStore) {
         detail_address: null,
         order_items: [item],
         total_amount: totalAmount,
-        status: 'delivery_completed',
+        status,
         created_at: orderDateIso,
         payment_completed_at: orderDateIso,
+        delivery_completed_at: delivery_completed_at || undefined,
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
@@ -112,6 +146,7 @@ function getSampleOrders(stores, menusByStore) {
       quantity: 5,
     };
     tuesdays.forEach((dateStr) => {
+      const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
       const orderDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 9 * 3600000);
       const orderDateIso = orderDate.toISOString();
@@ -125,9 +160,10 @@ function getSampleOrders(stores, menusByStore) {
         detail_address: null,
         order_items: [item],
         total_amount: totalAmount,
-        status: 'delivery_completed',
+        status,
         created_at: orderDateIso,
         payment_completed_at: orderDateIso,
+        delivery_completed_at: delivery_completed_at || undefined,
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
@@ -146,6 +182,7 @@ function getSampleOrders(stores, menusByStore) {
       quantity: 5,
     };
     tuesdays.forEach((dateStr) => {
+      const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
       const orderDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 9 * 3600000);
       const orderDateIso = orderDate.toISOString();
@@ -159,9 +196,10 @@ function getSampleOrders(stores, menusByStore) {
         detail_address: null,
         order_items: [item],
         total_amount: totalAmount,
-        status: 'delivery_completed',
+        status,
         created_at: orderDateIso,
         payment_completed_at: orderDateIso,
+        delivery_completed_at: delivery_completed_at || undefined,
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
@@ -187,6 +225,7 @@ function getSampleOrders(stores, menusByStore) {
       quantity: 3,
     };
     thursdays.forEach((dateStr) => {
+      const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
       const orderDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 9 * 3600000);
       const orderDateIso = orderDate.toISOString();
@@ -200,9 +239,10 @@ function getSampleOrders(stores, menusByStore) {
         detail_address: null,
         order_items: [item4, item5],
         total_amount: totalAmount,
-        status: 'delivery_completed',
+        status,
         created_at: orderDateIso,
         payment_completed_at: orderDateIso,
+        delivery_completed_at: delivery_completed_at || undefined,
         delivery_type: 'direct',
         courier_company: null,
         tracking_number: null,
