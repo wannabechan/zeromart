@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>브랜드관리 - Zero Mart</title>
+  <link rel="icon" href="/img/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .store-orders-page { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .store-orders-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .store-orders-header h1 { font-size: 1.25rem; margin: 0; display: flex; align-items: center; gap: 10px; }
+    .store-orders-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border); }
+    .store-orders-tab { padding: 12px 20px; font-size: 0.9375rem; font-weight: 500; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; color: var(--color-text-secondary); }
+    .store-orders-tab:hover { color: var(--color-primary); }
+    .store-orders-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .store-orders-view { display: none; }
+    .store-orders-view.active { display: block; }
+    .admin-btn-secondary { background: var(--color-border); color: var(--color-text); padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-block; }
+    .admin-btn-secondary:hover { background: #bdbdbd; }
+    .brand-manager-placeholder { padding: 48px 24px; text-align: center; color: var(--color-text-secondary); font-size: 0.9375rem; }
+    @media (max-width: 768px) {
+      .store-orders-tabs .store-orders-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="store-orders-page">
+    <div class="store-orders-header">
+      <h1>브랜드관리</h1>
+      <a href="/" class="admin-btn admin-btn-secondary">← 메인으로</a>
+    </div>
+
+    <div class="store-orders-tabs">
+      <button type="button" class="store-orders-tab active" data-brand-tab="settlement" aria-selected="true">정산관리</button>
+    </div>
+
+    <div id="brandManagerSettlementView" class="store-orders-view active">
+      <div class="brand-manager-placeholder">정산관리 기능은 준비 중입니다.</div>
+    </div>
+  </div>
+
+  <script src="/brand-manager/brand-manager.js"></script>
+</body>
+</html>

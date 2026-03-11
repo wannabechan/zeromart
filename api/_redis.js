@@ -400,7 +400,9 @@ async function getMenuDataForApp(userEmail) {
     if (getUserLevel(userEmail) !== 'admin') {
       const normalized = userEmail.trim().toLowerCase();
       stores = stores.filter((s) => {
-        const list = (s.allowedEmails || []).map((e) => String(e).trim().toLowerCase());
+        const list = (s.allowedEmails || []).map((e) =>
+          e && typeof e === 'object' && e.email != null ? String(e.email).trim().toLowerCase() : String(e).trim().toLowerCase()
+        ).filter(Boolean);
         return list.includes(normalized);
       });
     }

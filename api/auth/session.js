@@ -1,11 +1,14 @@
 /**
  * GET /api/auth/session
  * JWT 토큰으로 세션 검증
- * user.isStoreManager: 매장 담당자 이메일로 등록된 매장이 있을 때 true
+ * user.isStoreManager: 매장 담당자(storeContactEmail)로 등록된 매장이 있을 때 true
+ * user.isBrandManager: 브랜드 매니저(managerEmails 또는 마스터)로 등록된 경우 true
  */
 
 const { verifyToken, getUserLevel, apiResponse } = require('../_utils');
 const { getStores } = require('../_redis');
+
+const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
 
 function isStoreManagerEmail(email, stores) {
   if (!email || !Array.isArray(stores)) return false;
@@ -13,6 +16,19 @@ function isStoreManagerEmail(email, stores) {
   return stores.some(
     (s) => (s.storeContactEmail || '').trim().toLowerCase() === normalized
   );
+}
+
+function isBrandManagerEmail(email, stores) {
+  if (!email || !Array.isArray(stores)) return false;
+  const normalized = String(email).trim().toLowerCase();
+  if (normalized === MASTER_MANAGER_EMAIL) return true;
+  return stores.some((s) => {
+    const list = Array.isArray(s.managerEmails) ? s.managerEmails : [];
+    return list.some((e) => {
+      const em = e && typeof e === 'object' && e.email != null ? String(e.email).trim().toLowerCase() : String(e).trim().toLowerCase();
+      return em === normalized;
+    });
+  });
 }
 
 module.exports = async (req, res) => {
@@ -40,6 +56,7 @@ module.exports = async (req, res) => {
     const level = getUserLevel(decoded.email);
     const stores = await getStores();
     const isStoreManager = isStoreManagerEmail(decoded.email, stores || []);
+    const isBrandManager = isBrandManagerEmail(decoded.email, stores || []);
 
     const body = {
       success: true,
@@ -47,6 +64,7 @@ module.exports = async (req, res) => {
         email: decoded.email,
         level,
         isStoreManager: !!isStoreManager,
+        isBrandManager: !!isBrandManager,
       },
     };
     // 개발 시에만: admin 미표시 원인 확인용 (배포 전 제거 가능)

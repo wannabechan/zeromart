@@ -58,13 +58,16 @@ function showApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
   const adminLink = document.getElementById('headerAdminLink');
+  const brandManagerLink = document.getElementById('headerBrandManagerLink');
   const storeOrdersLink = document.getElementById('headerStoreOrdersLink');
   const chatBtn = document.getElementById('categoryChatBtn');
   const profileUserEmailEl = document.getElementById('profileUserEmail');
   const isAdmin = user && user.level === 'admin';
+  const isBrandManager = user && user.isBrandManager && user.level !== 'admin';
   const isStoreManager = user && user.isStoreManager && user.level !== 'admin';
   if (adminLink) adminLink.style.display = isAdmin ? '' : 'none';
-  if (storeOrdersLink) storeOrdersLink.style.display = isStoreManager ? '' : 'none';
+  if (brandManagerLink) brandManagerLink.style.display = !isAdmin && isBrandManager ? '' : 'none';
+  if (storeOrdersLink) storeOrdersLink.style.display = !isAdmin && !isBrandManager && isStoreManager ? '' : 'none';
   if (profileUserEmailEl) profileUserEmailEl.textContent = user && user.email ? user.email : '';
   // 채팅 버튼: 기능 기획 후 다시 살리기 → if (chatBtn) chatBtn.style.display = isAdmin ? '' : 'none';
   if (chatBtn) chatBtn.style.display = 'none';

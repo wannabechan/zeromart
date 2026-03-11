@@ -122,21 +122,25 @@ async function saveStores(stores, menus) {
   }
 }
 
-async function patchStoreAllowedEmails(storeId, email, action) {
+async function patchStoreAllowedEmails(storeId, email, action, type) {
   const token = getToken();
+  const body = { storeId, email: email.trim().toLowerCase(), action };
+  if (type === 'manager') body.type = 'manager';
   const res = await fetch(`${API_BASE}/api/admin/stores`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ storeId, email: email.trim().toLowerCase(), action }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || '처리에 실패했습니다.');
   }
 }
+
+const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
 
 async function loadStoresView() {
   const content = document.getElementById('adminContent');
@@ -168,11 +172,12 @@ async function loadStoresView() {
   }
 }
 
-function openPermissionsAddModal(storeId) {
+function openPermissionsAddModal(storeId, type) {
   const modal = document.getElementById('adminPermissionsAddModal');
   const textarea = document.getElementById('adminPermissionsAddTextarea');
   if (!modal || !textarea) return;
   modal.dataset.storeId = storeId || '';
+  modal.dataset.permType = type === 'manager' ? 'manager' : 'allowed';
   textarea.value = '';
   modal.classList.add('admin-modal-visible');
   modal.setAttribute('aria-hidden', 'false');
@@ -187,13 +192,14 @@ function closePermissionsAddModal() {
   }
 }
 
-function openPermissionsRemoveModal(storeId, email) {
+function openPermissionsRemoveModal(storeId, email, type) {
   const modal = document.getElementById('adminPermissionsRemoveModal');
   const msgEl = document.getElementById('adminPermissionsRemoveMessage');
   const emailEl = document.getElementById('adminPermissionsRemoveEmail');
   if (!modal) return;
   modal.dataset.storeId = storeId || '';
   modal.dataset.email = email || '';
+  modal.dataset.permType = type === 'manager' ? 'manager' : 'allowed';
   if (msgEl) msgEl.textContent = '이용 권한을 삭제하시겠습니까?';
   if (emailEl) emailEl.textContent = email || '';
   modal.classList.add('admin-modal-visible');
@@ -223,6 +229,7 @@ function initPermissionsModalsOnce() {
   if (addSubmit) {
     addSubmit.addEventListener('click', async () => {
       const storeId = addModal && addModal.dataset.storeId;
+      const permType = addModal && addModal.dataset.permType ? addModal.dataset.permType : 'allowed';
       if (!storeId) return;
       const raw = (addTextarea && addTextarea.value) || '';
       const lines = raw.split(/\r?\n/).map((line) => line.split(/[,;\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)).flat();
@@ -234,7 +241,7 @@ function initPermissionsModalsOnce() {
       addSubmit.disabled = true;
       try {
         for (const email of emails) {
-          await patchStoreAllowedEmails(storeId, email, 'add');
+          await patchStoreAllowedEmails(storeId, email, 'add', permType === 'manager' ? 'manager' : undefined);
         }
         closePermissionsAddModal();
         loadPermissionsView();
@@ -255,10 +262,11 @@ function initPermissionsModalsOnce() {
     removeConfirm.addEventListener('click', async () => {
       const storeId = removeModal && removeModal.dataset.storeId;
       const email = removeModal && removeModal.dataset.email;
+      const permType = removeModal && removeModal.dataset.permType ? removeModal.dataset.permType : 'allowed';
       if (!storeId || !email) return;
       removeConfirm.disabled = true;
       try {
-        await patchStoreAllowedEmails(storeId, email, 'remove');
+        await patchStoreAllowedEmails(storeId, email, 'remove', permType === 'manager' ? 'manager' : undefined);
         closePermissionsRemoveModal();
         loadPermissionsView();
       } catch (e) {
@@ -281,23 +289,32 @@ async function loadPermissionsView() {
       container.innerHTML = '<p class="admin-modal-hint">등록된 그룹(카테고리)이 없습니다. 매장관리에서 카테고리를 추가한 뒤 이용하세요.</p>';
       return;
     }
-    const listHtml = stores
+    const toAllowedEntries = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map((e) => (e && typeof e === 'object' && e.email != null ? { email: String(e.email).trim().toLowerCase(), addedAt: e.addedAt || null } : { email: String(e).trim().toLowerCase(), addedAt: null })).filter((x) => x.email);
+    };
+    const formatAddedAt = (addedAt) => (addedAt && /^\d{4}-\d{2}-\d{2}$/.test(addedAt) ? addedAt : '—');
+    const productListHtml = stores
       .map((s) => {
         const titleEsc = escapeHtml(s.title || s.id || '');
         const storeIdEsc = escapeHtml(s.id || '');
-        const emails = Array.isArray(s.allowedEmails) ? s.allowedEmails : [];
-        const emailsHtml = emails.length
+        const entries = toAllowedEntries(s.allowedEmails);
+        const emailsHtml = entries.length
           ? '<ul class="admin-permissions-emails-list">' +
-            emails
+            entries
               .map(
-                (e) =>
-                  '<li><button type="button" class="admin-permissions-email-chip" data-permissions-remove data-store-id="' +
+                (entry) =>
+                  '<li class="admin-permissions-email-row">' +
+                  '<button type="button" class="admin-permissions-email-chip" data-permissions-remove data-store-id="' +
                   escapeHtml(s.id || '') +
                   '" data-email="' +
-                  escapeHtml(e) +
+                  escapeHtml(entry.email) +
                   '">' +
-                  escapeHtml(e) +
-                  '</button></li>'
+                  escapeHtml(entry.email) +
+                  '</button>' +
+                  '<span class="admin-permissions-date">' +
+                  escapeHtml(formatAddedAt(entry.addedAt)) +
+                  '</span></li>'
               )
               .join('') +
             '</ul>'
@@ -311,21 +328,89 @@ async function loadPermissionsView() {
         );
       })
       .join('');
+    const toManagerEntries = (s) => {
+      const list = toAllowedEntries(s.managerEmails || []);
+      const withoutMaster = list.filter((e) => e.email !== MASTER_MANAGER_EMAIL);
+      return [{ email: MASTER_MANAGER_EMAIL, addedAt: null }, ...withoutMaster];
+    };
+    const seenGroupName = new Set();
+    const managerRows = [];
+    for (const s of stores) {
+      const groupName = (s.suburl || s.id || '').toString().trim() || s.id || '';
+      if (!groupName || seenGroupName.has(groupName)) continue;
+      seenGroupName.add(groupName);
+      managerRows.push({ groupName, store: s });
+    }
+    const managerListHtml = managerRows
+      .map(({ groupName, store: s }) => {
+        const groupNameEsc = escapeHtml(groupName);
+        const storeIdEsc = escapeHtml(s.id || '');
+        const entries = toManagerEntries(s);
+        const emailsHtml =
+          '<ul class="admin-permissions-emails-list">' +
+          entries
+            .map((entry) => {
+              const isMaster = entry.email === MASTER_MANAGER_EMAIL;
+              const dateStr = formatAddedAt(entry.addedAt);
+              if (isMaster) {
+                return '<li class="admin-permissions-email-row"><span class="admin-permissions-email-chip admin-permissions-email-chip--master">' + escapeHtml(entry.email) + '</span><span class="admin-permissions-date">' + escapeHtml(dateStr) + '</span></li>';
+              }
+              return (
+                '<li class="admin-permissions-email-row">' +
+                '<button type="button" class="admin-permissions-email-chip" data-permissions-remove-manager data-store-id="' +
+                escapeHtml(s.id || '') +
+                '" data-email="' +
+                escapeHtml(entry.email) +
+                '">' +
+                escapeHtml(entry.email) +
+                '</button>' +
+                '<span class="admin-permissions-date">' +
+                escapeHtml(dateStr) +
+                '</span></li>'
+              );
+            })
+            .join('') +
+          '</ul>';
+        return (
+          '<div class="admin-permissions-row" data-store-id="' + storeIdEsc + '">' +
+          '<div class="admin-permissions-group">' + groupNameEsc + '</div>' +
+          '<div class="admin-permissions-users">' + emailsHtml + '</div>' +
+          '<button type="button" class="admin-btn admin-btn-primary admin-permissions-add-btn" data-permissions-add-manager="' + storeIdEsc + '">사용자 추가</button>' +
+          '</div>'
+        );
+      })
+      .join('');
     container.innerHTML =
-      '<p class="admin-modal-hint" style="margin-bottom:12px;">그룹(카테고리)별로 접근 가능한 사용자 이메일을 등록하세요. 등록된 사용자는 해당 그룹의 상품에 접근할 수 있습니다.</p><div class="admin-permissions-list">' +
-      listHtml +
+      '<p class="admin-modal-hint" style="margin-bottom:12px;">상품 접근 권한 관리</p><div class="admin-permissions-list">' +
+      productListHtml +
+      '</div>' +
+      '<p class="admin-modal-hint" style="margin-bottom:12px; margin-top:24px;">브랜드 매니저 권한 관리</p><div class="admin-permissions-list">' +
+      managerListHtml +
       '</div>';
     container.querySelectorAll('[data-permissions-add]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const storeId = btn.dataset.permissionsAdd;
-        if (storeId) openPermissionsAddModal(storeId);
-      });
+      const storeId = btn.dataset.permissionsAdd;
+      if (storeId) {
+        btn.addEventListener('click', () => openPermissionsAddModal(storeId, 'allowed'));
+      }
+    });
+    container.querySelectorAll('[data-permissions-add-manager]').forEach((btn) => {
+      const storeId = btn.dataset.permissionsAddManager;
+      if (storeId) {
+        btn.addEventListener('click', () => openPermissionsAddModal(storeId, 'manager'));
+      }
     });
     container.querySelectorAll('[data-permissions-remove]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const storeId = btn.dataset.storeId;
         const email = btn.dataset.email;
-        if (storeId && email) openPermissionsRemoveModal(storeId, email);
+        if (storeId && email) openPermissionsRemoveModal(storeId, email, 'allowed');
+      });
+    });
+    container.querySelectorAll('[data-permissions-remove-manager]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const storeId = btn.dataset.storeId;
+        const email = btn.dataset.email;
+        if (storeId && email) openPermissionsRemoveModal(storeId, email, 'manager');
       });
     });
   } catch (e) {
@@ -1382,7 +1467,7 @@ function renderSettlementStatementContent(data) {
   html += '</div>';
 
   html += '<div class="admin-settlement-statement-footer">';
-  html += '<p>* 수수료는 상품 판매가액(부가세 포함)의 4.8%이며, 위 4.8%에는 수수료에 대한 부가세가 포함되어 있습니다. 정산금액 = 판매금액 − 수수료입니다.</p>';
+  html += '<p>* 수수료는 상품 판매가액(부가세 포함)의 4.8%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
   html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
   html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p>';
   html += '</div>';

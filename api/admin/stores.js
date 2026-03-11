@@ -6,8 +6,37 @@
 const { getStores, getMenus, saveStoresAndMenus } = require('../_redis');
 const { verifyToken, apiResponse } = require('../_utils');
 
+const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
+
 function isAdmin(user) {
   return user && user.level === 'admin';
+}
+
+function todayYYYYMMDD() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toEmailEntries(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      if (item && typeof item === 'object' && typeof item.email === 'string') {
+        const e = item.email.trim().toLowerCase();
+        return e ? { email: e, addedAt: item.addedAt || null } : null;
+      }
+      const e = String(item).trim().toLowerCase();
+      return e ? { email: e, addedAt: null } : null;
+    })
+    .filter(Boolean);
+}
+
+function emailEntriesToUniqueList(entries) {
+  const seen = new Set();
+  return entries.filter(({ email }) => {
+    if (seen.has(email)) return false;
+    seen.add(email);
+    return true;
+  });
 }
 
 module.exports = async (req, res) => {
@@ -56,18 +85,22 @@ module.exports = async (req, res) => {
       if (totalMenus > 2000) {
         return apiResponse(res, 400, { error: '전체 메뉴 수는 2000개를 초과할 수 없습니다.' });
       }
+      const previousStores = await getStores();
       let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
       if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
       if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
       adminEmail = adminEmail.toLowerCase().trim();
       const storesWithAdmin = (stores || []).map((s) => {
-        const list = Array.isArray(s.allowedEmails) ? [...s.allowedEmails] : [];
-        let normalizedList = list.map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+        const existing = (previousStores || []).find((p) => p.id === s.id);
+        const managerEntries = toEmailEntries(existing?.managerEmails || s.managerEmails || []);
+        let normalizedManager = emailEntriesToUniqueList(managerEntries).filter((x) => x.email !== MASTER_MANAGER_EMAIL);
+        let allowedEntries = toEmailEntries(existing?.allowedEmails ?? s.allowedEmails ?? []);
+        allowedEntries = emailEntriesToUniqueList(allowedEntries);
         if (adminEmail) {
-          normalizedList = normalizedList.filter((e) => e !== adminEmail);
-          normalizedList.unshift(adminEmail);
+          allowedEntries = allowedEntries.filter((x) => x.email !== adminEmail);
+          allowedEntries.unshift({ email: adminEmail, addedAt: null });
         }
-        return { ...s, allowedEmails: normalizedList };
+        return { ...s, allowedEmails: allowedEntries, managerEmails: normalizedManager };
       });
       await saveStoresAndMenus(storesWithAdmin, menus);
       return apiResponse(res, 200, { success: true });
@@ -75,7 +108,7 @@ module.exports = async (req, res) => {
 
     if (req.method === 'PATCH') {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
-      const { storeId, email, action } = body;
+      const { storeId, email, action, type } = body;
       const emailTrim = (email && String(email).trim().toLowerCase()) || '';
       if (!storeId || typeof storeId !== 'string' || !emailTrim || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
         return apiResponse(res, 400, { error: 'storeId와 유효한 email이 필요합니다.' });
@@ -83,6 +116,7 @@ module.exports = async (req, res) => {
       if (action !== 'add' && action !== 'remove') {
         return apiResponse(res, 400, { error: 'action은 add 또는 remove여야 합니다.' });
       }
+      const permType = type === 'manager' ? 'manager' : 'allowed';
       const stores = await getStores();
       const storeIndex = (stores || []).findIndex((s) => s.id === storeId.trim());
       if (storeIndex === -1) {
@@ -92,18 +126,33 @@ module.exports = async (req, res) => {
       for (const s of stores) {
         menusByStore[s.id] = await getMenus(s.id);
       }
-      let list = Array.isArray(stores[storeIndex].allowedEmails) ? [...stores[storeIndex].allowedEmails] : [];
-      list = list.map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+      const store = stores[storeIndex];
+      if (permType === 'manager') {
+        if (action === 'remove' && emailTrim === MASTER_MANAGER_EMAIL) {
+          return apiResponse(res, 400, { error: '마스터 관리자(zeromartmanager@gmail.com)는 제거할 수 없습니다.' });
+        }
+        let list = emailEntriesToUniqueList(toEmailEntries(store.managerEmails || []));
+        if (action === 'add') {
+          if (!list.some((x) => x.email === emailTrim)) list.push({ email: emailTrim, addedAt: todayYYYYMMDD() });
+        } else {
+          list = list.filter((x) => x.email !== emailTrim);
+        }
+        const updatedStores = stores.slice();
+        updatedStores[storeIndex] = { ...store, managerEmails: list };
+        await saveStoresAndMenus(updatedStores, menusByStore);
+        return apiResponse(res, 200, { success: true });
+      }
+      let list = emailEntriesToUniqueList(toEmailEntries(store.allowedEmails || []));
       if (action === 'add') {
-        if (list.includes(emailTrim)) {
+        if (list.some((x) => x.email === emailTrim)) {
           return apiResponse(res, 200, { success: true });
         }
-        list.push(emailTrim);
+        list.push({ email: emailTrim, addedAt: todayYYYYMMDD() });
       } else {
-        list = list.filter((e) => e !== emailTrim);
+        list = list.filter((x) => x.email !== emailTrim);
       }
       const updatedStores = stores.slice();
-      updatedStores[storeIndex] = { ...updatedStores[storeIndex], allowedEmails: list };
+      updatedStores[storeIndex] = { ...store, allowedEmails: list };
       await saveStoresAndMenus(updatedStores, menusByStore);
       return apiResponse(res, 200, { success: true });
     }
