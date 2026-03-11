@@ -1255,7 +1255,7 @@ function formatSettlementClock() {
 }
 
 function renderSettlementTable(byBrand) {
-  const heading = '<h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
+  const heading = '<br><h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
   if (!byBrand || byBrand.length === 0) {
     return heading + '<p class="admin-settlement-empty">해당 기간에 발송 완료된 주문이 없습니다.</p>';
   }
@@ -1604,7 +1604,6 @@ async function loadSettlement() {
     '<h3 class="admin-settlement-statement-heading">정산서 출력</h3>' +
     '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
     '<select id="adminSettlementBrandSelect" class="admin-settlement-brand-select"></select>' +
-    '<button type="button" class="admin-stats-search-btn" id="adminSettlementStatementSearch" title="검색" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>' +
     '</div>' +
     '<div id="adminSettlementStatementResult" class="admin-settlement-statement-result"></div>' +
     '<div style="margin-top:16px;"><button type="button" class="admin-btn admin-settlement-pdf-btn" id="adminSettlementPdfBtn">PDF 출력하기</button></div>' +
@@ -1612,6 +1611,12 @@ async function loadSettlement() {
 
   const defaultPeriod = getSettlementPeriodFromBaseDate(defaultDate);
   container.innerHTML =
+    '<div class="admin-settlement-statement-area" style="margin-top:0; padding-top:0; border-top:none;">' +
+    '<h3 class="admin-settlement-statement-heading">정산</h3>' +
+    '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
+    '<select id="adminSettlementGroupSelect" class="admin-settlement-brand-select" style="min-width:160px;"></select>' +
+    '</div>' +
+    '</div>' +
     '<section class="admin-stats-section">' +
     '<div class="admin-stats-daterange" style="margin-bottom:8px;">' +
     '<label for="adminSettlementDateSelect" class="admin-settlement-date-label">기준 정산일</label>' +
@@ -1630,11 +1635,58 @@ async function loadSettlement() {
   const contentBox = document.getElementById('adminSettlementByDate');
   if (contentBox) contentBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
 
-  async function fetchAndRenderSettlement(baseDateStr) {
+  function buildSlugToSuburl(stores) {
+    const map = {};
+    (stores || []).forEach((s) => {
+      const slug = (s.slug || s.id || '').toString().toLowerCase();
+      const suburl = (s.suburl || '').toString().trim();
+      if (slug) map[slug] = suburl || '';
+    });
+    return map;
+  }
+
+  function filterSettlementByGroup(data, selectedGroup, slugToSuburl) {
+    if (!selectedGroup) return data;
+    const byBrand = (data.byBrand || []).filter((b) => slugToSuburl[b.slug] === selectedGroup);
+    const pendingShipment = (data.pendingShipment || []).filter((p) => slugToSuburl[p.slug] === selectedGroup);
+    return { ...data, byBrand, pendingShipment };
+  }
+
+  function populateSettlementBrandSelect(stores, selectedGroup) {
+    const selectEl = document.getElementById('adminSettlementBrandSelect');
+    if (!selectEl) return;
+    while (selectEl.options.length) selectEl.remove(0);
+    selectEl.appendChild(new Option('브랜드 선택', ''));
+    let list = (stores || []).slice();
+    if (selectedGroup) {
+      list = list.filter((s) => ((s.suburl || '').toString().trim() || '') === selectedGroup);
+    }
+    list.sort((a, b) => {
+      const ga = (a.suburl || a.id || '').toString().trim() || '';
+      const gb = (b.suburl || b.id || '').toString().trim() || '';
+      const c = ga.localeCompare(gb, 'ko');
+      if (c !== 0) return c;
+      const ba = (a.brand || a.title || a.id || '').toString().trim() || '';
+      const bb = (b.brand || b.title || b.id || '').toString().trim() || '';
+      return ba.localeCompare(bb, 'ko');
+    });
+    list.forEach((s) => {
+      const sid = (s.slug || s.id || '').toString().toLowerCase();
+      const groupName = (s.suburl || s.id || sid).toString().trim() || sid;
+      const brandName = (s.brand || s.title || s.id || sid).toString().trim() || sid;
+      const label = groupName + '/ ' + brandName;
+      if (sid) selectEl.appendChild(new Option(label, sid));
+    });
+    selectEl.selectedIndex = 0;
+  }
+
+  async function fetchAndRenderSettlement(baseDateStr, stores, slugToSuburl) {
     const period = getSettlementPeriodFromBaseDate(baseDateStr);
     const box = document.getElementById('adminSettlementByDate');
     const pendingBox = document.getElementById('adminSettlementPending');
     const caption = document.querySelector('.admin-settlement-caption');
+    const groupSelect = document.getElementById('adminSettlementGroupSelect');
+    const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
     if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
     if (box) box.innerHTML = '<div class="admin-loading">로딩 중...</div>';
     if (pendingBox) pendingBox.innerHTML = '';
@@ -1645,16 +1697,18 @@ async function loadSettlement() {
     }
     if (SETTLEMENT_SAMPLE_DATA) {
       const storesRes = await fetchStores();
-      const stores = (storesRes && storesRes.stores) || [];
-      const data = getSettlementSampleData(period.startDate, period.endDate, stores);
-      if (box) box.innerHTML = '<p class="admin-settlement-sample-hint">&nbsp;</p>' + renderSettlementTable(data.byBrand || []);
-      if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(data.pendingShipment || []);
+      const sampleStores = (storesRes && storesRes.stores) || [];
+      const data = getSettlementSampleData(period.startDate, period.endDate, sampleStores);
+      const filtered = slugToSuburl && selectedGroup ? filterSettlementByGroup(data, selectedGroup, slugToSuburl) : data;
+      if (box) box.innerHTML = '<p class="admin-settlement-sample-hint">&nbsp;</p>' + renderSettlementTable(filtered.byBrand || []);
+      if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(filtered.pendingShipment || []);
       return;
     }
     try {
       const url = `${API_BASE}/api/admin/settlement?startDate=${encodeURIComponent(period.startDate)}&endDate=${encodeURIComponent(period.endDate)}`;
       const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
-      const data = res.ok ? await res.json() : { byBrand: [], pendingShipment: [] };
+      let data = res.ok ? await res.json() : { byBrand: [], pendingShipment: [] };
+      if (slugToSuburl && selectedGroup) data = filterSettlementByGroup(data, selectedGroup, slugToSuburl);
       if (box) box.innerHTML = renderSettlementTable(data.byBrand || []);
       if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(data.pendingShipment || []);
     } catch (e) {
@@ -1664,33 +1718,42 @@ async function loadSettlement() {
   }
 
   document.getElementById('adminSettlementDateSelect')?.addEventListener('change', function () {
-    fetchAndRenderSettlement(this.value);
+    const groupSelect = document.getElementById('adminSettlementGroupSelect');
+    const slugToSuburl = window._adminSettlementSlugToSuburl || {};
+    const stores = window._adminSettlementStores || [];
+    fetchAndRenderSettlement(this.value, stores, slugToSuburl);
     const resultBox = document.getElementById('adminSettlementStatementResult');
     if (resultBox) resultBox.innerHTML = '';
   });
-  document.getElementById('adminSettlementStatementSearch')?.addEventListener('click', runSettlementStatementSearch);
+
+  document.getElementById('adminSettlementBrandSelect')?.addEventListener('change', runSettlementStatementSearch);
   document.getElementById('adminSettlementPdfBtn')?.addEventListener('click', printSettlementStatement);
 
   try {
-    const storesPromise = fetchStores();
-    await fetchAndRenderSettlement(defaultDate);
-
-    const storesData = await storesPromise;
+    const storesData = await fetchStores();
     const stores = (storesData && storesData.stores) || [];
-    const sorted = stores.slice().sort((a, b) => (a.brand || a.title || a.id || '').toString().localeCompare((b.brand || b.title || b.id || '').toString(), 'ko'));
-    const selectEl = document.getElementById('adminSettlementBrandSelect');
-    if (selectEl) {
-      while (selectEl.options.length) selectEl.remove(0);
-      selectEl.appendChild(new Option('브랜드 선택', ''));
-      sorted.forEach((s) => {
-        const sid = (s.slug || s.id || '').toString().toLowerCase();
-        const groupName = (s.suburl || s.id || sid).toString().trim() || sid;
-        const brandName = (s.brand || s.title || s.id || sid).toString().trim() || sid;
-        const label = groupName + '/ ' + brandName;
-        if (sid) selectEl.appendChild(new Option(label, sid));
+    window._adminSettlementStores = stores;
+    const slugToSuburl = buildSlugToSuburl(stores);
+    window._adminSettlementSlugToSuburl = slugToSuburl;
+
+    const groupSelectEl = document.getElementById('adminSettlementGroupSelect');
+    if (groupSelectEl) {
+      groupSelectEl.appendChild(new Option('전체', ''));
+      const groupNames = [...new Set(stores.map((s) => (s.suburl || '').toString().trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+      groupNames.forEach((g) => groupSelectEl.appendChild(new Option(g, g)));
+      groupSelectEl.selectedIndex = 0;
+      groupSelectEl.addEventListener('change', function () {
+        const selGroup = this.value || '';
+        populateSettlementBrandSelect(stores, selGroup);
+        const dateSelect = document.getElementById('adminSettlementDateSelect');
+        fetchAndRenderSettlement(dateSelect?.value || defaultDate, stores, slugToSuburl);
+        const resultBox = document.getElementById('adminSettlementStatementResult');
+        if (resultBox) resultBox.innerHTML = '';
       });
-      selectEl.selectedIndex = 0;
     }
+
+    populateSettlementBrandSelect(stores, '');
+    await fetchAndRenderSettlement(defaultDate, stores, slugToSuburl);
   } catch (e) {
     if (contentBox) contentBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
   }
