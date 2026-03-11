@@ -367,6 +367,10 @@ body {
   .header-actions .profile-toggle {
     margin-right: -2px;
   }
+  /* 브랜드 매니저 계정이라도 모바일에서는 브랜드관리 링크 숨김 */
+  #headerBrandManagerLink {
+    display: none !important;
+  }
 }
 
 .header-icon-btn {

@@ -1,10 +1,19 @@
 /**
  * 브랜드관리 페이지 - 정산관리 (어드민 정산관리와 동일, 그룹 콤보에 '전체' 없음)
+ * 모바일에서는 이 페이지 접근 시 주문 페이지(/)로 자동 이동.
  */
 
 const TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
+
+function isMobileView() {
+  return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
+}
+
+if (isMobileView()) {
+  window.location.replace('/');
+} else {
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -378,4 +387,5 @@ async function checkBrandManagerAccess() {
   }
 }
 
-checkBrandManagerAccess();
+  checkBrandManagerAccess();
+}
