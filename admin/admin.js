@@ -1599,7 +1599,7 @@ async function loadSettlement() {
       selectEl.appendChild(new Option('브랜드 선택', ''));
       sorted.forEach((s) => {
         const sid = (s.slug || s.id || '').toString().toLowerCase();
-        const groupName = (s.title || s.id || sid).toString().trim() || sid;
+        const groupName = (s.suburl || s.id || sid).toString().trim() || sid;
         const brandName = (s.brand || s.title || s.id || sid).toString().trim() || sid;
         const label = groupName + '/ ' + brandName;
         if (sid) selectEl.appendChild(new Option(label, sid));
