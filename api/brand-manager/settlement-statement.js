@@ -7,7 +7,7 @@ const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
-const { getAllowedStoresForManager, getAllowedSlugSet } = require('./_helpers');
+const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded, getAllowedSlugSet } = require('./_helpers');
 
 function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
@@ -30,11 +30,13 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     const isAdmin = user.level === 'admin';
     const userEmail = (user.email || '').trim().toLowerCase();
-    const allowedStores = await getAllowedStoresForManager(userEmail);
-    const isBrandManager = allowedStores.length > 0;
+    const directlyAllowed = await getAllowedStoresForManager(userEmail);
+    const isBrandManager = directlyAllowed.length > 0;
     if (!isAdmin && !isBrandManager) {
       return apiResponse(res, 403, { error: '브랜드 매니저 권한이 필요합니다.' });
     }
+    const allowedStores = isAdmin ? await getStores() || [] : await getAllowedStoresForManagerExpanded(userEmail);
+    const allowedSlugs = new Set((allowedStores || []).map((s) => (s.slug || s.id || '').toString().toLowerCase()).filter(Boolean));
 
     const startStr = (req.query.startDate || '').trim();
     const endStr = (req.query.endDate || '').trim();
@@ -43,8 +45,6 @@ module.exports = async (req, res) => {
       return apiResponse(res, 400, { error: 'startDate, endDate (YYYY-MM-DD)가 필요합니다.' });
     }
     if (!slug) return apiResponse(res, 400, { error: 'slug(브랜드)가 필요합니다.' });
-
-    const allowedSlugs = isAdmin ? new Set((await getStores() || []).map((s) => (s.slug || s.id || '').toString().toLowerCase()).filter(Boolean)) : getAllowedSlugSet(allowedStores);
     if (!allowedSlugs.has(slug)) {
       return apiResponse(res, 403, { error: '해당 브랜드에 대한 권한이 없습니다.' });
     }

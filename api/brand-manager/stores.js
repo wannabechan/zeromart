@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllowedStoresForManager } = require('./_helpers');
+const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded } = require('./_helpers');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});
@@ -19,13 +19,15 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     const isAdmin = user.level === 'admin';
     const userEmail = (user.email || '').trim().toLowerCase();
-    const allowedStores = await getAllowedStoresForManager(userEmail);
-    const isBrandManager = allowedStores.length > 0;
+    const directlyAllowed = await getAllowedStoresForManager(userEmail);
+    const isBrandManager = directlyAllowed.length > 0;
     if (!isAdmin && !isBrandManager) {
       return apiResponse(res, 403, { error: '브랜드 매니저 권한이 필요합니다.' });
     }
 
-    const stores = isAdmin ? await require('../_redis').getStores() || [] : allowedStores;
+    const stores = isAdmin
+      ? await require('../_redis').getStores() || []
+      : await getAllowedStoresForManagerExpanded(userEmail);
     return apiResponse(res, 200, { stores });
   } catch (error) {
     console.error('Brand manager stores error:', error);

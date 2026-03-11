@@ -183,7 +183,11 @@ function populateBrandSelect(stores, selectedGroup) {
   if (!selectEl) return;
   while (selectEl.options.length) selectEl.remove(0);
   selectEl.appendChild(new Option('매장 선택', ''));
+  const groupNorm = normalizeGroup(selectedGroup);
   let list = (stores || []).slice();
+  if (groupNorm) {
+    list = list.filter((s) => getStoreGroup(s) === groupNorm);
+  }
   list.sort((a, b) => {
     const ga = getStoreGroup(a) || (a.id || '').toString().trim() || '';
     const gb = getStoreGroup(b) || (b.id || '').toString().trim() || '';

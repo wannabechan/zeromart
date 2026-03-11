@@ -7,7 +7,7 @@ const { verifyToken, apiResponse } = require('../_utils');
 const { getAllOrders, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
-const { getAllowedStoresForManager, getAllowedSlugSet } = require('./_helpers');
+const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded, getAllowedSlugSet } = require('./_helpers');
 
 function normalizeDate(str) {
   if (!str || typeof str !== 'string') return '';
@@ -30,8 +30,8 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     const isAdmin = user.level === 'admin';
     const userEmail = (user.email || '').trim().toLowerCase();
-    const allowedStoresForCheck = await getAllowedStoresForManager(userEmail);
-    const isBrandManager = allowedStoresForCheck.length > 0;
+    const directlyAllowed = await getAllowedStoresForManager(userEmail);
+    const isBrandManager = directlyAllowed.length > 0;
     if (!isAdmin && !isBrandManager) {
       return apiResponse(res, 403, { error: '브랜드 매니저 권한이 필요합니다.' });
     }
@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
     endDate = normalizeDate(endDate);
     if (startDate > endDate) return apiResponse(res, 400, { error: 'startDate는 endDate 이전이어야 합니다.' });
 
-    const allowedStores = isAdmin ? await getStores() || [] : allowedStoresForCheck;
+    const allowedStores = isAdmin ? await getStores() || [] : await getAllowedStoresForManagerExpanded(userEmail);
     const allowedSlugs = getAllowedSlugSet(allowedStores);
     const stores = await getStores() || [];
     const orders = await getAllOrders() || [];
