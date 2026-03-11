@@ -1899,7 +1899,11 @@ function renderAdminOrderDetailHtml(order) {
     if (!byCategory[slug]) byCategory[slug] = [];
     byCategory[slug].push({ item, qty });
   }
-  const categoryOrder = adminStoreOrder.length ? adminStoreOrder : Object.keys(byCategory).sort();
+  // 매장 순서를 따르되, 주문에만 있는 slug(매장 목록에 없을 수 있음)도 포함해 상세가 비지 않도록 함
+  const byCategorySlugs = Object.keys(byCategory);
+  const categoryOrder = adminStoreOrder.length
+    ? [...adminStoreOrder, ...byCategorySlugs.filter((s) => !adminStoreOrder.includes(s))]
+    : byCategorySlugs.sort();
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
