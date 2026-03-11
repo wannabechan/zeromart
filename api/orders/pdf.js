@@ -86,8 +86,10 @@ module.exports = async (req, res) => {
     setCorsHeaders(res);
     res.setHeader('Content-Type', 'application/pdf');
     const baseId = String(order.id || orderId).replace(/[^\w-]/g, '_');
-    const filename = storeSlug ? `order-${baseId}-${storeSlug}.pdf` : `order-${baseId}.pdf`;
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    const safeSlug = storeSlug ? storeSlug.replace(/[^a-z0-9_-]/g, '_') : '';
+    const filename = safeSlug ? `order-${baseId}-${safeSlug}.pdf` : `order-${baseId}.pdf`;
+    const safeFilename = filename.replace(/["\\\r\n]/g, '_');
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
     res.send(pdfBuffer);
   } catch (err) {
     console.error('Order PDF generation error:', err);

@@ -4,12 +4,12 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const { put } = require('@vercel/blob');
 const formidable = require('formidable');
 const { verifyToken, apiResponse } = require('../_utils');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MIMETYPE_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB
 
 function isAdmin(user) {
@@ -49,8 +49,7 @@ module.exports = async (req, res) => {
     if (!ALLOWED_TYPES.includes(mimetype)) {
       return apiResponse(res, 400, { error: 'JPEG, PNG, WebP, GIF 이미지만 업로드할 수 있습니다.' });
     }
-
-    const ext = path.extname(file.originalFilename || '') || '.jpg';
+    const ext = MIMETYPE_EXT[mimetype] || '.jpg';
     const pathname = `menu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
 
     const fileBuffer = fs.readFileSync(file.filepath);
