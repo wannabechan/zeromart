@@ -3,7 +3,7 @@
  * 전체 주문 목록 조회 (admin 전용)
  */
 
-const { verifyToken, apiResponse } = require('../_utils');
+const { requireAuth, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getProfileSettingsBatch } = require('../_redis');
 
 module.exports = async (req, res) => {
@@ -16,21 +16,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
-    }
-
-    const token = authHeader.substring(7);
-    const user = verifyToken(token);
-
-    if (!user) {
-      return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
-    }
-
-    const isAdmin = user.level === 'admin';
-    if (!isAdmin) {
-      return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
+    const auth = requireAuth(req);
+    if (!auth || auth.user.level !== 'admin') {
+      return apiResponse(res, auth ? 403 : 401, { error: auth ? '관리자만 접근할 수 있습니다.' : '로그인이 필요합니다.' });
     }
 
     const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 25), 100);

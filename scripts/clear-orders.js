@@ -10,7 +10,7 @@
 const path = require('path');
 const fs = require('fs');
 
-// .env.local 로드 (있으면)
+// .env.local 로드 (있으면). 반드시 .gitignore에 포함해 커밋하지 말 것.
 const envPath = path.join(__dirname, '..', '.env.local');
 if (fs.existsSync(envPath)) {
   const content = fs.readFileSync(envPath, 'utf8');

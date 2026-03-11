@@ -21,13 +21,14 @@ module.exports = async (req, res) => {
 
   try {
     const { email } = req.body;
+    const rawEmail = typeof email === 'string' ? email.trim() : '';
 
-    // 이메일 검증
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    // 이메일 검증 (형식 + 길이 제한으로 과도한 입력 방지)
+    if (!rawEmail || rawEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
       return apiResponse(res, 400, { error: '유효한 이메일을 입력해 주세요.' });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = rawEmail.toLowerCase();
 
     // 테스트 계정: 이메일 발송 생략, 환경변수 USERTEST_ACCOUNT / USERTEST_PASSWORD 사용
     const testAccount = (process.env.USERTEST_ACCOUNT || '').trim().toLowerCase();

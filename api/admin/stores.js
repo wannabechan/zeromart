@@ -4,7 +4,7 @@
  */
 
 const { getStores, getMenus, saveStoresAndMenus } = require('../_redis');
-const { verifyToken, apiResponse } = require('../_utils');
+const { requireAuth, apiResponse } = require('../_utils');
 
 const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
 
@@ -49,14 +49,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
-    }
-
-    const user = verifyToken(authHeader.substring(7));
-    if (!user || !isAdmin(user)) {
-      return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
+    const auth = requireAuth(req);
+    if (!auth || !isAdmin(auth.user)) {
+      return apiResponse(res, auth ? 403 : 401, { error: auth ? '관리자만 접근할 수 있습니다.' : '로그인이 필요합니다.' });
     }
 
     if (req.method === 'GET') {

@@ -65,6 +65,22 @@ function setCorsHeaders(response) {
   response.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'DENY');
+  response.setHeader('X-XSS-Protection', '1; mode=block');
+  response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
+
+/**
+ * Authorization: Bearer <token> 추출 및 검증. 인증 필요 API에서 사용.
+ * @param {object} req - 요청 객체
+ * @returns {{ user: object, token: string } | null} 검증된 사용자 정보 또는 null
+ */
+function requireAuth(req) {
+  const authHeader = req.headers && req.headers.authorization;
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) return null;
+  const token = authHeader.substring(7).trim();
+  if (!token) return null;
+  const user = verifyToken(token);
+  return user ? { user, token } : null;
 }
 
 /**
@@ -82,4 +98,5 @@ module.exports = {
   generateCode,
   setCorsHeaders,
   apiResponse,
+  requireAuth,
 };

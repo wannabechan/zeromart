@@ -18,13 +18,18 @@ module.exports = async (req, res) => {
 
   try {
     const { email, code } = req.body;
+    const rawEmail = typeof email === 'string' ? email.trim() : '';
+    const rawCode = (code != null && code !== '') ? String(code).trim() : '';
 
-    if (!email || !code) {
+    if (!rawEmail || !rawCode) {
       return apiResponse(res, 400, { error: '이메일과 코드를 입력해 주세요.' });
     }
+    if (rawEmail.length > 320 || rawCode.length > 10) {
+      return apiResponse(res, 400, { error: '입력이 올바르지 않습니다.' });
+    }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const codeTrimmed = (code || '').toString().trim();
+    const normalizedEmail = rawEmail.toLowerCase();
+    const codeTrimmed = rawCode;
 
     // 테스트 계정: USERTEST_ACCOUNT + USERTEST_PASSWORD(6자리 코드)로 로그인 허용
     const testAccount = (process.env.USERTEST_ACCOUNT || '').trim().toLowerCase();
