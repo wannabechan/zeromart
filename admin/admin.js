@@ -1279,13 +1279,20 @@ function renderSettlementTable(byBrand) {
     return heading + '<p class="admin-settlement-empty">해당 기간에 발송 완료된 주문이 없습니다.</p>';
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
+  let totalSales = 0;
+  let totalFee = 0;
+  let totalSettlement = 0;
   let html = heading + '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
   byBrand.forEach((b) => {
     const sales = Number(b.totalAmount) || 0;
     const fee = Math.round(sales * 0.048);
     const settlement = sales - fee;
+    totalSales += sales;
+    totalFee += fee;
+    totalSettlement += settlement;
     html += '<tr><td>' + escapeHtml(b.brandTitle || b.slug || '') + '</td><td>' + (b.orderCount || 0) + '</td><td>' + formatMoney(sales) + '</td><td>' + formatMoney(fee) + '</td><td>' + formatMoney(settlement) + '</td></tr>';
   });
+  html += '<tr class="admin-settlement-total-row"><td></td><td></td><td>' + formatMoney(totalSales) + '</td><td>' + formatMoney(totalFee) + '</td><td>' + formatMoney(totalSettlement) + '</td></tr>';
   html += '</tbody></table>';
   return html;
 }
@@ -1297,11 +1304,15 @@ function renderSettlementPendingList(pendingShipment) {
   }
   const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
   const statusLabel = (s) => (s === 'shipping' ? '배송중' : '결제완료');
+  let totalAmount = 0;
   let html = heading;
   html += '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>주문일</th><th>브랜드</th><th>주문번호</th><th>금액</th><th>상태</th></tr></thead><tbody>';
   pendingShipment.forEach((o) => {
-    html += '<tr><td>' + escapeHtml(o.orderDate || '') + '</td><td>' + escapeHtml(o.brandTitle || o.slug || '') + '</td><td>' + escapeHtml(String(o.id || '')) + '</td><td>' + formatMoney(Number(o.total_amount) || 0) + '</td><td>' + escapeHtml(statusLabel(o.status)) + '</td></tr>';
+    const amt = Number(o.total_amount) || 0;
+    totalAmount += amt;
+    html += '<tr><td>' + escapeHtml(o.orderDate || '') + '</td><td>' + escapeHtml(o.brandTitle || o.slug || '') + '</td><td>' + escapeHtml(String(o.id || '')) + '</td><td>' + formatMoney(amt) + '</td><td>' + escapeHtml(statusLabel(o.status)) + '</td></tr>';
   });
+  html += '<tr class="admin-settlement-total-row"><td></td><td></td><td></td><td>' + formatMoney(totalAmount) + '</td><td></td></tr>';
   html += '</tbody></table>';
   return html;
 }
