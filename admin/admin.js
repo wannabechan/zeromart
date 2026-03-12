@@ -322,7 +322,10 @@ async function loadPermissionsView() {
         return (
           '<div class="admin-permissions-row" data-store-id="' + storeIdEsc + '">' +
           '<div class="admin-permissions-group">' + titleEsc + '</div>' +
+          '<div class="admin-permissions-users-wrap is-collapsed">' +
           '<div class="admin-permissions-users">' + emailsHtml + '</div>' +
+          '</div>' +
+          '<button type="button" class="admin-btn admin-permissions-toggle-btn" data-permissions-toggle aria-label="접기/열기"><span class="admin-permissions-toggle-icon">▼</span></button>' +
           '<button type="button" class="admin-btn admin-btn-primary admin-permissions-add-btn" data-permissions-add="' + storeIdEsc + '">사용자 추가</button>' +
           '</div>'
         );
@@ -374,7 +377,10 @@ async function loadPermissionsView() {
         return (
           '<div class="admin-permissions-row" data-store-id="' + storeIdEsc + '">' +
           '<div class="admin-permissions-group">' + groupNameEsc + '</div>' +
+          '<div class="admin-permissions-users-wrap is-collapsed">' +
           '<div class="admin-permissions-users">' + emailsHtml + '</div>' +
+          '</div>' +
+          '<button type="button" class="admin-btn admin-permissions-toggle-btn" data-permissions-toggle aria-label="접기/열기"><span class="admin-permissions-toggle-icon">▼</span></button>' +
           '<button type="button" class="admin-btn admin-btn-primary admin-permissions-add-btn" data-permissions-add-manager="' + storeIdEsc + '">사용자 추가</button>' +
           '</div>'
         );
@@ -411,6 +417,17 @@ async function loadPermissionsView() {
         const storeId = btn.dataset.storeId;
         const email = btn.dataset.email;
         if (storeId && email) openPermissionsRemoveModal(storeId, email, 'manager');
+      });
+    });
+    container.querySelectorAll('[data-permissions-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('.admin-permissions-row');
+        const wrap = row ? row.querySelector('.admin-permissions-users-wrap') : null;
+        const icon = btn.querySelector('.admin-permissions-toggle-icon');
+        if (!wrap || !icon) return;
+        const collapsed = wrap.classList.toggle('is-collapsed');
+        icon.textContent = collapsed ? '▼' : '▲';
+        btn.setAttribute('aria-label', collapsed ? '펼치기' : '접기');
       });
     });
   } catch (e) {
