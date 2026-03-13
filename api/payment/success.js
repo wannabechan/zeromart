@@ -6,6 +6,7 @@
 const crypto = require('crypto');
 const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
 
@@ -69,6 +70,13 @@ module.exports = async (req, res) => {
 
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
+
+    appendOrderRawLog(order, {
+      eventType: 'payment_completed',
+      statusAfter: 'payment_completed',
+      actor: 'payment',
+      note: '결제 완료',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
 
     // 주문서 PDF 링크용 토큰만 설정. 매장 담당자 메일은 결제 완료 45분 후 cron에서 발송
     const pdfToken = crypto.randomBytes(24).toString('hex');

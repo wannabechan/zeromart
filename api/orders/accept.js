@@ -6,6 +6,7 @@
 
 const { getOrderById, updateOrderStatus, updateOrderAcceptToken } = require('../_redis');
 const { getAppOrigin } = require('../payment/_helpers');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 function pickQuery(req, key) {
   const v = req.query[key] ?? req.query[key.toLowerCase()];
@@ -43,6 +44,13 @@ module.exports = async (req, res) => {
 
   await updateOrderStatus(orderId, 'order_accepted');
   await updateOrderAcceptToken(orderId, null);
+
+  appendOrderRawLog(order, {
+    eventType: 'order_accepted',
+    statusAfter: 'order_accepted',
+    actor: 'manager',
+    note: '매장 담당자 주문 수락',
+  }).catch((e) => console.error('[orderRawLog]', e.message));
 
   return res.redirect(302, `${origin}/?order_accept=success`);
 };

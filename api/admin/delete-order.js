@@ -5,6 +5,7 @@
 
 const { getOrderById, deleteOrder } = require('../_redis');
 const { verifyToken, apiResponse } = require('../_utils');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 function isAdmin(user) {
   return user && user.level === 'admin';
@@ -38,6 +39,13 @@ module.exports = async (req, res) => {
     if (!existed) {
       return apiResponse(res, 404, { error: '주문을 찾을 수 없습니다.' });
     }
+
+    appendOrderRawLog(existed, {
+      eventType: 'order_deleted',
+      statusAfter: existed.status || '',
+      actor: 'admin',
+      note: '주문 기록 삭제',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
 
     await deleteOrder(orderIdStr);
     return apiResponse(res, 200, { success: true });

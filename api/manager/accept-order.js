@@ -7,6 +7,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, updateOrderStatus, updateOrderAcceptToken, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -55,6 +56,13 @@ module.exports = async (req, res) => {
 
     await updateOrderStatus(id, 'order_accepted');
     await updateOrderAcceptToken(id, null);
+
+    appendOrderRawLog(order, {
+      eventType: 'order_accepted',
+      statusAfter: 'order_accepted',
+      actor: 'manager',
+      note: '매장 담당자 주문 수락',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
 
     return apiResponse(res, 200, { success: true });
   } catch (error) {

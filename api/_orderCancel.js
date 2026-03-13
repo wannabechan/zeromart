@@ -5,6 +5,7 @@
 const { put } = require('@vercel/blob');
 const { getOrderById, updateOrderStatus, updateOrderCancelReason, updateOrderPdfUrl, getStores } = require('./_redis');
 const { generateOrderPdf } = require('./_pdf');
+const { appendOrderRawLog } = require('./_orderRawLog');
 
 const PAYMENT_DEADLINE_HOURS = 24;
 const PAYMENT_DEADLINE_MS = PAYMENT_DEADLINE_HOURS * 60 * 60 * 1000;
@@ -17,6 +18,12 @@ function isPastPaymentDeadline(order) {
   return Date.now() - created >= PAYMENT_DEADLINE_MS;
 }
 
+function cancelReasonToActor(reason) {
+  if (reason === '관리자취소') return 'admin';
+  if (reason === '고객취소' || reason === '결제취소') return 'user';
+  return 'system';
+}
+
 /** 주문 취소 처리 + 취소 주문서 PDF 재생성 및 URL 갱신. cancelReason: 고객취소 | 관리자취소 | 결제기한만료 | 결제실패 */
 async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
   const order = await getOrderById(orderId);
@@ -25,6 +32,14 @@ async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
   await updateOrderCancelReason(orderId, cancelReason || null);
   order.status = 'cancelled';
   order.cancel_reason = cancelReason || null;
+
+  appendOrderRawLog(order, {
+    eventType: 'order_cancelled',
+    statusAfter: 'cancelled',
+    actor: cancelReasonToActor(cancelReason),
+    note: '주문 취소',
+    cancelReason: cancelReason || '',
+  }).catch((e) => console.error('[orderRawLog]', e.message));
 
   let stores = [];
   try {

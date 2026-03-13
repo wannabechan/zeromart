@@ -6,6 +6,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
 const { validateTrackingWithApi, normalizeTrackingForApi } = require('../_tracking');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 function isAdmin(user) {
   return user && user.level === 'admin';
@@ -57,6 +58,12 @@ module.exports = async (req, res) => {
       }
       const trackingToSave = normalizeTrackingForApi(tracking) || tracking;
       await updateOrderParcelAndDeliveryComplete(orderId.trim(), courier || null, trackingToSave);
+      appendOrderRawLog(order, {
+        eventType: 'delivery_completed',
+        statusAfter: 'delivery_completed',
+        actor: 'admin',
+        note: '발송 완료 처리',
+      }).catch((e) => console.error('[orderRawLog]', e.message));
       return apiResponse(res, 200, { success: true });
     }
 
@@ -68,6 +75,12 @@ module.exports = async (req, res) => {
     }
 
     await updateOrderDeliveryCompleteDirect(orderId.trim());
+    appendOrderRawLog(order, {
+      eventType: 'delivery_completed',
+      statusAfter: 'delivery_completed',
+      actor: 'admin',
+      note: '발송 완료 처리',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
     return apiResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Admin delivery-complete error:', err);

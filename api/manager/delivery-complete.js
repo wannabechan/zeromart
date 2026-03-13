@@ -7,6 +7,7 @@ const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, getStores, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 const { validateTrackingWithApi, normalizeTrackingForApi } = require('../_tracking');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});
@@ -66,6 +67,12 @@ module.exports = async (req, res) => {
       }
       const trackingToSave = normalizeTrackingForApi(tracking) || tracking;
       await updateOrderParcelAndDeliveryComplete(orderId.trim(), courier || null, trackingToSave);
+      appendOrderRawLog(order, {
+        eventType: 'delivery_completed',
+        statusAfter: 'delivery_completed',
+        actor: 'manager',
+        note: '발송 완료 처리',
+      }).catch((e) => console.error('[orderRawLog]', e.message));
       return apiResponse(res, 200, { success: true });
     }
 
@@ -77,6 +84,12 @@ module.exports = async (req, res) => {
     }
 
     await updateOrderDeliveryCompleteDirect(orderId.trim());
+    appendOrderRawLog(order, {
+      eventType: 'delivery_completed',
+      statusAfter: 'delivery_completed',
+      actor: 'manager',
+      note: '발송 완료 처리',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
     return apiResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Manager delivery-complete error:', err);

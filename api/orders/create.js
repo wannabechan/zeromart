@@ -7,6 +7,7 @@ const { put } = require('@vercel/blob');
 const { verifyToken, apiResponse } = require('../_utils');
 const { createOrder, updateOrderPdfUrl, getStores } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -94,6 +95,13 @@ module.exports = async (req, res) => {
       console.error('PDF generation/upload error:', pdfErr);
       // 주문은 완료됐으므로 PDF 실패만 로깅
     }
+
+    appendOrderRawLog(order, {
+      eventType: 'order_created',
+      statusAfter: 'submitted',
+      actor: 'user',
+      note: '주문 접수',
+    }).catch((e) => console.error('[orderRawLog]', e.message));
 
     return apiResponse(res, 201, {
       success: true,

@@ -5,6 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, updateOrderPaymentLink, updateOrderStatus } = require('../_redis');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -49,6 +50,12 @@ module.exports = async (req, res) => {
     if (trimmed) {
       if (order.status === 'submitted' || order.status === 'order_accepted') {
         await updateOrderStatus(orderId, 'payment_link_issued');
+        appendOrderRawLog(order, {
+          eventType: 'payment_link_issued',
+          statusAfter: 'payment_link_issued',
+          actor: 'admin',
+          note: '결제 링크 발급',
+        }).catch((e) => console.error('[orderRawLog]', e.message));
       }
     } else {
       if (order.status === 'payment_link_issued') {
