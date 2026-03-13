@@ -323,11 +323,16 @@
     .admin-permissions-email-chip--master { cursor: default; pointer-events: none; opacity: 0.9; }
     .admin-permissions-date { color: #999; font-size: 0.8125rem; margin-left: 6px; font-weight: normal; }
     .admin-permissions-remove-email { font-size: 0.9375rem; font-weight: 500; color: var(--color-text); margin: 8px 0 0; word-break: break-all; }
-    .admin-logs-list { list-style: none; margin: 0 0 16px; padding: 0; }
-    .admin-logs-item { padding: 8px 0; border-bottom: 1px solid var(--color-border); }
-    .admin-logs-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9375rem; }
+    .admin-logs-title { font-size: 0.9375rem; font-weight: 600; margin: 0 0 12px; color: var(--color-text); }
+    .admin-logs-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; border: none; table-layout: fixed; }
+    .admin-logs-table th:nth-child(1), .admin-logs-table td:nth-child(1) { width: 10%; }
+    .admin-logs-table th:nth-child(2), .admin-logs-table td:nth-child(2) { width: 90%; }
+    .admin-logs-table th, .admin-logs-table td { padding: 8px 12px; text-align: left; border: none; border-bottom: 1px solid var(--color-border); }
+    .admin-logs-table th { font-weight: 500; color: var(--color-text-secondary); }
+    .admin-logs-table td label { cursor: pointer; }
     .admin-logs-footer { display: flex; justify-content: flex-end; margin-top: 16px; }
-    .admin-logs-download-btn { font-size: 0.9375rem; }
+    .admin-logs-download-btn { font-size: 0.8125rem; color: #8C8C8C; background: transparent; border: none; cursor: pointer; padding: 0; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+    .admin-logs-download-btn:hover { color: #757575; }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }

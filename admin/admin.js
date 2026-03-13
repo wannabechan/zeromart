@@ -454,22 +454,36 @@ async function loadLogsView() {
       return;
     }
     const items = data.items || [];
-    let html = '';
-    if (items.length === 0) {
-      html = '<p class="admin-modal-hint">생성된 로그 파일이 없습니다.</p>';
-    } else {
-      html = '<ul class="admin-logs-list">';
-      items.forEach((item) => {
-        const dateEsc = escapeHtml(item.date);
-        html += '<li class="admin-logs-item"><label><input type="checkbox" class="admin-logs-checkbox" data-log-date="' + dateEsc + '"><span>' + dateEsc + '</span></label></li>';
-      });
-      html += '</ul>';
-      html += '<div class="admin-logs-footer"><button type="button" class="admin-btn admin-logs-download-btn" id="adminLogsDownloadBtn">download</button></div>';
-    }
+    let html = '<h4 class="admin-logs-title">*logs</h4>';
+    html += '<table class="admin-logs-table"><thead><tr><th>선택</th><th>날짜</th></tr></thead><tbody>';
+    items.forEach((item) => {
+      const dateEsc = escapeHtml(item.date);
+      html += '<tr class="admin-logs-row"><td><input type="checkbox" class="admin-logs-checkbox" data-log-date="' + dateEsc + '" id="log-cb-' + dateEsc + '"></td><td><label for="log-cb-' + dateEsc + '">' + dateEsc + '</label></td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div class="admin-logs-footer"><button type="button" class="admin-logs-download-btn" id="adminLogsDownloadBtn">download</button></div>';
     container.innerHTML = html;
 
-    const downloadBtn = document.getElementById('adminLogsDownloadBtn');
-    if (downloadBtn) downloadBtn.addEventListener('click', async () => {
+    const checkboxes = container.querySelectorAll('.admin-logs-checkbox');
+    let logsLastClickedIndex = -1;
+    container.querySelector('.admin-logs-table tbody').addEventListener('click', (e) => {
+      const cb = e.target.closest('.admin-logs-checkbox');
+      if (!cb) return;
+      const list = container.querySelectorAll('.admin-logs-checkbox');
+      const idx = Array.prototype.indexOf.call(list, cb);
+      if (idx < 0) return;
+      if (e.shiftKey) {
+        e.preventDefault();
+        const from = logsLastClickedIndex < 0 ? 0 : Math.min(logsLastClickedIndex, idx);
+        const to = logsLastClickedIndex < 0 ? idx : Math.max(logsLastClickedIndex, idx);
+        for (let i = from; i <= to; i++) list[i].checked = true;
+        logsLastClickedIndex = idx;
+      } else {
+        logsLastClickedIndex = idx;
+      }
+    });
+
+    document.getElementById('adminLogsDownloadBtn').addEventListener('click', async () => {
       const checked = container.querySelectorAll('.admin-logs-checkbox:checked');
       if (!checked.length) {
         alert('다운로드할 로그 파일을 선택하세요.');
