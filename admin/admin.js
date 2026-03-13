@@ -464,7 +464,6 @@ async function loadLogsView() {
     html += '<div class="admin-logs-footer"><button type="button" class="admin-logs-download-btn" id="adminLogsDownloadBtn">download</button></div>';
     container.innerHTML = html;
 
-    const checkboxes = container.querySelectorAll('.admin-logs-checkbox');
     let logsLastClickedIndex = -1;
     container.querySelector('.admin-logs-table tbody').addEventListener('click', (e) => {
       const cb = e.target.closest('.admin-logs-checkbox');
@@ -491,9 +490,10 @@ async function loadLogsView() {
       }
       const token2 = getToken();
       if (!token2) return;
+      const dateFormat = /^\d{4}-\d{2}-\d{2}$/;
       for (const cb of checked) {
-        const date = cb.dataset.logDate;
-        if (!date) continue;
+        const date = (cb.dataset.logDate || '').trim();
+        if (!dateFormat.test(date)) continue;
         try {
           const r = await fetch(`${API_BASE}/api/admin/download-order-raw-log?date=${encodeURIComponent(date)}`, {
             headers: { Authorization: `Bearer ${token2}` },

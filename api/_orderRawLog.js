@@ -56,10 +56,12 @@ function maskContact(contact) {
   return digits.slice(-4);
 }
 
-/** 수령인/주문자 이름: 성(1글자)+이름 마지막 1자. 예: 김*수, 남**민 */
+const MAX_DEPOSITOR_LENGTH = 50;
+
+/** 수령인/주문자 이름: 성(1글자)+이름 마지막 1자. 예: 김*수, 남**민. 길이 제한으로 DoS 방지 */
 function maskDepositor(name) {
   if (!name || typeof name !== 'string') return '';
-  const trimmed = name.trim();
+  const trimmed = name.trim().slice(0, MAX_DEPOSITOR_LENGTH);
   if (!trimmed) return '';
   const chars = [...trimmed];
   if (chars.length <= 2) return chars[0] + (chars[1] || '*');
@@ -112,18 +114,28 @@ async function appendOrderRawLog(order, opts) {
   }
 }
 
+const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
  * 일별 버퍼(Redis 리스트)를 CSV 본문으로 반환. (헤더 + 해당일 모든 라인)
- * @param {string} dateKey - YYYY-MM-DD
+ * @param {string} dateKey - YYYY-MM-DD (검증됨)
  * @returns {Promise<string>} CSV 전체 문자열
  */
 async function flushOrderRawLogToCsv(dateKey) {
+  if (!dateKey || typeof dateKey !== 'string' || !DATE_KEY_REGEX.test(dateKey.trim())) {
+    return CSV_HEADER + '\n';
+  }
+  const safeDateKey = dateKey.trim();
   const redis = getRedis();
-  const key = `order_raw_log:${dateKey}`;
+  const key = `order_raw_log:${safeDateKey}`;
   const lines = await redis.lrange(key, 0, -1);
   await redis.del(key);
   if (!lines || lines.length === 0) return CSV_HEADER + '\n';
   return CSV_HEADER + '\n' + lines.join('\n') + '\n';
+}
+
+function isValidDateKey(dateKey) {
+  return dateKey && typeof dateKey === 'string' && DATE_KEY_REGEX.test(dateKey.trim());
 }
 
 module.exports = {
@@ -133,6 +145,7 @@ module.exports = {
   maskAddress,
   appendOrderRawLog,
   flushOrderRawLogToCsv,
+  isValidDateKey,
   CSV_HEADER,
   nowKSTISO,
 };

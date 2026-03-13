@@ -37,13 +37,14 @@ module.exports = async (req, res) => {
     const result = await list({ prefix: 'rawlog/', limit: 500 });
     const blobs = result.blobs || [];
     const items = blobs
-      .map((b) => ({ pathname: b.pathname, date: dateFromPathname(b.pathname) }))
-      .filter((x) => x.date)
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .map((b) => dateFromPathname(b.pathname))
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a))
+      .map((date) => ({ date }));
 
     return res.status(200).json({ items });
   } catch (e) {
     console.error('List order raw logs error:', e);
-    return apiResponse(res, 500, { error: e.message || '목록을 불러올 수 없습니다.' });
+    return apiResponse(res, 500, { error: '목록을 불러올 수 없습니다.' });
   }
 };

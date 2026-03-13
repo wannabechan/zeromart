@@ -6,9 +6,19 @@
  * ※ Blob을 비공개로 쓰려면 Vercel 대시보드에서 Blob 스토어를 Private으로 생성해야 함.
  */
 
+const crypto = require('crypto');
 const { put } = require('@vercel/blob');
 const { flushOrderRawLogToCsv } = require('../_orderRawLog');
 const { toKSTDateKey } = require('../_kst');
+
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+  } catch {
+    return false;
+  }
+}
 
 function getYesterdayKSTDateKey() {
   const d = new Date();
@@ -26,8 +36,8 @@ module.exports = async (req, res) => {
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const token = authHeader.slice(7);
-  if (!secret || token !== secret) {
+  const token = authHeader.slice(7).trim();
+  if (!secret || !timingSafeEqual(token, secret)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
