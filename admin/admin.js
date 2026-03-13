@@ -435,6 +435,71 @@ async function loadPermissionsView() {
   }
 }
 
+async function loadLogsView() {
+  const container = document.getElementById('adminLogsContent');
+  if (!container) return;
+  container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  const token = getToken();
+  if (!token) {
+    container.innerHTML = '<p class="admin-error">로그인이 필요합니다.</p>';
+    return;
+  }
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/list-order-raw-logs`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      container.innerHTML = '<p class="admin-error">' + escapeHtml(data.error || '목록을 불러올 수 없습니다.') + '</p>';
+      return;
+    }
+    const items = data.items || [];
+    let html = '';
+    if (items.length === 0) {
+      html = '<p class="admin-modal-hint">생성된 로그 파일이 없습니다.</p>';
+    } else {
+      html = '<ul class="admin-logs-list">';
+      items.forEach((item) => {
+        const dateEsc = escapeHtml(item.date);
+        html += '<li class="admin-logs-item"><label><input type="checkbox" class="admin-logs-checkbox" data-log-date="' + dateEsc + '"><span>' + dateEsc + '</span></label></li>';
+      });
+      html += '</ul>';
+      html += '<div class="admin-logs-footer"><button type="button" class="admin-btn admin-logs-download-btn" id="adminLogsDownloadBtn">download</button></div>';
+    }
+    container.innerHTML = html;
+
+    const downloadBtn = document.getElementById('adminLogsDownloadBtn');
+    if (downloadBtn) downloadBtn.addEventListener('click', async () => {
+      const checked = container.querySelectorAll('.admin-logs-checkbox:checked');
+      if (!checked.length) {
+        alert('다운로드할 로그 파일을 선택하세요.');
+        return;
+      }
+      const token2 = getToken();
+      if (!token2) return;
+      for (const cb of checked) {
+        const date = cb.dataset.logDate;
+        if (!date) continue;
+        try {
+          const r = await fetch(`${API_BASE}/api/admin/download-order-raw-log?date=${encodeURIComponent(date)}`, {
+            headers: { Authorization: `Bearer ${token2}` },
+          });
+          if (!r.ok) continue;
+          const blob = await r.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'zeromartrawlog-' + date + '.csv';
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (_) {}
+      }
+    });
+  } catch (e) {
+    container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
+  }
+}
+
 async function uploadImage(file) {
   const token = getToken();
   const formData = new FormData();
@@ -714,6 +779,9 @@ function setupTabs() {
       } else if (targetTab === 'permissions') {
         document.getElementById('permissionsView').classList.add('active');
         loadPermissionsView();
+      } else if (targetTab === 'logs') {
+        document.getElementById('logsView').classList.add('active');
+        loadLogsView();
       }
   }
 
@@ -731,7 +799,7 @@ function setupTabs() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
     ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions'].includes(saved) ? saved : 'stores');
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }

@@ -323,13 +323,20 @@
     .admin-permissions-email-chip--master { cursor: default; pointer-events: none; opacity: 0.9; }
     .admin-permissions-date { color: #999; font-size: 0.8125rem; margin-left: 6px; font-weight: normal; }
     .admin-permissions-remove-email { font-size: 0.9375rem; font-weight: 500; color: var(--color-text); margin: 8px 0 0; word-break: break-all; }
+    .admin-logs-list { list-style: none; margin: 0 0 16px; padding: 0; }
+    .admin-logs-item { padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+    .admin-logs-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9375rem; }
+    .admin-logs-footer { display: flex; justify-content: flex-end; margin-top: 16px; }
+    .admin-logs-download-btn { font-size: 0.9375rem; }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
       .admin-tab[data-tab="permissions"] { display: none; }
+      .admin-tab[data-tab="logs"] { display: none; }
       #storesView { display: none !important; }
       #settlementView { display: none !important; }
       #permissionsView { display: none !important; }
+      #logsView { display: none !important; }
       .admin-tabs { display: flex; gap: 0; }
       .admin-tabs .admin-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
       .admin-payment-subfilter-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -360,6 +367,7 @@
       <button class="admin-tab" data-tab="stats">통계관리</button>
       <button class="admin-tab" data-tab="settlement">정산관리</button>
       <button class="admin-tab" data-tab="permissions">권한관리</button>
+      <button class="admin-tab" data-tab="logs">로그관리</button>
     </div>
 
     <div id="adminError" class="admin-error" style="display: none;"></div>
@@ -389,6 +397,12 @@
 
     <div id="permissionsView" class="admin-view">
       <div id="adminPermissionsContent">
+        <div class="admin-loading">로딩 중...</div>
+      </div>
+    </div>
+
+    <div id="logsView" class="admin-view">
+      <div id="adminLogsContent">
         <div class="admin-loading">로딩 중...</div>
       </div>
     </div>
