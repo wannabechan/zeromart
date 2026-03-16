@@ -10,7 +10,7 @@
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",
     "@upstash/redis": "^1.34.0",
-    "@vercel/blob": "^2.0.1",
+    "@vercel/blob": "^2.3.0",
     "formidable": "^3.5.4",
     "jsonwebtoken": "^9.0.2",
     "pdfkit": "^0.17.2",
