@@ -1732,6 +1732,11 @@ body {
   margin-top: 4px;
 }
 
+.profile-menu-footer-line {
+  display: block;
+  margin: 4px 0 0;
+}
+
 .profile-menu-item {
   font-size: 0.75rem;
   font-weight: 500;
