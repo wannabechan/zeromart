@@ -1734,7 +1734,32 @@ body {
 
 .profile-menu-footer-line {
   display: block;
-  margin: 4px 0 0;
+  margin: 1px 0 0;
+}
+
+.profile-menu-panel .profile-menu-footer-line:first-child {
+  margin-top: 0;
+}
+
+.profile-menu-panel .profile-menu-footer-line:nth-child(2) + .profile-menu-footer-line {
+  margin-top: 0;
+}
+
+.profile-menu-terms-logout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  width: 100%;
+}
+
+.profile-menu-terms-logout-row .profile-menu-policy-wrap {
+  flex-shrink: 0;
+}
+
+.profile-menu-terms-logout-row .profile-menu-logout {
+  margin-left: auto;
 }
 
 .profile-menu-item {
