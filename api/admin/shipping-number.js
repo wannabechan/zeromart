@@ -5,6 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrderById, updateOrderShippingNumber } = require('../_redis');
+const { appendOrderRawLog } = require('../_orderRawLog');
 
 function isAdmin(user) {
   return user && user.level === 'admin';
@@ -59,6 +60,15 @@ module.exports = async (req, res) => {
     }
 
     await updateOrderShippingNumber(orderId.trim(), String(trackingNumber).replace(/\D/g, '').trim());
+    const updatedOrder = await getOrderById(orderId.trim());
+    if (updatedOrder) {
+      appendOrderRawLog(updatedOrder, {
+        eventType: 'shipping_number_set',
+        statusAfter: 'shipping',
+        actor: 'admin',
+        note: '배송번호 등록',
+      }).catch((e) => console.error('[orderRawLog]', e.message));
+    }
     return apiResponse(res, 200, { success: true });
   } catch (err) {
     console.error('Admin shipping-number error:', err);
