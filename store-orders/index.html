@@ -22,8 +22,10 @@
     .admin-loading { text-align: center; padding: 48px; color: var(--color-text-secondary); }
     .admin-payment-sort { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .admin-payment-sort-btns { display: flex; gap: 8px; }
-    .admin-payment-period-btns { display: flex; gap: 7px; }
-    .admin-payment-period-range { font-size: 0.8125rem; color: #8C8C8C; margin-top: 4px; }
+    .admin-payment-period-btns { display: flex; gap: 0; }
+    .admin-payment-period-btns .admin-payment-period-btn { margin-right: 7px; }
+    .admin-payment-period-btns .admin-payment-period-btn:last-child { margin-right: 0; }
+    .admin-payment-period-range { font-size: 0.8125rem; color: #8C8C8C; margin-top: 4px; flex-basis: 100%; width: 100%; }
     .admin-payment-sort-btn { padding: 8px 16px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
     .admin-payment-sort-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
     .admin-payment-sort-btn.active { border-color: var(--color-primary); background: rgba(44, 44, 44, 0.12); color: var(--color-primary); }
