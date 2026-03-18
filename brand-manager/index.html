@@ -74,6 +74,29 @@
     .admin-settlement-pdf-btn { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
     .admin-settlement-pdf-btn:hover { opacity: 0.9; }
     .admin-btn { padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: none; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+    .admin-order-detail-overlay.visible { opacity: 1; visibility: visible; }
+    .admin-payment-order { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); margin-bottom: 16px; padding: 16px; }
+    .admin-payment-order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .admin-payment-order-id { font-weight: 600; font-size: 1rem; }
+    .admin-payment-order-status { font-size: 0.8125rem; padding: 4px 8px; border-radius: 4px; }
+    .admin-payment-order-status.payment_completed { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+    .admin-payment-order-status.delivery_completed { background: none; color: var(--color-text); }
+    .admin-payment-order-status.cancelled { background: rgba(197, 34, 31, 0.1); color: #c5221f; }
+    .admin-payment-order-info { font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 12px; }
+    .admin-payment-order-info div { margin-bottom: 4px; }
+    .admin-payment-order-id-link { cursor: pointer; text-decoration: underline; }
+    .admin-payment-sort { margin-bottom: 12px; }
+    .admin-payment-sort-btn { padding: 8px 16px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
+    .admin-payment-sort-btn.active { border-color: var(--color-primary); background: rgba(44, 44, 44, 0.12); color: var(--color-primary); }
+    .admin-payment-subfilter { margin-bottom: 16px; }
+    .admin-payment-subfilter-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-payment-subfilter-item { font-size: 0.8125rem; color: #8C8C8C; cursor: pointer; }
+    .admin-payment-subfilter-item.active { color: var(--color-primary); font-weight: 500; }
+    .admin-payment-load-more-wrap { text-align: center; margin-top: 20px; }
+    .admin-payment-load-more-btn { padding: 10px 24px; font-size: 0.9375rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
+    .admin-order-detail-item { padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+    .admin-order-detail-item:last-child { border-bottom: none; }
+    .admin-order-detail-cancelled .cart-category-total { text-decoration: line-through; color: var(--color-text-secondary); }
     @media (max-width: 768px) {
       .store-orders-tabs .store-orders-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
     }
@@ -87,11 +110,32 @@
     </div>
 
     <div class="store-orders-tabs">
-      <button type="button" class="store-orders-tab active" data-brand-tab="settlement" aria-selected="true">정산관리</button>
+      <button type="button" class="store-orders-tab active" data-brand-tab="orders" aria-selected="true">주문관리</button>
+      <button type="button" class="store-orders-tab" data-brand-tab="settlement" aria-selected="false">정산관리</button>
     </div>
 
-    <div id="brandManagerSettlementView" class="store-orders-view active">
+    <div id="brandManagerOrdersView" class="store-orders-view active">
+      <div id="brandManagerOrdersContent"></div>
+    </div>
+
+    <div id="brandManagerSettlementView" class="store-orders-view">
       <div id="brandManagerSettlementContent"></div>
+    </div>
+
+    <div class="admin-order-detail-overlay" id="brandManagerOrderDetailOverlay" aria-hidden="true" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;">
+      <div class="admin-order-detail-panel" style="width:100%;max-width:400px;max-height:70dvh;background:var(--color-surface);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+        <div class="admin-order-detail-header" style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--color-border);">
+          <h3 style="font-size:1rem;font-weight:600;margin:0;">주문 내역</h3>
+          <button type="button" class="admin-order-detail-close" id="brandManagerOrderDetailClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-order-detail-content" id="brandManagerOrderDetailContent" style="flex:1;min-height:0;overflow-y:auto;padding:16px;"></div>
+        <div class="admin-order-detail-footer" style="padding:16px 20px;border-top:1px solid var(--color-border);">
+          <div class="admin-order-detail-total" style="display:flex;justify-content:space-between;align-items:center;font-size:0.9375rem;">
+            <span>총 금액</span>
+            <strong id="brandManagerOrderDetailTotal">0원</strong>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -1,11 +1,18 @@
 /**
- * 브랜드관리 페이지 - 정산관리 (어드민 정산관리와 동일, 그룹 콤보에 '전체' 없음)
+ * 브랜드관리 페이지 - 주문관리(1탭) + 정산관리(2탭). 어드민 주문관리와 동일 UI, 권한 있는 데이터만 조회.
  * 모바일에서는 이 페이지 접근 시 주문 페이지(/)로 자동 이동.
  */
 
 const TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
+const BRAND_ORDERS_PAGE_SIZE = 25;
+
+let brandManagerOrders = [];
+let brandManagerOrdersTotal = 0;
+let brandManagerStoresMap = {};
+let brandManagerStoreOrder = [];
+let brandManagerSubFilter = 'delivery_wait';
 
 function isMobileView() {
   return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
@@ -29,6 +36,44 @@ function getTodayKST() {
   const d = new Date();
   const kst = new Date(d.getTime() + (d.getTimezoneOffset() * 60000) + (9 * 3600000));
   return kst.toISOString().slice(0, 10);
+}
+
+function getOrderNumberDisplay(order) {
+  const id = order?.id ?? '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  slugs.sort();
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
+}
+
+function getStatusLabel(status, cancelReason) {
+  const s = (status || '').trim();
+  const labels = {
+    submitted: '주문 대기',
+    order_accepted: '주문 대기',
+    payment_link_issued: '주문 대기',
+    payment_completed: '결제 완료',
+    shipping: '발송 완료',
+    delivery_completed: '발송 완료',
+    cancelled: '주문취소',
+  };
+  const base = labels[s] || s || '—';
+  return s === 'cancelled' && cancelReason ? `${base}(${cancelReason})` : base;
+}
+
+function formatAdminOrderDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t)?.value || '';
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`;
+}
+
+function formatAdminPrice(price) {
+  return Number(price || 0).toLocaleString() + '원';
 }
 
 function toDateKeyKST(ms) {
@@ -309,6 +354,306 @@ function printStatement() {
   setTimeout(() => { win.print(); win.close(); }, 300);
 }
 
+function renderBrandManagerOrderDetailHtml(order) {
+  const orderItems = order.order_items || order.orderItems || [];
+  const byCategory = {};
+  for (const oi of orderItems) {
+    const itemId = oi.id || '';
+    const slug = (itemId.split('-')[0] || 'default').toLowerCase();
+    const item = { name: oi.name || '', price: Number(oi.price) || 0 };
+    const qty = Number(oi.quantity) || 0;
+    if (qty <= 0) continue;
+    if (!byCategory[slug]) byCategory[slug] = [];
+    byCategory[slug].push({ item, qty });
+  }
+  const byCategorySlugs = Object.keys(byCategory);
+  const categoryOrder = brandManagerStoreOrder.length
+    ? [...brandManagerStoreOrder, ...byCategorySlugs.filter((s) => !brandManagerStoreOrder.includes(s))]
+    : byCategorySlugs.sort();
+  for (const slug of Object.keys(byCategory)) {
+    byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
+  }
+  const categoryTotals = {};
+  for (const slug of Object.keys(byCategory)) {
+    categoryTotals[slug] = byCategory[slug].reduce((sum, { item, qty }) => sum + item.price * qty, 0);
+  }
+  const storeDisplayNames = order.store_display_names || {};
+  const renderItem = ({ item, qty }) => `
+    <div class="admin-order-detail-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${escapeHtml(item.name || '')}</div>
+        <div class="cart-item-price">${formatAdminPrice(item.price)} × ${qty}</div>
+      </div>
+    </div>
+  `;
+  return categoryOrder
+    .filter((slug) => byCategory[slug]?.length)
+    .map((slug) => {
+      const title = storeDisplayNames[slug] || brandManagerStoresMap[slug] || slug;
+      const catTotal = categoryTotals[slug] || 0;
+      const itemsHtml = byCategory[slug].map(renderItem).join('');
+      return `
+        <div class="cart-category-group">
+          <div class="cart-category-header">
+            <span class="cart-category-title">${escapeHtml(title || '')}</span>
+            <span class="cart-category-total met">${formatAdminPrice(catTotal)}</span>
+          </div>
+          ${itemsHtml}
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function openBrandManagerOrderDetail(order) {
+  const content = document.getElementById('brandManagerOrderDetailContent');
+  const totalEl = document.getElementById('brandManagerOrderDetailTotal');
+  const overlay = document.getElementById('brandManagerOrderDetailOverlay');
+  const panel = overlay?.querySelector('.admin-order-detail-panel');
+  if (!content || !overlay) return;
+  const html = renderBrandManagerOrderDetailHtml(order);
+  content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
+  if (totalEl) totalEl.textContent = formatAdminPrice(order.total_amount || 0);
+  if (panel) panel.classList.toggle('admin-order-detail-cancelled', order.status === 'cancelled');
+  overlay.classList.add('visible');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeBrandManagerOrderDetail() {
+  const overlay = document.getElementById('brandManagerOrderDetailOverlay');
+  if (overlay) {
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function sortBrandManagerOrders(orders, sortBy, dir) {
+  const copy = orders.slice();
+  copy.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  if ((dir || 'desc') === 'desc') copy.reverse();
+  return copy;
+}
+
+function renderBrandManagerOrderList() {
+  const content = document.getElementById('brandManagerOrdersContent');
+  if (!content) return;
+  const allOrders = brandManagerOrders;
+  const cancelled = (o) => o.status === 'cancelled';
+  const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
+  const isOrderWait = (o) => !cancelled(o) && orderWaitStatuses.includes(o.status);
+  const isDeliveryWait = (o) => !cancelled(o) && o.status === 'payment_completed';
+  const newCount = allOrders.filter(isOrderWait).length;
+  const deliveryWaitCount = allOrders.filter(isDeliveryWait).length;
+  const deliveryCompletedCount = allOrders.filter((o) => !cancelled(o) && o.status === 'delivery_completed').length;
+  const cancelledCount = allOrders.filter((o) => o.status === 'cancelled').length;
+
+  const effectiveFilter = brandManagerSubFilter === 'all' ? 'delivery_wait' : brandManagerSubFilter;
+  let filtered;
+  if (effectiveFilter === 'new') {
+    filtered = allOrders.filter((o) => !cancelled(o) && orderWaitStatuses.includes(o.status));
+  } else if (effectiveFilter === 'delivery_wait') {
+    filtered = allOrders.filter((o) => o.status === 'payment_completed');
+  } else if (effectiveFilter === 'delivery_completed') {
+    filtered = allOrders.filter((o) => o.status === 'delivery_completed');
+  } else if (effectiveFilter === 'cancelled') {
+    filtered = allOrders.filter((o) => o.status === 'cancelled');
+  } else {
+    filtered = allOrders.filter((o) => o.status === 'payment_completed');
+  }
+
+  const sorted = sortBrandManagerOrders(filtered, 'created_at', 'desc');
+  const arrow = ' ↓';
+  const sortBar = `
+    <div class="admin-payment-sort">
+      <div class="admin-payment-sort-btns">
+        <button type="button" class="admin-payment-sort-btn active" data-sort="created_at">주문시간${arrow}</button>
+      </div>
+    </div>
+    <div class="admin-payment-subfilter">
+      <div class="admin-payment-subfilter-row">
+        <span class="admin-payment-subfilter-item ${brandManagerSubFilter === 'new' ? 'active' : ''}" data-subfilter="new" role="button" tabindex="0">주문대기 ${newCount}개</span>
+        <span class="admin-payment-subfilter-item ${brandManagerSubFilter === 'delivery_wait' ? 'active' : ''}" data-subfilter="delivery_wait" role="button" tabindex="0">주문완료 ${deliveryWaitCount}개</span>
+        <span class="admin-payment-subfilter-item ${brandManagerSubFilter === 'delivery_completed' ? 'active' : ''}" data-subfilter="delivery_completed" role="button" tabindex="0">발송완료 ${deliveryCompletedCount}개</span>
+        <span class="admin-payment-subfilter-item ${brandManagerSubFilter === 'cancelled' ? 'active' : ''}" data-subfilter="cancelled" role="button" tabindex="0">취소주문 ${cancelledCount}개</span>
+      </div>
+    </div>
+  `;
+
+  const ordersHtml = sorted.map((order) => {
+    const isCancelled = order.status === 'cancelled';
+    const orderIdEsc = escapeHtml(String(order.id));
+    const orderNumberDisplay = escapeHtml(getOrderNumberDisplay(order)).replace(/, /g, '<br>');
+    const orderIdEl = `<span class="admin-payment-order-id admin-payment-order-id-link" data-order-detail="${orderIdEsc}" role="button" tabindex="0">${orderNumberDisplay}</span>`;
+    const statusLabel = getStatusLabel(order.status, order.cancel_reason);
+    const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
+    const storeName = order.profileStoreName || '—';
+    const ordererDisplay = `${escapeHtml(storeName)} / ${escapeHtml(order.depositor || '—')}`;
+    const isDeliveryCompletedFilter = effectiveFilter === 'delivery_completed';
+    const showDeliveryInfo = isDeliveryCompletedFilter && order.status === 'delivery_completed';
+    const deliveryInfoText = showDeliveryInfo
+      ? (order.delivery_type === 'direct' ? '직접 배송 완료' : (order.courier_company || '—') + ' / ' + (order.tracking_number || ''))
+      : '';
+    return `
+      <div class="admin-payment-order ${isCancelled ? 'admin-payment-order-cancelled' : ''}" data-order-id="${orderIdEsc}">
+        <div class="admin-payment-order-header">
+          ${orderIdEl}
+          <span class="admin-payment-order-status ${order.status}">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="admin-payment-order-info">
+          <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
+          <div>배송주소: ${deliveryAddressEsc}</div>
+          <div>주문자: ${ordererDisplay}</div>
+          <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
+        </div>
+        ${showDeliveryInfo ? `<div class="admin-payment-link-row"><span class="admin-payment-delivery-info">*배송정보 : ${escapeHtml(deliveryInfoText)}</span></div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const showLoadMore = brandManagerOrders.length < brandManagerOrdersTotal;
+  const loadMoreHtml = showLoadMore
+    ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-brand-orders-load-more>더 보기</button></div>`
+    : '';
+  content.innerHTML = sortBar + ordersHtml + loadMoreHtml;
+
+  content.querySelectorAll('[data-subfilter]').forEach((el) => {
+    const handler = () => {
+      brandManagerSubFilter = el.dataset.subfilter || 'delivery_wait';
+      renderBrandManagerOrderList();
+    };
+    el.addEventListener('click', handler);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+    });
+  });
+
+  content.querySelectorAll('[data-order-detail]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const orderId = el.dataset.orderDetail;
+      const order = brandManagerOrders.find((o) => o.id === orderId);
+      if (order) openBrandManagerOrderDetail(order);
+    });
+  });
+
+  content.querySelector('[data-brand-orders-load-more]')?.addEventListener('click', () => loadMoreBrandManagerOrders());
+}
+
+async function loadMoreBrandManagerOrders() {
+  const btn = document.querySelector('[data-brand-orders-load-more]');
+  if (btn) btn.disabled = true;
+  try {
+    const token = getToken();
+    if (!token) return;
+    const offset = brandManagerOrders.length;
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=${offset}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const orders = data.orders || [];
+    if (orders.length) {
+      brandManagerOrders = brandManagerOrders.concat(orders);
+      renderBrandManagerOrderList();
+    }
+  } catch (_) {}
+  if (btn) btn.disabled = false;
+}
+
+async function loadOrdersView() {
+  const content = document.getElementById('brandManagerOrdersContent');
+  if (!content) return;
+  content.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+
+  const token = getToken();
+  if (!token) {
+    content.innerHTML = '<p class="admin-stats-error">로그인이 필요합니다.</p>';
+    return;
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=0`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      content.innerHTML = '<p class="admin-stats-error">' + escapeHtml(err.error || '주문 목록을 불러올 수 없습니다.') + '</p>';
+      return;
+    }
+    const data = await res.json();
+    brandManagerOrders = data.orders || [];
+    brandManagerOrdersTotal = typeof data.total === 'number' ? data.total : brandManagerOrders.length;
+
+    const storesRes = await fetchWithTimeout(`${API_BASE}/api/brand-manager/stores`, { headers: { Authorization: `Bearer ${token}` } });
+    if (storesRes.ok) {
+      const storesData = await storesRes.json();
+      const rawStores = storesData.stores != null ? storesData.stores : storesData;
+      const storeList = Array.isArray(rawStores) ? rawStores.flat().filter((s) => s && typeof s === 'object') : (rawStores && typeof rawStores === 'object' && !Array.isArray(rawStores) ? Object.values(rawStores).flat().filter((s) => s && typeof s === 'object') : []);
+      brandManagerStoresMap = {};
+      brandManagerStoreOrder = [];
+      (storeList || []).forEach((s) => {
+        const slug = (s.slug || s.id || '').toString().toLowerCase();
+        const title = (s.title || s.brand || slug).toString().trim() || slug;
+        if (slug) {
+          brandManagerStoresMap[slug] = title;
+          if (s.id && s.id !== slug) brandManagerStoresMap[s.id] = title;
+          brandManagerStoreOrder.push(slug);
+        }
+      });
+    }
+
+    if (brandManagerOrders.length === 0 && brandManagerOrdersTotal === 0) {
+      content.innerHTML = '<div class="admin-loading">주문 내역이 없습니다.</div>';
+      return;
+    }
+
+    renderBrandManagerOrderList();
+  } catch (e) {
+    content.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '오류가 발생했습니다.') + '</p>';
+  }
+}
+
+function setupBrandTabs() {
+  const tabs = document.querySelectorAll('.store-orders-tab[data-brand-tab]');
+  const ordersView = document.getElementById('brandManagerOrdersView');
+  const settlementView = document.getElementById('brandManagerSettlementView');
+
+  function activateTab(targetTab) {
+    tabs.forEach((t) => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    if (ordersView) ordersView.classList.remove('active');
+    if (settlementView) settlementView.classList.remove('active');
+
+    const tabEl = document.querySelector(`.store-orders-tab[data-brand-tab="${targetTab}"]`);
+    if (tabEl) {
+      tabEl.classList.add('active');
+      tabEl.setAttribute('aria-selected', 'true');
+    }
+    if (targetTab === 'orders') {
+      if (ordersView) ordersView.classList.add('active');
+      loadOrdersView();
+    } else if (targetTab === 'settlement') {
+      if (settlementView) settlementView.classList.add('active');
+      loadSettlementView();
+    }
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.brandTab;
+      if (targetTab) activateTab(targetTab);
+    });
+  });
+
+  activateTab('orders');
+}
+
+document.getElementById('brandManagerOrderDetailClose')?.addEventListener('click', closeBrandManagerOrderDetail);
+document.getElementById('brandManagerOrderDetailOverlay')?.addEventListener('click', (e) => {
+  if (e.target.id === 'brandManagerOrderDetailOverlay') closeBrandManagerOrderDetail();
+});
+
 async function loadSettlementView() {
   const container = document.getElementById('brandManagerSettlementContent');
   if (!container) return;
@@ -391,7 +736,7 @@ async function checkBrandManagerAccess() {
       window.location.href = '/';
       return;
     }
-    loadSettlementView();
+    setupBrandTabs();
   } catch (_) {
     window.location.href = '/';
   }
