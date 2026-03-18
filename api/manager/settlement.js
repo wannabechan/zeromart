@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
 
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
       return apiResponse(res, 400, { error: 'date 파라미터가 필요합니다. (YYYY-MM-DD)' });
     }
 
-    const orders = await getAllOrders() || [];
+    const orders = await getOrdersForAdmin() || [];
     const stores = await getStores() || [];
     const targetDate = normalizeDate(dateStr);
 

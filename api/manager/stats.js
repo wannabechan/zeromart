@@ -5,7 +5,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 
@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
     const endDateStr = (req.query.endDate || '').trim();
     const startRange = /^\d{4}-\d{2}-\d{2}$/.test(startDateStr) ? getKSTDayRange(startDateStr) : null;
     const endRange = /^\d{4}-\d{2}-\d{2}$/.test(endDateStr) ? getKSTDayRange(endDateStr) : null;
-    const allOrders = await getAllOrders() || [];
+    const allOrders = await getOrdersForAdmin() || [];
 
     const orders = [];
     for (const o of allOrders) {

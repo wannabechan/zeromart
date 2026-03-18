@@ -5,7 +5,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder } = require('../orders/_order-email');
 
 function scopeOrderToManagerStores(order, managerEmail, stores) {
@@ -76,7 +76,7 @@ module.exports = async (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 25), 100);
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
 
-    const allOrders = await getAllOrders();
+    const allOrders = await getOrdersForAdmin();
     const scopedList = [];
     for (const order of allOrders || []) {
       const scoped = scopeOrderToManagerStores(order, managerEmail, stores);

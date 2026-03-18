@@ -297,8 +297,8 @@ async function getAllOrders() {
 }
 
 /**
- * 어드민 전용: 환경변수 ADMIN_USE_SAMPLE_ORDERS === 'true' 이면 샘플 주문 반환, 아니면 실제 DB 주문.
- * 주문관리/통계관리/정산관리 테스트용.
+ * 환경변수 ADMIN_USE_SAMPLE_ORDERS === 'true' 이면 샘플 주문 반환, 아니면 실제 DB 주문.
+ * 어드민·매장담당자·브랜드매니저 API에서 공통 사용 (동일 샘플 데이터로 테스트 가능).
  */
 async function getOrdersForAdmin() {
   if (String(process.env.ADMIN_USE_SAMPLE_ORDERS || '').trim().toLowerCase() === 'true') {

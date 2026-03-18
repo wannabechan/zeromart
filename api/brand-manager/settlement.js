@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getAllOrders, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
 const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded, getAllowedSlugSet } = require('./_helpers');
@@ -52,7 +52,7 @@ module.exports = async (req, res) => {
     const allowedStores = isAdmin ? await getStores() || [] : await getAllowedStoresForManagerExpanded(userEmail);
     const allowedSlugs = getAllowedSlugSet(allowedStores);
     const stores = await getStores() || [];
-    const orders = await getAllOrders() || [];
+    const orders = await getOrdersForAdmin() || [];
 
     const deliveryCompleted = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
