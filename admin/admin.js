@@ -32,6 +32,33 @@ function getAdminLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
 }
 
+function getAdminPeriodBarOnlyHtml() {
+  const periodStartDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
+  return (
+    '<div class="admin-payment-sort">' +
+    '<div class="admin-payment-period-btns">' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (adminPaymentPeriod === 'this_month' ? 'active' : '') + '" data-period="this_month">이번달</button><span class="admin-payment-period-gap">&nbsp;</span>' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (adminPaymentPeriod === '1_month' ? 'active' : '') + '" data-period="1_month">1개월전부터</button><span class="admin-payment-period-gap">&nbsp;</span>' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (adminPaymentPeriod === '3_months' ? 'active' : '') + '" data-period="3_months">3개월전부터</button>' +
+    '</div>' +
+    '<div class="admin-payment-period-range">>> ' + escapeHtml(periodStartDate) + ' ~ 현재</div>' +
+    '</div>'
+  );
+}
+
+function attachAdminPeriodListeners(container) {
+  if (!container) return;
+  container.querySelectorAll('[data-period]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const period = btn.dataset.period;
+      if (period && adminPaymentPeriod !== period) {
+        adminPaymentPeriod = period;
+        loadPaymentManagement();
+      }
+    });
+  });
+}
+
 // 이미지 규칙: 1:1 비율, 권장 400x400px
 const IMAGE_RULE = '가로·세로 1:1 비율, 권장 400×400px';
 
@@ -1124,7 +1151,8 @@ const PAYMENT_FULL_LOAD_LIMIT = 2000;
 
 async function loadPaymentManagement() {
   const content = document.getElementById('adminPaymentContent');
-  content.innerHTML = getAdminLoadingHtml();
+  content.innerHTML = getAdminPeriodBarOnlyHtml() + '<div class="admin-loading-wrap">' + getAdminLoadingHtml() + '</div>';
+  attachAdminPeriodListeners(content);
 
   try {
     const token = getToken();

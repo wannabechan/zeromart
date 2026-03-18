@@ -28,6 +28,33 @@ function getStoreOrdersLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
 }
 
+function getStoreOrdersPeriodBarOnlyHtml() {
+  const periodStartDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
+  return (
+    '<div class="admin-payment-sort">' +
+    '<div class="admin-payment-period-btns">' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (storeOrdersPeriod === 'this_month' ? 'active' : '') + '" data-period="this_month">이번달</button><span class="admin-payment-period-gap">&nbsp;</span>' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (storeOrdersPeriod === '1_month' ? 'active' : '') + '" data-period="1_month">1개월전부터</button><span class="admin-payment-period-gap">&nbsp;</span>' +
+    '<button type="button" class="admin-payment-sort-btn admin-payment-period-btn ' + (storeOrdersPeriod === '3_months' ? 'active' : '') + '" data-period="3_months">3개월전부터</button>' +
+    '</div>' +
+    '<div class="admin-payment-period-range">>> ' + escapeHtml(periodStartDate) + ' ~ 현재</div>' +
+    '</div>'
+  );
+}
+
+function attachStoreOrdersPeriodListeners(container) {
+  if (!container) return;
+  container.querySelectorAll('[data-period]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const period = btn.dataset.period;
+      if (period && storeOrdersPeriod !== period) {
+        storeOrdersPeriod = period;
+        loadStoreOrders();
+      }
+    });
+  });
+}
+
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -701,6 +728,9 @@ async function loadStoreOrders() {
     window.location.replace('/');
     return;
   }
+
+  content.innerHTML = getStoreOrdersPeriodBarOnlyHtml() + '<div class="store-orders-loading-wrap">' + getStoreOrdersLoadingHtml() + '</div>';
+  attachStoreOrdersPeriodListeners(content);
 
   try {
     const sessionRes = await fetch(`${API_BASE}/api/auth/session`, {
