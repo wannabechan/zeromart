@@ -12,6 +12,8 @@ let adminPaymentTotal = 0;
 let adminPaymentSortBy = 'created_at';
 let adminPaymentSortDir = { created_at: 'desc' };
 let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'delivery_completed' | 'cancelled'
+/** 주문관리 기간: 'this_month' | '1_month' | '3_months'. API에 startDate(YYYY-MM-DD)로 전달 */
+let adminPaymentPeriod = 'this_month';
 let adminStoresMap = {};
 let adminStoreOrder = []; // slug order for order detail
 let adminStatsLastData = null;
@@ -889,11 +891,13 @@ function renderPaymentList() {
   const dir = adminPaymentSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
-  const arrow = (key) => (adminPaymentSortDir[key] === 'asc' ? ' ↑' : ' ↓');
-  const sortBar = `
+  const periodStartDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
+  const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-sort-btns">
-        <button type="button" class="admin-payment-sort-btn active" data-sort="created_at">주문시간${arrow('created_at')}</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
     </div>
     <div class="admin-payment-subfilter">
@@ -980,7 +984,7 @@ function renderPaymentList() {
   const loadMoreHtml = showLoadMore
     ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-payment-load-more>더 보기</button></div>`
     : '';
-  content.innerHTML = sortBar + ordersHtml + loadMoreHtml;
+  content.innerHTML = periodBar + ordersHtml + loadMoreHtml;
 
   adminPaymentFlashIntervals.forEach(id => clearInterval(id));
   adminPaymentFlashIntervals = [];
@@ -1013,15 +1017,13 @@ function renderPaymentList() {
   tickPaymentCountdown();
   adminPaymentCountdownIntervalId = setInterval(tickPaymentCountdown, 1000);
 
-  content.querySelectorAll('[data-sort]').forEach(btn => {
+  content.querySelectorAll('[data-period]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const key = btn.dataset.sort;
-      if (adminPaymentSortBy === key) {
-        adminPaymentSortDir[key] = adminPaymentSortDir[key] === 'asc' ? 'desc' : 'asc';
-      } else {
-        adminPaymentSortBy = key;
+      const period = btn.dataset.period;
+      if (period && adminPaymentPeriod !== period) {
+        adminPaymentPeriod = period;
+        loadPaymentManagement();
       }
-      renderPaymentList();
     });
   });
 
@@ -1129,7 +1131,8 @@ async function loadPaymentManagement() {
 
   try {
     const token = getToken();
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=0`, {
+    const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
 
@@ -1177,7 +1180,8 @@ async function loadMorePaymentOrders() {
   try {
     const token = getToken();
     const offset = adminPaymentOrders.length;
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=${offset}`, {
+    const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) return;
@@ -1196,7 +1200,8 @@ async function refetchPaymentOrdersAndRender() {
     const token = getToken();
     const currentLen = adminPaymentOrders.length;
     const limit = Math.max(PAYMENT_PAGE_SIZE, currentLen);
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${limit}&offset=0`, {
+    const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${limit}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) return;
@@ -1247,6 +1252,25 @@ function clearPaymentIdleTimer() {
 /** 현재 날짜를 KST 기준 YYYY-MM-DD */
 function getTodayKST() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+/** 주문관리 기간 버튼용: 이번달/1개월전/3개월전 시작일(YYYY-MM-DD, KST) */
+function getPaymentStartDateForPeriod(period) {
+  const today = getTodayKST();
+  const [y, m] = today.split('-').map(Number);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (period === 'this_month') return `${y}-${pad(m)}-01`;
+  if (period === '1_month') {
+    if (m <= 1) return `${y - 1}-12-01`;
+    return `${y}-${pad(m - 1)}-01`;
+  }
+  if (period === '3_months') {
+    let mm = m - 3;
+    let yy = y;
+    while (mm <= 0) { mm += 12; yy -= 1; }
+    return `${yy}-${pad(mm)}-01`;
+  }
+  return `${y}-${pad(m)}-01`;
 }
 /** Date 또는 타임스탬프를 KST 기준 YYYY-MM-DD */
 function toDateKeyKST(d) {

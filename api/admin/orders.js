@@ -23,9 +23,18 @@ module.exports = async (req, res) => {
 
     const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 25), 100);
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const startDateStr = (req.query.startDate || '').trim();
 
-    const allOrders = await getOrdersForAdmin();
-    const sorted = (allOrders || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    let list = await getOrdersForAdmin() || [];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(startDateStr)) {
+      const startMs = new Date(startDateStr + 'T00:00:00+09:00').getTime();
+      const endMs = Date.now();
+      list = list.filter((o) => {
+        const t = new Date(o.created_at).getTime();
+        return !Number.isNaN(t) && t >= startMs && t <= endMs;
+      });
+    }
+    const sorted = list.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 

@@ -13,6 +13,8 @@ let storeOrdersStoreOrder = [];
 let storeOrdersSortBy = 'created_at';
 let storeOrdersSortDir = { created_at: 'desc' };
 let storeOrdersSubFilter = 'delivery_wait';
+/** 주문관리 기간: 'this_month' | '1_month' | '3_months' */
+let storeOrdersPeriod = 'this_month';
 let storeOrdersFlashIntervals = [];
 
 const STORE_ORDERS_IDLE_MS = 180000; // 180초 무활동 시 주문 목록 리프레시
@@ -76,6 +78,25 @@ function formatAdminPrice(price) {
 function getTodayKST() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
+
+function getStoreOrdersStartDateForPeriod(period) {
+  const today = getTodayKST();
+  const [y, m] = today.split('-').map(Number);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (period === 'this_month') return `${y}-${pad(m)}-01`;
+  if (period === '1_month') {
+    if (m <= 1) return `${y - 1}-12-01`;
+    return `${y}-${pad(m - 1)}-01`;
+  }
+  if (period === '3_months') {
+    let mm = m - 3;
+    let yy = y;
+    while (mm <= 0) { mm += 12; yy -= 1; }
+    return `${yy}-${pad(mm)}-01`;
+  }
+  return `${y}-${pad(m)}-01`;
+}
+
 function toDateKeyKST(d) {
   if (d == null) return '';
   return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
@@ -375,11 +396,12 @@ function renderList() {
   const dir = storeOrdersSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
-  const arrow = (key) => (storeOrdersSortDir[key] === 'asc' ? ' ↑' : ' ↓');
-  const sortBar = `
+  const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-sort-btns">
-        <button type="button" class="admin-payment-sort-btn active" data-sort="created_at">주문시간${arrow('created_at')}</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
     </div>
     <div class="admin-payment-subfilter">
@@ -457,7 +479,8 @@ function renderList() {
   const loadMoreHtml = showLoadMore
     ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-store-orders-load-more>더 보기</button></div>`
     : '';
-  content.innerHTML = sortBar + ordersHtml + loadMoreHtml;
+  const emptyMessage = sorted.length === 0 ? '<div class="admin-loading">주문 내역이 없습니다.</div>' : '';
+  content.innerHTML = periodBar + ordersHtml + emptyMessage + loadMoreHtml;
 
   storeOrdersFlashIntervals.forEach(id => clearInterval(id));
   storeOrdersFlashIntervals = [];
@@ -484,15 +507,13 @@ function renderList() {
   tickPaymentCountdown();
   storePaymentCountdownIntervalId = setInterval(tickPaymentCountdown, 1000);
 
-  content.querySelectorAll('[data-sort]').forEach(btn => {
+  content.querySelectorAll('[data-period]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const key = btn.dataset.sort;
-      if (storeOrdersSortBy === key) {
-        storeOrdersSortDir[key] = storeOrdersSortDir[key] === 'asc' ? 'desc' : 'asc';
-      } else {
-        storeOrdersSortBy = key;
+      const period = btn.dataset.period;
+      if (period && storeOrdersPeriod !== period) {
+        storeOrdersPeriod = period;
+        loadStoreOrders();
       }
-      renderList();
     });
   });
 
@@ -698,7 +719,8 @@ async function loadStoreOrders() {
       return;
     }
 
-    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=0`, {
+    const startDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
+    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -716,12 +738,6 @@ async function loadStoreOrders() {
     storeOrdersStores = data.stores || [];
     storeOrdersStoreOrder = storeOrdersStores.map(s => (s.slug || s.id || '').toString().toLowerCase()).filter(Boolean);
 
-    if (storeOrdersData.length === 0 && storeOrdersTotal === 0) {
-      content.innerHTML = '<div class="admin-loading">주문 내역이 없습니다.</div>';
-      startStoreOrdersIdleRefresh();
-      return;
-    }
-
     renderList();
     startStoreOrdersIdleRefresh();
   } catch (e) {
@@ -736,7 +752,8 @@ async function loadMoreStoreOrders() {
     const token = getToken();
     if (!token) return;
     const offset = storeOrdersData.length;
-    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=${offset}`, {
+    const startDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
+    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;

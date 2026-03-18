@@ -13,6 +13,8 @@ let brandManagerOrdersTotal = 0;
 let brandManagerStoresMap = {};
 let brandManagerStoreOrder = [];
 let brandManagerSubFilter = 'delivery_wait';
+/** 주문관리 기간: 'this_month' | '1_month' | '3_months' */
+let brandManagerPeriod = 'this_month';
 
 function isMobileView() {
   return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
@@ -36,6 +38,24 @@ function getTodayKST() {
   const d = new Date();
   const kst = new Date(d.getTime() + (d.getTimezoneOffset() * 60000) + (9 * 3600000));
   return kst.toISOString().slice(0, 10);
+}
+
+function getBrandManagerStartDateForPeriod(period) {
+  const today = getTodayKST();
+  const [y, m] = today.split('-').map(Number);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (period === 'this_month') return `${y}-${pad(m)}-01`;
+  if (period === '1_month') {
+    if (m <= 1) return `${y - 1}-12-01`;
+    return `${y}-${pad(m - 1)}-01`;
+  }
+  if (period === '3_months') {
+    let mm = m - 3;
+    let yy = y;
+    while (mm <= 0) { mm += 12; yy -= 1; }
+    return `${yy}-${pad(mm)}-01`;
+  }
+  return `${y}-${pad(m)}-01`;
 }
 
 function getOrderNumberDisplay(order) {
@@ -462,11 +482,12 @@ function renderBrandManagerOrderList() {
   }
 
   const sorted = sortBrandManagerOrders(filtered, 'created_at', 'desc');
-  const arrow = ' ↓';
-  const sortBar = `
+  const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-sort-btns">
-        <button type="button" class="admin-payment-sort-btn active" data-sort="created_at">주문시간${arrow}</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
     </div>
     <div class="admin-payment-subfilter">
@@ -514,7 +535,17 @@ function renderBrandManagerOrderList() {
   const loadMoreHtml = showLoadMore
     ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-brand-orders-load-more>더 보기</button></div>`
     : '';
-  content.innerHTML = sortBar + ordersHtml + loadMoreHtml;
+  content.innerHTML = periodBar + ordersHtml + loadMoreHtml;
+
+  content.querySelectorAll('[data-period]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const period = btn.dataset.period;
+      if (period && brandManagerPeriod !== period) {
+        brandManagerPeriod = period;
+        loadOrdersView();
+      }
+    });
+  });
 
   content.querySelectorAll('[data-subfilter]').forEach((el) => {
     const handler = () => {
@@ -545,7 +576,8 @@ async function loadMoreBrandManagerOrders() {
     const token = getToken();
     if (!token) return;
     const offset = brandManagerOrders.length;
-    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=${offset}`, {
+    const startDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;
@@ -571,7 +603,8 @@ async function loadOrdersView() {
   }
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=0`, {
+    const startDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
