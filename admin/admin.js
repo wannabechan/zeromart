@@ -1701,13 +1701,7 @@ function printSettlementStatement() {
     alert('먼저 검색하여 정산서 내용을 불러온 뒤 PDF 출력해 주세요.');
     return;
   }
-  const win = window.open('', '_blank');
-  if (!win) {
-    alert('팝업이 차단되었을 수 있습니다. 브라우저에서 팝업을 허용해 주세요.');
-    return;
-  }
-  win.document.write(
-    '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>정산서</title><style>' +
+  const printStyles =
     'body{font-family:inherit;padding:24px;color:#333;font-size:14px;max-width:640px;margin:0 auto;}' +
     '.admin-settlement-statement-print{}' +
     '.admin-settlement-statement-header{text-align:center;margin-bottom:20px;}' +
@@ -1721,12 +1715,24 @@ function printSettlementStatement() {
     'table{width:100%;border-collapse:collapse;}th,td{padding:10px 12px;text-align:left;border:1px solid #ddd;}' +
     'th{font-weight:600;background:#f5f5f5;}.admin-settlement-statement-total{font-weight:600;background:#f9f9f9;}' +
     '.admin-settlement-statement-footer{font-size:12px;color:#666;text-align:left;}.admin-settlement-statement-footer p{margin:4px 0;}' +
-    '.admin-settlement-statement-issuer{text-align:left;font-size:13px;}.admin-settlement-statement-issuer p{margin:2px 0;}' +
-    '</style></head><body>' + printEl.outerHTML + '</body></html>'
-  );
-  win.document.close();
+    '.admin-settlement-statement-issuer{text-align:left;font-size:13px;}.admin-settlement-statement-issuer p{margin:2px 0;}';
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>정산서</title><style>' + printStyles + '</style></head><body>' + printEl.outerHTML + '</body></html>';
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!win) {
+    URL.revokeObjectURL(url);
+    alert('팝업이 차단되었을 수 있습니다. 브라우저에서 팝업을 허용해 주세요.');
+    return;
+  }
   win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 300);
+  win.onafterprint = function () {
+    URL.revokeObjectURL(url);
+    win.close();
+  };
+  setTimeout(function () {
+    win.print();
+  }, 300);
 }
 
 async function loadSettlement() {
