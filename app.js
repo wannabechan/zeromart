@@ -22,13 +22,30 @@ async function loadMenuData() {
     });
     if (res.ok) {
       const data = await res.json();
-      MENU_DATA = data;
+      MENU_DATA = data && typeof data === 'object' ? data : {};
       return true;
     }
   } catch (e) {
     console.warn('Menu data load failed:', e);
   }
   return false;
+}
+
+/** 로그인 직후 등 앱 표시 시점에 메뉴를 다시 불러와 권한이 있는 매장/메뉴만 보이도록 갱신 */
+async function refreshMenuAndRender() {
+  const token = window.BzCatAuth?.getToken?.();
+  if (!token) return;
+  const currentCategory = document.querySelector('.category-tab.active')?.dataset.category || '_all';
+  const ok = await loadMenuData();
+  if (!ok) return;
+  const slugStillExists = currentCategory === '_all' || currentCategory === '_recent' || Object.prototype.hasOwnProperty.call(MENU_DATA, currentCategory);
+  renderCategoryTabs(slugStillExists ? currentCategory : undefined);
+  if (document.querySelector('.category-tab.active')?.dataset.category === '_recent') {
+    await fetchRecentOrderItems();
+  }
+  renderMenuCards();
+  renderCartItems();
+  updateCartCount();
 }
 
 // 장바구니 상태: { [itemId]: quantity }
@@ -1215,7 +1232,9 @@ function init() {
   startProfileIdleRefresh();
   window.BzCatAppOnShow = function () {
     fetchAndRenderProfileOrders();
+    refreshMenuAndRender();
   };
+  window.BzCatAppRefreshMenu = refreshMenuAndRender;
   profileToggle.addEventListener('click', openProfile);
   profileClose.addEventListener('click', closeProfile);
   profileOverlay.addEventListener('click', (e) => {

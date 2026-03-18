@@ -50,6 +50,20 @@ module.exports = async (req, res) => {
       return apiResponse(res, 400, { error: '필수 정보를 모두 입력해 주세요.' });
     }
 
+    // 문자열 길이 제한 (과도한 입력·Redis 남용 방지)
+    const str = (v) => (v != null ? String(v).trim() : '');
+    if (str(depositor).length > 50) return apiResponse(res, 400, { error: '입금자명은 50자 이내로 입력해 주세요.' });
+    if (str(contact).length > 30) return apiResponse(res, 400, { error: '연락처는 30자 이내로 입력해 주세요.' });
+    if (str(deliveryAddress).length > 500) return apiResponse(res, 400, { error: '배송 주소는 500자 이내로 입력해 주세요.' });
+    if (str(detailAddress).length > 200) return apiResponse(res, 400, { error: '상세 주소는 200자 이내로 입력해 주세요.' });
+    if (str(expenseType).length > 20) return apiResponse(res, 400, { error: '경비 구분은 20자 이내로 입력해 주세요.' });
+    if (str(expenseDoc).length > 500) return apiResponse(res, 400, { error: '경비 증빙은 500자 이내로 입력해 주세요.' });
+
+    const totalNum = Number(totalAmount);
+    if (!Number.isFinite(totalNum) || totalNum < 0 || totalNum > 999_999_999) {
+      return apiResponse(res, 400, { error: '총 금액이 올바르지 않습니다.' });
+    }
+
     // orderItems 구조 검증 (배열, 최대 100건, 각 항목 id/name/price/quantity)
     const MAX_ORDER_ITEMS = 100;
     if (!Array.isArray(orderItems) || orderItems.length === 0 || orderItems.length > MAX_ORDER_ITEMS) {
@@ -77,7 +91,7 @@ module.exports = async (req, res) => {
       delivery_address: deliveryAddress,
       detail_address: detailAddress || null,
       order_items: orderItems,
-      total_amount: totalAmount,
+      total_amount: totalNum,
     });
 
     // 주문서 PDF 생성 및 Vercel Blob 저장

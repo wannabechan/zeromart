@@ -4,12 +4,8 @@
  */
 
 const { getOrderById, deleteOrder } = require('../_redis');
-const { verifyToken, apiResponse } = require('../_utils');
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 const { appendOrderRawLog } = require('../_orderRawLog');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});

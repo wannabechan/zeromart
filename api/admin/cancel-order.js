@@ -5,13 +5,9 @@
 
 const { getOrderById } = require('../_redis');
 const { cancelOrderAndRegeneratePdf } = require('../_orderCancel');
-const { verifyToken, apiResponse } = require('../_utils');
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 
 const CANCELABLE_STATUSES = ['submitted', 'pending', 'order_accepted', 'payment_link_issued'];
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});

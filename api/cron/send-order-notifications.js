@@ -5,6 +5,7 @@
  */
 
 const { getAllOrders, getStores, getProfileSettings, setOrderNotificationSent } = require('../_redis');
+const { requireAuthCron } = require('../_utils');
 const {
   getStoresWithItemsInOrder,
   getOrderNumberForStoreIndex,
@@ -29,13 +30,7 @@ module.exports = async (req, res) => {
     return res.status(405).setHeader('Allow', 'GET, POST').end();
   }
 
-  const secret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  const token = authHeader.slice(7);
-  if (!secret || token !== secret) {
+  if (!requireAuthCron(req)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

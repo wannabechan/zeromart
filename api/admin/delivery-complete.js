@@ -3,14 +3,10 @@
  * 주문을 발송 완료로 변경 (admin 전용, 코드 검증)
  */
 
-const { verifyToken, apiResponse } = require('../_utils');
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 const { getOrderById, updateOrderParcelAndDeliveryComplete, updateOrderDeliveryCompleteDirect } = require('../_redis');
 const { validateTrackingWithApi, normalizeTrackingForApi } = require('../_tracking');
 const { appendOrderRawLog } = require('../_orderRawLog');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});

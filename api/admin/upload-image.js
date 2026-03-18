@@ -6,15 +6,11 @@
 const fs = require('fs');
 const { put } = require('@vercel/blob');
 const formidable = require('formidable');
-const { verifyToken, apiResponse } = require('../_utils');
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MIMETYPE_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {

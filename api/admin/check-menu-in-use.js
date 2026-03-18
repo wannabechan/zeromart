@@ -4,11 +4,7 @@
  */
 
 const { getAllOrders } = require('../_redis');
-const { verifyToken, apiResponse } = require('../_utils');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});

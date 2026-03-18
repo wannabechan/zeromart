@@ -41,6 +41,11 @@ module.exports = async (req, res) => {
     return res.redirect(302, `${redirectBase}?payment=error`);
   }
 
+  // 이미 결제 완료된 주문이면 재처리 없이 성공 리다이렉트 (이중 요청/새로고침 대비)
+  if ((order.status || '') === 'payment_completed') {
+    return res.redirect(302, `${redirectBase}?payment=success`);
+  }
+
   const TOSS_SECRET_KEY = await getTossSecretKeyForOrder(order);
   if (!TOSS_SECRET_KEY) {
     return res.redirect(302, `${redirectBase}?payment=error`);

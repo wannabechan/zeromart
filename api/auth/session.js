@@ -67,8 +67,8 @@ module.exports = async (req, res) => {
         isBrandManager: !!isBrandManager,
       },
     };
-    // 개발 시에만: admin 미표시 원인 확인용 (배포 전 제거 가능)
-    if (process.env.NODE_ENV !== 'production') {
+    // 디버그 필요 시에만: DEBUG_SESSION=1 로 명시했을 때만 _debug 포함
+    if (process.env.DEBUG_SESSION === '1') {
       body._debug = {
         emailFromToken: decoded.email || null,
         levelReturned: level,

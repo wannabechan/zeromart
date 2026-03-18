@@ -4,13 +4,9 @@
  */
 
 const { getStores, getMenus, saveStoresAndMenus } = require('../_redis');
-const { requireAuth, apiResponse } = require('../_utils');
+const { requireAuth, apiResponse, isAdmin } = require('../_utils');
 
 const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 function todayYYYYMMDD() {
   return new Date().toISOString().slice(0, 10);

@@ -3,13 +3,9 @@
  * 배송 번호(전화번호 형식) 저장 및 주문 상태를 배송중으로 변경 (admin 전용)
  */
 
-const { verifyToken, apiResponse } = require('../_utils');
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 const { getOrderById, updateOrderShippingNumber } = require('../_redis');
 const { appendOrderRawLog } = require('../_orderRawLog');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
 
 /**
  * 대한민국 휴대폰·전화번호만 허용 (숫자만 사용, 9~11자리, 0으로 시작)

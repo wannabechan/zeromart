@@ -2,6 +2,7 @@
  * API 유틸리티 함수
  */
 
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -28,6 +29,30 @@ function verifyToken(token) {
     return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     return null;
+  }
+}
+
+/**
+ * 어드민 여부 (JWT 검증 후 user 객체에 대해 사용)
+ */
+function isAdmin(user) {
+  return !!(user && user.level === 'admin');
+}
+
+/**
+ * Cron API 인증 (CRON_SECRET과 timing-safe 비교)
+ */
+function requireAuthCron(req) {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = req.headers && req.headers.authorization;
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) return false;
+  const token = authHeader.slice(7).trim();
+  if (!secret || typeof secret !== 'string') return false;
+  if (token.length !== secret.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'));
+  } catch {
+    return false;
   }
 }
 
@@ -95,6 +120,8 @@ module.exports = {
   generateToken,
   verifyToken,
   getUserLevel,
+  isAdmin,
+  requireAuthCron,
   generateCode,
   setCorsHeaders,
   apiResponse,

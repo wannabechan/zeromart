@@ -5,11 +5,7 @@
 
 const { get } = require('@vercel/blob');
 const { Readable } = require('stream');
-const { verifyToken, apiResponse } = require('../_utils');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 
 function pickQuery(req, key) {
   const q = req.query || {};

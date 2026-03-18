@@ -4,11 +4,7 @@
  */
 
 const { list } = require('@vercel/blob');
-const { verifyToken, apiResponse } = require('../_utils');
-
-function isAdmin(user) {
-  return user && user.level === 'admin';
-}
+const { verifyToken, apiResponse, isAdmin } = require('../_utils');
 
 /** pathname에서 날짜 추출. rawlog/zeromartrawlog-YYYY-MM-DD.csv → YYYY-MM-DD */
 function dateFromPathname(pathname) {
