@@ -18,7 +18,7 @@ let storeOrdersPeriod = 'this_month';
 let storeOrdersFlashIntervals = [];
 
 const STORE_ORDERS_IDLE_MS = 180000; // 180초 무활동 시 주문 목록 리프레시
-const STORE_ORDERS_PAGE_SIZE = 25;
+const STORE_ORDERS_FULL_LOAD_LIMIT = 2000;
 let storeOrdersIdleTimerId = null;
 let storeOrdersIdleListenersAttached = false;
 let storeOrdersStatsMenuFilter = 'top10';
@@ -396,13 +396,15 @@ function renderList() {
   const dir = storeOrdersSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
+  const periodStartDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
   const periodBar = `
     <div class="admin-payment-sort">
-      <div class="admin-payment-sort-btns">
+      <div class="admin-payment-period-btns">
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
+      <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
     <div class="admin-payment-subfilter">
       <div class="admin-payment-subfilter-row">
@@ -475,12 +477,8 @@ function renderList() {
     `;
   }).join('');
 
-  const showLoadMore = storeOrdersData.length < storeOrdersTotal;
-  const loadMoreHtml = showLoadMore
-    ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-store-orders-load-more>더 보기</button></div>`
-    : '';
   const emptyMessage = sorted.length === 0 ? '<div class="admin-loading">주문 내역이 없습니다.</div>' : '';
-  content.innerHTML = periodBar + ordersHtml + emptyMessage + loadMoreHtml;
+  content.innerHTML = periodBar + ordersHtml + emptyMessage;
 
   storeOrdersFlashIntervals.forEach(id => clearInterval(id));
   storeOrdersFlashIntervals = [];
@@ -530,8 +528,6 @@ function renderList() {
       }
     });
   });
-
-  content.querySelector('[data-store-orders-load-more]')?.addEventListener('click', () => loadMoreStoreOrders());
 
   content.querySelectorAll('[data-order-detail]').forEach(el => {
     el.addEventListener('click', () => {
@@ -720,7 +716,7 @@ async function loadStoreOrders() {
     }
 
     const startDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
-    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
+    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_FULL_LOAD_LIMIT}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -743,28 +739,6 @@ async function loadStoreOrders() {
   } catch (e) {
     content.innerHTML = '<div class="admin-loading admin-error">오류가 발생했습니다. 네트워크를 확인해 주세요.</div>';
   }
-}
-
-async function loadMoreStoreOrders() {
-  const btn = document.querySelector('[data-store-orders-load-more]');
-  if (btn) btn.disabled = true;
-  try {
-    const token = getToken();
-    if (!token) return;
-    const offset = storeOrdersData.length;
-    const startDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);
-    const res = await fetch(`${API_BASE}/api/manager/orders?limit=${STORE_ORDERS_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const orders = data.orders || [];
-    if (orders.length) {
-      storeOrdersData = storeOrdersData.concat(orders);
-      renderList();
-    }
-  } catch (_) {}
-  if (btn) btn.disabled = false;
 }
 
 function resetStoreOrdersIdleTimer() {

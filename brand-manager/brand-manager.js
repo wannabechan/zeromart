@@ -6,7 +6,7 @@
 const TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
-const BRAND_ORDERS_PAGE_SIZE = 25;
+const BRAND_ORDERS_FULL_LOAD_LIMIT = 2000;
 
 let brandManagerOrders = [];
 let brandManagerOrdersTotal = 0;
@@ -482,13 +482,15 @@ function renderBrandManagerOrderList() {
   }
 
   const sorted = sortBrandManagerOrders(filtered, 'created_at', 'desc');
+  const periodStartDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
   const periodBar = `
     <div class="admin-payment-sort">
-      <div class="admin-payment-sort-btns">
+      <div class="admin-payment-period-btns">
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
+      <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
     <div class="admin-payment-subfilter">
       <div class="admin-payment-subfilter-row">
@@ -531,11 +533,7 @@ function renderBrandManagerOrderList() {
     `;
   }).join('');
 
-  const showLoadMore = brandManagerOrders.length < brandManagerOrdersTotal;
-  const loadMoreHtml = showLoadMore
-    ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-brand-orders-load-more>더 보기</button></div>`
-    : '';
-  content.innerHTML = periodBar + ordersHtml + loadMoreHtml;
+  content.innerHTML = periodBar + ordersHtml;
 
   content.querySelectorAll('[data-period]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -566,29 +564,6 @@ function renderBrandManagerOrderList() {
     });
   });
 
-  content.querySelector('[data-brand-orders-load-more]')?.addEventListener('click', () => loadMoreBrandManagerOrders());
-}
-
-async function loadMoreBrandManagerOrders() {
-  const btn = document.querySelector('[data-brand-orders-load-more]');
-  if (btn) btn.disabled = true;
-  try {
-    const token = getToken();
-    if (!token) return;
-    const offset = brandManagerOrders.length;
-    const startDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
-    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const orders = data.orders || [];
-    if (orders.length) {
-      brandManagerOrders = brandManagerOrders.concat(orders);
-      renderBrandManagerOrderList();
-    }
-  } catch (_) {}
-  if (btn) btn.disabled = false;
 }
 
 async function loadOrdersView() {
@@ -604,7 +579,7 @@ async function loadOrdersView() {
 
   try {
     const startDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
-    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/orders?limit=${BRAND_ORDERS_FULL_LOAD_LIMIT}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {

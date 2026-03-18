@@ -894,11 +894,12 @@ function renderPaymentList() {
   const periodStartDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
   const periodBar = `
     <div class="admin-payment-sort">
-      <div class="admin-payment-sort-btns">
+      <div class="admin-payment-period-btns">
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
         <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
+      <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
     <div class="admin-payment-subfilter">
       <div class="admin-payment-subfilter-row">
@@ -980,11 +981,7 @@ function renderPaymentList() {
     `;
   }).join('');
 
-  const showLoadMore = adminPaymentOrders.length < adminPaymentTotal;
-  const loadMoreHtml = showLoadMore
-    ? `<div class="admin-payment-load-more-wrap"><button type="button" class="admin-btn admin-payment-load-more-btn" data-payment-load-more>더 보기</button></div>`
-    : '';
-  content.innerHTML = periodBar + ordersHtml + loadMoreHtml;
+  content.innerHTML = periodBar + ordersHtml;
 
   adminPaymentFlashIntervals.forEach(id => clearInterval(id));
   adminPaymentFlashIntervals = [];
@@ -1048,8 +1045,6 @@ function renderPaymentList() {
       if (order) openAdminOrderDetail(order);
     });
   });
-
-  content.querySelector('[data-payment-load-more]')?.addEventListener('click', () => loadMorePaymentOrders());
 
   content.querySelectorAll('[data-open-delivery-modal]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1123,7 +1118,7 @@ function renderPaymentList() {
   });
 }
 
-const PAYMENT_PAGE_SIZE = 25;
+const PAYMENT_FULL_LOAD_LIMIT = 2000;
 
 async function loadPaymentManagement() {
   const content = document.getElementById('adminPaymentContent');
@@ -1132,7 +1127,7 @@ async function loadPaymentManagement() {
   try {
     const token = getToken();
     const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_FULL_LOAD_LIMIT}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
 
@@ -1174,34 +1169,12 @@ async function loadPaymentManagement() {
   }
 }
 
-async function loadMorePaymentOrders() {
-  const btn = document.querySelector('[data-payment-load-more]');
-  if (btn) btn.disabled = true;
-  try {
-    const token = getToken();
-    const offset = adminPaymentOrders.length;
-    const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_PAGE_SIZE}&offset=${offset}&startDate=${encodeURIComponent(startDate)}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    const { orders } = await res.json();
-    if (Array.isArray(orders) && orders.length) {
-      adminPaymentOrders = adminPaymentOrders.concat(orders);
-      renderPaymentList();
-    }
-  } catch (_) {}
-  if (btn) btn.disabled = false;
-}
-
 async function refetchPaymentOrdersAndRender() {
   const content = document.getElementById('adminPaymentContent');
   try {
     const token = getToken();
-    const currentLen = adminPaymentOrders.length;
-    const limit = Math.max(PAYMENT_PAGE_SIZE, currentLen);
     const startDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${limit}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/orders?limit=${PAYMENT_FULL_LOAD_LIMIT}&offset=0&startDate=${encodeURIComponent(startDate)}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!res.ok) return;
