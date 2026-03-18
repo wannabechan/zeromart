@@ -69,23 +69,26 @@ body {
   gap: 12px;
 }
 .loading-progress {
-  height: 4px;
+  height: 6px;
   background: var(--color-border, rgba(0, 0, 0, 0.1));
-  border-radius: 2px;
+  border-radius: 3px;
   overflow: hidden;
   width: 200px;
   max-width: 80%;
 }
 .loading-progress-bar {
   height: 100%;
-  width: 40%;
+  width: 0%;
   background: var(--color-primary);
-  border-radius: 2px;
-  animation: loading-progress 1.2s ease-in-out infinite;
+  border-radius: 3px;
+  transition: width 0.15s ease-out;
 }
-@keyframes loading-progress {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
+.loading-progress-pct {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  display: block;
+  text-align: center;
 }
 .initial-load-spinner .loading-progress {
   width: 200px;

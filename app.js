@@ -336,7 +336,7 @@ function renderMenuCards() {
   } else if (category === '_recent') {
     menuSectionTitle.style.display = 'none';
     if (recentOrderItemsCache === null) {
-      menuGrid.innerHTML = '<div class="menu-loading" role="status" aria-label="로딩 중"><div class="loading-progress"><div class="loading-progress-bar"></div></div></div>';
+      menuGrid.innerHTML = '<div class="menu-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="loading-progress"><div class="loading-progress-bar"></div></div><span class="loading-progress-pct">0%</span></div>';
       return;
     }
     items = recentOrderItemsCache;
@@ -920,7 +920,7 @@ async function fetchAndRenderProfileOrders() {
   }
   profileEmpty.style.display = 'block';
   profileOrders.style.display = 'none';
-  profileEmpty.innerHTML = '<div class="profile-loading" role="status" aria-label="로딩 중"><div class="loading-progress"><div class="loading-progress-bar"></div></div></div>';
+  profileEmpty.innerHTML = '<div class="profile-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="loading-progress"><div class="loading-progress-bar"></div></div><span class="loading-progress-pct">0%</span></div>';
 
   try {
     const res = await fetch('/api/orders/my', {
@@ -1842,5 +1842,22 @@ function init() {
   // 프로필 설정 페이지: #settings 일 때 메인 대신 설정 화면 표시
   applySettingsRoute();
 }
+
+(function tickAppLoadingProgress() {
+  document.querySelectorAll('.initial-load-spinner, .menu-loading, .profile-loading').forEach(function (el) {
+    var start = el.getAttribute('data-loading-start');
+    if (!start) {
+      start = String(Date.now());
+      el.setAttribute('data-loading-start', start);
+    }
+    var startNum = parseInt(start, 10);
+    var p = Math.min(90, ((Date.now() - startNum) / 2000) * 90);
+    var bar = el.querySelector('.loading-progress-bar');
+    var pct = el.querySelector('.loading-progress-pct');
+    if (bar) bar.style.width = p + '%';
+    if (pct) pct.textContent = Math.round(p) + '%';
+  });
+  setTimeout(tickAppLoadingProgress, 150);
+})();
 
 init();

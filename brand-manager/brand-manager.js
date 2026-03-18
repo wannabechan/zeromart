@@ -16,6 +16,10 @@ let brandManagerSubFilter = 'delivery_wait';
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months' */
 let brandManagerPeriod = 'this_month';
 
+function getBrandManagerLoadingHtml() {
+  return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
+}
+
 function isMobileView() {
   return window.matchMedia ? window.matchMedia('(max-width: 768px)').matches : window.innerWidth <= 768;
 }
@@ -291,7 +295,7 @@ async function fetchAndRenderSettlement(baseDateStr, stores, slugToSuburl) {
   const groupSelect = document.getElementById('brandManagerGroupSelect');
   const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
   if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
-  if (box) box.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  if (box) box.innerHTML = getBrandManagerLoadingHtml();
   if (pendingBox) pendingBox.innerHTML = '';
   const token = getToken();
   try {
@@ -323,7 +327,7 @@ async function runStatementSearch() {
     resultBox.innerHTML = '<p class="admin-stats-error">브랜드를 선택해 주세요.</p>';
     return;
   }
-  resultBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  resultBox.innerHTML = getBrandManagerLoadingHtml();
   const token = getToken();
   try {
     const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/settlement-statement?startDate=${encodeURIComponent(period.startDate)}&endDate=${encodeURIComponent(period.endDate)}&slug=${encodeURIComponent(slug)}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -567,7 +571,7 @@ function renderBrandManagerOrderList() {
 async function loadOrdersView() {
   const content = document.getElementById('brandManagerOrdersContent');
   if (!content) return;
-  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  content.innerHTML = getBrandManagerLoadingHtml();
 
   const token = getToken();
   if (!token) {
@@ -663,7 +667,7 @@ document.getElementById('brandManagerOrderDetailOverlay')?.addEventListener('cli
 async function loadSettlementView() {
   const container = document.getElementById('brandManagerSettlementContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  container.innerHTML = getBrandManagerLoadingHtml();
   const token = getToken();
   if (!token) {
     container.innerHTML = '<p class="admin-stats-error">로그인이 필요합니다.</p>';
@@ -747,6 +751,23 @@ async function checkBrandManagerAccess() {
     window.location.href = '/';
   }
 }
+
+(function tickBrandManagerLoadingProgress() {
+  document.querySelectorAll('.admin-loading').forEach(function (el) {
+    let start = el.getAttribute('data-loading-start');
+    if (!start) {
+      start = String(Date.now());
+      el.setAttribute('data-loading-start', start);
+    }
+    const startNum = parseInt(start, 10);
+    const p = Math.min(90, ((Date.now() - startNum) / 2000) * 90);
+    const bar = el.querySelector('.admin-loading-progress-bar');
+    const pct = el.querySelector('.admin-loading-progress-pct');
+    if (bar) bar.style.width = p + '%';
+    if (pct) pct.textContent = Math.round(p) + '%';
+  });
+  setTimeout(tickBrandManagerLoadingProgress, 150);
+})();
 
   checkBrandManagerAccess();
 }

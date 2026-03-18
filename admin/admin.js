@@ -28,6 +28,10 @@ let adminEmailFromServer = '';
 /** 매장관리 그룹명(suburl) 목록 - 콤보박스 옵션 및 새 그룹 추가 시 갱신 */
 let adminGroupNames = [];
 
+function getAdminLoadingHtml() {
+  return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
+}
+
 // 이미지 규칙: 1:1 비율, 권장 400x400px
 const IMAGE_RULE = '가로·세로 1:1 비율, 권장 400×400px';
 
@@ -284,7 +288,7 @@ async function loadPermissionsView() {
   initPermissionsModalsOnce();
   const container = document.getElementById('adminPermissionsContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  container.innerHTML = getAdminLoadingHtml();
   try {
     const { stores } = await fetchStores();
     if (!Array.isArray(stores) || stores.length === 0) {
@@ -440,7 +444,7 @@ async function loadPermissionsView() {
 async function loadLogsView() {
   const container = document.getElementById('adminLogsContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  container.innerHTML = getAdminLoadingHtml();
   const token = getToken();
   if (!token) {
     container.innerHTML = '<p class="admin-error">로그인이 필요합니다.</p>';
@@ -763,7 +767,7 @@ function showLoadingError(msg, showRetry = false) {
   `;
   if (showRetry) {
     document.getElementById('adminRetryBtn')?.addEventListener('click', () => {
-      document.getElementById('adminContent').innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+      document.getElementById('adminContent').innerHTML = getAdminLoadingHtml();
       init();
     });
   }
@@ -1120,7 +1124,7 @@ const PAYMENT_FULL_LOAD_LIMIT = 2000;
 
 async function loadPaymentManagement() {
   const content = document.getElementById('adminPaymentContent');
-  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  content.innerHTML = getAdminLoadingHtml();
 
   try {
     const token = getToken();
@@ -1314,7 +1318,7 @@ async function loadStats() {
   if (!startDate) startDate = defaultRange.start;
   if (!endDate) endDate = defaultRange.end;
 
-  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  content.innerHTML = getAdminLoadingHtml();
   try {
     const token = getToken();
     const params = new URLSearchParams();
@@ -1606,7 +1610,7 @@ async function runSettlementStatementSearch() {
     return;
   }
 
-  resultBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  resultBox.innerHTML = getAdminLoadingHtml();
   if (SETTLEMENT_MOCK_FOR_TEST) {
     const days = [];
     const d = new Date(startDate + 'T12:00:00+09:00');
@@ -1740,7 +1744,7 @@ async function loadSettlement() {
 
   const token = getToken();
   const contentBox = document.getElementById('adminSettlementByDate');
-  if (contentBox) contentBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  if (contentBox) contentBox.innerHTML = getAdminLoadingHtml();
 
   function buildSlugToSuburl(stores) {
     const map = {};
@@ -1795,7 +1799,7 @@ async function loadSettlement() {
     const groupSelect = document.getElementById('adminSettlementGroupSelect');
     const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
     if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
-    if (box) box.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+    if (box) box.innerHTML = getAdminLoadingHtml();
     if (pendingBox) pendingBox.innerHTML = '';
     if (SETTLEMENT_MOCK_FOR_TEST) {
       if (box) box.innerHTML = renderSettlementTable([{ brandTitle: 'Brand1', orderCount: 1, totalAmount: 500000 }]);
@@ -2697,6 +2701,23 @@ async function submitDeliveryCompleteParcel() {
       if (li?.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
     }
   });
+})();
+
+(function tickAdminLoadingProgress() {
+  document.querySelectorAll('.admin-loading').forEach(function (el) {
+    let start = el.getAttribute('data-loading-start');
+    if (!start) {
+      start = String(Date.now());
+      el.setAttribute('data-loading-start', start);
+    }
+    const startNum = parseInt(start, 10);
+    const p = Math.min(90, ((Date.now() - startNum) / 2000) * 90);
+    const bar = el.querySelector('.admin-loading-progress-bar');
+    const pct = el.querySelector('.admin-loading-progress-pct');
+    if (bar) bar.style.width = p + '%';
+    if (pct) pct.textContent = Math.round(p) + '%';
+  });
+  setTimeout(tickAdminLoadingProgress, 150);
 })();
 
 init();

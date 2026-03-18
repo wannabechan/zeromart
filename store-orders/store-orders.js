@@ -24,6 +24,10 @@ let storeOrdersIdleListenersAttached = false;
 let storeOrdersStatsMenuFilter = 'top10';
 let storeOrdersStatsLastData = null;
 
+function getStoreOrdersLoadingHtml() {
+  return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
+}
+
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -554,7 +558,7 @@ async function loadStoreOrdersStats() {
   if (!startDate) startDate = defaultRange.start;
   if (!endDate) endDate = defaultRange.end;
 
-  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  content.innerHTML = getStoreOrdersLoadingHtml();
   try {
     const token = getToken();
     if (!token) {
@@ -822,8 +826,8 @@ async function loadStoreSettlement() {
   const token = getToken();
   const todayBox = document.getElementById('storeSettlementToday');
   const tomorrowBox = document.getElementById('storeSettlementTomorrow');
-  if (todayBox) todayBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
-  if (tomorrowBox) tomorrowBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  if (todayBox) todayBox.innerHTML = getStoreOrdersLoadingHtml();
+  if (tomorrowBox) tomorrowBox.innerHTML = getStoreOrdersLoadingHtml();
 
   try {
     const [resToday, resTomorrow] = await Promise.all([
@@ -883,6 +887,23 @@ function setupStoreOrdersTabs() {
     activateTab(tabToActivate);
   }
 }
+
+(function tickStoreOrdersLoadingProgress() {
+  document.querySelectorAll('.admin-loading').forEach(function (el) {
+    let start = el.getAttribute('data-loading-start');
+    if (!start) {
+      start = String(Date.now());
+      el.setAttribute('data-loading-start', start);
+    }
+    const startNum = parseInt(start, 10);
+    const p = Math.min(90, ((Date.now() - startNum) / 2000) * 90);
+    const bar = el.querySelector('.admin-loading-progress-bar');
+    const pct = el.querySelector('.admin-loading-progress-pct');
+    if (bar) bar.style.width = p + '%';
+    if (pct) pct.textContent = Math.round(p) + '%';
+  });
+  setTimeout(tickStoreOrdersLoadingProgress, 150);
+})();
 
 setupStoreOrdersTabs();
 loadStoreOrders();

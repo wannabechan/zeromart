@@ -22,9 +22,9 @@
     .admin-btn-secondary { background: var(--color-border); color: var(--color-text); padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: none; font-family: inherit; text-decoration: none; display: inline-block; }
     .admin-btn-secondary:hover { background: #bdbdbd; }
     .admin-loading { text-align: center; padding: 48px; color: var(--color-text-secondary); }
-    .admin-loading-progress { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; max-width: 200px; margin: 0 auto; }
-    .admin-loading-progress-bar { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: admin-loading-progress 1.2s ease-in-out infinite; }
-    @keyframes admin-loading-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+    .admin-loading-progress { height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; max-width: 200px; margin: 0 auto; }
+    .admin-loading-progress-bar { height: 100%; width: 0%; background: var(--color-primary); border-radius: 3px; transition: width 0.15s ease-out; }
+    .admin-loading-progress-pct { font-size: 0.8125rem; color: var(--color-text-secondary); margin-top: 8px; display: block; }
     .admin-stats-section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 16px; }
     .admin-stats-section h3 { font-size: 1rem; margin: 0 0 12px; font-weight: 600; }
     .admin-stats-daterange { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
