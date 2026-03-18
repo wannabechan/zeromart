@@ -7,6 +7,7 @@
  * - 사용자-2: 2026-01-15부터 매주 화요일, 2번 매장 첫 메뉴 5개, 동일
  * - 사용자-3: 2026-01-15부터 매주 화요일, 3번 매장 첫 메뉴 5개, 동일
  * - 사용자-4: 2026-01-15부터 매주 목요일, 4번 매장 첫 메뉴 5개 + 5번 매장 첫 메뉴 3개, 동일
+ * - 사용자-5: 2026-03-01부터 매일 11:00 KST, 6번 매장(대분류: 테스트매장) 첫 메뉴 5개, 주문일 다음날 11:00 발송완료
  * 현실감: 모든 주문은 주문일 다음날 10시 배송 완료, 11시 주문관리 탭에서 '직접 배송' 발송 완료 처리.
  * 따라서 '오늘(KST)'이 주문일+1일 이후일 때만 status=delivery_completed, 그렇지 않으면 payment_completed.
  */
@@ -60,6 +61,20 @@ function getSampleOrderDates() {
   return { mondays, tuesdays, thursdays };
 }
 
+/** 2026-03-01부터 오늘(KST)까지의 매일 날짜 문자열 배열 (YYYY-MM-DD) */
+function getSampleOrderDatesDailyFromMarch2026() {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const start = new Date('2026-03-01T00:00:00.000Z');
+  const now = new Date();
+  const kstNow = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  const endDate = new Date(Date.UTC(kstNow.getFullYear(), kstNow.getMonth(), kstNow.getDate(), 0, 0, 0));
+  const dates = [];
+  for (let d = new Date(start.getTime()); d <= endDate; d.setTime(d.getTime() + oneDay)) {
+    dates.push(getKSTDateStr(d));
+  }
+  return dates;
+}
+
 /**
  * @param {Array} stores - getStores() 결과 (어드민 등록 순서 = 1번~5번 매장)
  * @param {Object} menusByStore - { [storeId]: menu[] }
@@ -72,16 +87,19 @@ function getSampleOrders(stores, menusByStore) {
   const thirdStore = storeList[2];
   const fourthStore = storeList[3];
   const fifthStore = storeList[4];
+  const sixthStore = storeList[5];
   const menus1 = menusByStore && firstStore ? (menusByStore[firstStore.id] || []) : [];
   const menus2 = menusByStore && secondStore ? (menusByStore[secondStore.id] || []) : [];
   const menus3 = menusByStore && thirdStore ? (menusByStore[thirdStore.id] || []) : [];
   const menus4 = menusByStore && fourthStore ? (menusByStore[fourthStore.id] || []) : [];
   const menus5 = menusByStore && fifthStore ? (menusByStore[fifthStore.id] || []) : [];
+  const menus6 = menusByStore && sixthStore ? (menusByStore[sixthStore.id] || []) : [];
   const firstMenu1 = menus1[0];
   const firstMenu2 = menus2[0];
   const firstMenu3 = menus3[0];
   const firstMenu4 = menus4[0];
   const firstMenu5 = menus5[0];
+  const firstMenu6 = menus6[0];
 
   const orders = [];
   const { mondays, tuesdays, thursdays } = getSampleOrderDates();
@@ -254,6 +272,44 @@ function getSampleOrders(stores, menusByStore) {
         delivery_address: '서울시 샘플구 샘플로 4',
         detail_address: null,
         order_items: [item4, item5],
+        total_amount: totalAmount,
+        status,
+        created_at: orderDateIso,
+        payment_completed_at: orderDateIso,
+        delivery_completed_at: delivery_completed_at || undefined,
+        delivery_type: 'direct',
+        courier_company: null,
+        tracking_number: null,
+        store_display_names: storeDisplayNames,
+      });
+    });
+  }
+
+  // 사용자-5: 2026-03-01부터 매일 11:00 KST, 6번 매장(대분류: 테스트매장) 첫 메뉴 5개, 다음날 11:00 발송완료
+  if (sixthStore && firstMenu6) {
+    const price6 = Number(firstMenu6.price) || 0;
+    const totalAmount = price6 * 5;
+    const item6 = {
+      id: firstMenu6.id,
+      name: firstMenu6.name || firstMenu6.id,
+      price: price6,
+      quantity: 5,
+    };
+    const storeDisplayNames = { [sixthStore.id]: storeDisplayName(sixthStore) };
+    const dailyDates = getSampleOrderDatesDailyFromMarch2026();
+    dailyDates.forEach((dateStr) => {
+      const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const orderDateIso = new Date(Date.UTC(y, m - 1, d, 2, 0, 0, 0)).toISOString();
+      const yymmdd = dateStr.replace(/-/g, '').slice(2);
+      orders.push({
+        id: `${yymmdd}005`,
+        user_email: 'sample-user5@test.local',
+        depositor: '사용자-5',
+        contact: '010-0000-0005',
+        delivery_address: '서울시 샘플구 샘플로 5',
+        detail_address: null,
+        order_items: [item6],
         total_amount: totalAmount,
         status,
         created_at: orderDateIso,
