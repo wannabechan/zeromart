@@ -60,16 +60,46 @@ body {
 .initial-load-overlay[aria-hidden="true"] {
   display: none;
 }
-.initial-load-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: initial-load-spin 0.8s linear infinite;
+.initial-load-spinner,
+.loading-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
-@keyframes initial-load-spin {
-  to { transform: rotate(360deg); }
+.loading-progress {
+  height: 4px;
+  background: var(--color-border, rgba(0, 0, 0, 0.1));
+  border-radius: 2px;
+  overflow: hidden;
+  width: 200px;
+  max-width: 80%;
+}
+.loading-progress-bar {
+  height: 100%;
+  width: 40%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  animation: loading-progress 1.2s ease-in-out infinite;
+}
+@keyframes loading-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+.initial-load-spinner .loading-progress {
+  width: 200px;
+}
+.menu-loading,
+.profile-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 16px;
+}
+.menu-loading .loading-progress,
+.profile-loading .loading-progress {
+  width: 200px;
 }
 
 /* ===== Login Screen ===== */

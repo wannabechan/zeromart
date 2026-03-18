@@ -291,7 +291,7 @@ async function fetchAndRenderSettlement(baseDateStr, stores, slugToSuburl) {
   const groupSelect = document.getElementById('brandManagerGroupSelect');
   const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
   if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
-  if (box) box.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  if (box) box.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   if (pendingBox) pendingBox.innerHTML = '';
   const token = getToken();
   try {
@@ -323,7 +323,7 @@ async function runStatementSearch() {
     resultBox.innerHTML = '<p class="admin-stats-error">브랜드를 선택해 주세요.</p>';
     return;
   }
-  resultBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  resultBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   const token = getToken();
   try {
     const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/settlement-statement?startDate=${encodeURIComponent(period.startDate)}&endDate=${encodeURIComponent(period.endDate)}&slug=${encodeURIComponent(slug)}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -486,9 +486,7 @@ function renderBrandManagerOrderList() {
   const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-period-btns">
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${brandManagerPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
       <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
@@ -569,7 +567,7 @@ function renderBrandManagerOrderList() {
 async function loadOrdersView() {
   const content = document.getElementById('brandManagerOrdersContent');
   if (!content) return;
-  content.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
 
   const token = getToken();
   if (!token) {
@@ -665,7 +663,7 @@ document.getElementById('brandManagerOrderDetailOverlay')?.addEventListener('cli
 async function loadSettlementView() {
   const container = document.getElementById('brandManagerSettlementContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   const token = getToken();
   if (!token) {
     container.innerHTML = '<p class="admin-stats-error">로그인이 필요합니다.</p>';

@@ -336,7 +336,7 @@ function renderMenuCards() {
   } else if (category === '_recent') {
     menuSectionTitle.style.display = 'none';
     if (recentOrderItemsCache === null) {
-      menuGrid.innerHTML = '<p class="menu-loading">로딩 중...</p>';
+      menuGrid.innerHTML = '<div class="menu-loading" role="status" aria-label="로딩 중"><div class="loading-progress"><div class="loading-progress-bar"></div></div></div>';
       return;
     }
     items = recentOrderItemsCache;
@@ -920,7 +920,7 @@ async function fetchAndRenderProfileOrders() {
   }
   profileEmpty.style.display = 'block';
   profileOrders.style.display = 'none';
-  profileEmpty.innerHTML = '<p>로딩 중...</p>';
+  profileEmpty.innerHTML = '<div class="profile-loading" role="status" aria-label="로딩 중"><div class="loading-progress"><div class="loading-progress-bar"></div></div></div>';
 
   try {
     const res = await fetch('/api/orders/my', {

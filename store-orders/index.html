@@ -20,11 +20,13 @@
     .store-orders-view { display: none; }
     .store-orders-view.active { display: block; }
     .admin-loading { text-align: center; padding: 48px; color: var(--color-text-secondary); }
+    .admin-loading-progress { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; max-width: 200px; margin: 0 auto; }
+    .admin-loading-progress-bar { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: admin-loading-progress 1.2s ease-in-out infinite; }
+    @keyframes admin-loading-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
     .admin-payment-sort { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .admin-payment-sort-btns { display: flex; gap: 8px; }
-    .admin-payment-period-btns { display: flex; gap: 0; }
-    .admin-payment-period-btns .admin-payment-period-btn { margin-right: 7px; }
-    .admin-payment-period-btns .admin-payment-period-btn:last-child { margin-right: 0; }
+    .admin-payment-period-btns { display: flex; align-items: center; gap: 0; }
+    .admin-payment-period-gap { user-select: none; }
     .admin-payment-period-range { font-size: 0.8125rem; color: #8C8C8C; margin-top: 4px; flex-basis: 100%; width: 100%; }
     .admin-payment-sort-btn { padding: 8px 16px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
     .admin-payment-sort-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
@@ -168,13 +170,13 @@
 
     <div id="storeOrdersListView" class="store-orders-view active">
       <div id="storeOrdersContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 
     <div id="storeOrdersStatsView" class="store-orders-view">
       <div id="storeOrdersStatsContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 

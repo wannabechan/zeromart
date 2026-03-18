@@ -52,9 +52,8 @@
     .admin-payment-sort { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .admin-payment-sort-label { font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); }
     .admin-payment-sort-btns { display: flex; gap: 8px; }
-    .admin-payment-period-btns { display: flex; gap: 0; }
-    .admin-payment-period-btns .admin-payment-period-btn { margin-right: 7px; }
-    .admin-payment-period-btns .admin-payment-period-btn:last-child { margin-right: 0; }
+    .admin-payment-period-btns { display: flex; align-items: center; gap: 0; }
+    .admin-payment-period-gap { user-select: none; }
     .admin-payment-period-range { font-size: 0.8125rem; color: #8C8C8C; margin-top: 4px; flex-basis: 100%; width: 100%; }
     .admin-payment-sort-btn { padding: 8px 16px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
     .admin-payment-sort-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
@@ -185,6 +184,9 @@
     .admin-image-input-row input[type="url"] { flex: 1; }
     .admin-btn-upload { flex-shrink: 0; white-space: nowrap; }
     .admin-loading { text-align: center; padding: 48px; color: var(--color-text-secondary); }
+    .admin-loading-progress { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; max-width: 200px; margin: 0 auto; }
+    .admin-loading-progress-bar { height: 100%; width: 40%; background: var(--color-primary); border-radius: 2px; animation: admin-loading-progress 1.2s ease-in-out infinite; }
+    @keyframes admin-loading-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
     .admin-error { color: #c5221f; padding: 16px; background: #FFEBEE; border-radius: var(--radius); margin-bottom: 16px; }
     .admin-payment-order-id-link { cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
     .admin-payment-order-id-link:hover { opacity: 0.8; }
@@ -385,19 +387,19 @@
     <div id="storesView" class="admin-view">
       <input type="file" id="adminMenuCsvInput" accept=".csv,text/csv" style="display:none" aria-hidden="true">
       <div id="adminContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 
     <div id="paymentsView" class="admin-view active">
       <div id="adminPaymentContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 
     <div id="statsView" class="admin-view">
       <div id="adminStatsContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 
@@ -407,13 +409,13 @@
 
     <div id="permissionsView" class="admin-view">
       <div id="adminPermissionsContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 
     <div id="logsView" class="admin-view">
       <div id="adminLogsContent">
-        <div class="admin-loading">로딩 중...</div>
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>
       </div>
     </div>
 

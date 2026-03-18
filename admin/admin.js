@@ -284,7 +284,7 @@ async function loadPermissionsView() {
   initPermissionsModalsOnce();
   const container = document.getElementById('adminPermissionsContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   try {
     const { stores } = await fetchStores();
     if (!Array.isArray(stores) || stores.length === 0) {
@@ -440,7 +440,7 @@ async function loadPermissionsView() {
 async function loadLogsView() {
   const container = document.getElementById('adminLogsContent');
   if (!container) return;
-  container.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  container.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   const token = getToken();
   if (!token) {
     container.innerHTML = '<p class="admin-error">로그인이 필요합니다.</p>';
@@ -763,7 +763,7 @@ function showLoadingError(msg, showRetry = false) {
   `;
   if (showRetry) {
     document.getElementById('adminRetryBtn')?.addEventListener('click', () => {
-      document.getElementById('adminContent').innerHTML = '<div class="admin-loading">로딩 중...</div>';
+      document.getElementById('adminContent').innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
       init();
     });
   }
@@ -895,9 +895,7 @@ function renderPaymentList() {
   const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-period-btns">
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${adminPaymentPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
       <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
@@ -1122,7 +1120,7 @@ const PAYMENT_FULL_LOAD_LIMIT = 2000;
 
 async function loadPaymentManagement() {
   const content = document.getElementById('adminPaymentContent');
-  content.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
 
   try {
     const token = getToken();
@@ -1316,7 +1314,7 @@ async function loadStats() {
   if (!startDate) startDate = defaultRange.start;
   if (!endDate) endDate = defaultRange.end;
 
-  content.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   try {
     const token = getToken();
     const params = new URLSearchParams();
@@ -1608,7 +1606,7 @@ async function runSettlementStatementSearch() {
     return;
   }
 
-  resultBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  resultBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   if (SETTLEMENT_MOCK_FOR_TEST) {
     const days = [];
     const d = new Date(startDate + 'T12:00:00+09:00');
@@ -1742,7 +1740,7 @@ async function loadSettlement() {
 
   const token = getToken();
   const contentBox = document.getElementById('adminSettlementByDate');
-  if (contentBox) contentBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  if (contentBox) contentBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
 
   function buildSlugToSuburl(stores) {
     const map = {};
@@ -1797,7 +1795,7 @@ async function loadSettlement() {
     const groupSelect = document.getElementById('adminSettlementGroupSelect');
     const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
     if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
-    if (box) box.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+    if (box) box.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
     if (pendingBox) pendingBox.innerHTML = '';
     if (SETTLEMENT_MOCK_FOR_TEST) {
       if (box) box.innerHTML = renderSettlementTable([{ brandTitle: 'Brand1', orderCount: 1, totalAmount: 500000 }]);

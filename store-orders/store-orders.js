@@ -400,9 +400,7 @@ function renderList() {
   const periodBar = `
     <div class="admin-payment-sort">
       <div class="admin-payment-period-btns">
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button>
-        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
+        <button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === 'this_month' ? 'active' : ''}" data-period="this_month">이번달</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '1_month' ? 'active' : ''}" data-period="1_month">1개월전부터</button><span class="admin-payment-period-gap">&nbsp;</span><button type="button" class="admin-payment-sort-btn admin-payment-period-btn ${storeOrdersPeriod === '3_months' ? 'active' : ''}" data-period="3_months">3개월전부터</button>
       </div>
       <div class="admin-payment-period-range">>> ${escapeHtml(periodStartDate)} ~ 현재</div>
     </div>
@@ -556,7 +554,7 @@ async function loadStoreOrdersStats() {
   if (!startDate) startDate = defaultRange.start;
   if (!endDate) endDate = defaultRange.end;
 
-  content.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  content.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
   try {
     const token = getToken();
     if (!token) {
@@ -824,8 +822,8 @@ async function loadStoreSettlement() {
   const token = getToken();
   const todayBox = document.getElementById('storeSettlementToday');
   const tomorrowBox = document.getElementById('storeSettlementTomorrow');
-  if (todayBox) todayBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
-  if (tomorrowBox) tomorrowBox.innerHTML = '<div class="admin-loading">로딩 중...</div>';
+  if (todayBox) todayBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
+  if (tomorrowBox) tomorrowBox.innerHTML = '<div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div></div>';
 
   try {
     const [resToday, resTomorrow] = await Promise.all([
