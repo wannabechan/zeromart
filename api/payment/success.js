@@ -69,7 +69,8 @@ module.exports = async (req, res) => {
 
     if (!confirmRes.ok) {
       const errBody = await confirmRes.text();
-      console.error('Payment success: confirm failed', confirmRes.status, errBody);
+      const safePreview = typeof errBody === 'string' && errBody.length > 200 ? errBody.slice(0, 200) + '…' : errBody;
+      console.error('Payment success: confirm failed', confirmRes.status, safePreview);
       return res.redirect(302, `${redirectBase}?payment=error`);
     }
 
