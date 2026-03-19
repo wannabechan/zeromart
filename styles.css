@@ -363,7 +363,7 @@ body {
 .header-admin-link {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
-  text-decoration: none;
+  text-decoration: underline;
   -webkit-tap-highlight-color: transparent;
 }
 
