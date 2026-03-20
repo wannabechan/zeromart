@@ -82,6 +82,7 @@ module.exports = async (req, res) => {
     const pdfBuffer = await generateOrderPdf(order, stores, pdfOptions);
 
     setCorsHeaders(res);
+    res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Content-Type', 'application/pdf');
     const baseId = String(order.id || orderId).replace(/[^\w-]/g, '_');
     const safeSlug = storeSlug ? storeSlug.replace(/[^a-z0-9_-]/g, '_') : '';

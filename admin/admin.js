@@ -73,6 +73,12 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+function findAdminPaymentOrderById(orderId) {
+  if (orderId == null || orderId === '') return null;
+  const want = String(orderId);
+  return adminPaymentOrders.find((o) => String(o.id) === want) || null;
+}
+
 function getOrderItemStoreKey(itemId) {
   const raw = (itemId || '').toString().trim();
   if (!raw) return 'unknown';
@@ -1093,8 +1099,7 @@ function renderPaymentList() {
 
   content.querySelectorAll('[data-order-detail]').forEach(el => {
     el.addEventListener('click', () => {
-      const orderId = el.dataset.orderDetail;
-      const order = adminPaymentOrders.find(o => o.id === orderId);
+      const order = findAdminPaymentOrderById(el.dataset.orderDetail);
       if (order) openAdminOrderDetail(order);
     });
   });
@@ -1129,7 +1134,7 @@ function renderPaymentList() {
           alert(data.error || '취소에 실패했습니다.');
           return;
         }
-        const order = adminPaymentOrders.find((o) => o.id === orderId);
+        const order = findAdminPaymentOrderById(orderId);
         if (order) order.status = 'cancelled';
         alert('주문이 취소되었습니다.');
         renderPaymentList();
@@ -2687,7 +2692,7 @@ async function submitDeliveryCompleteDirect() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
-    const order = adminPaymentOrders.find(o => o.id === orderId);
+    const order = findAdminPaymentOrderById(orderId);
     if (order) order.status = 'delivery_completed';
     alert('직접 배송 완료 처리되었습니다.');
     closeDeliveryCompleteModal();
@@ -2718,7 +2723,7 @@ async function submitDeliveryCompleteParcel() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
-    const order = adminPaymentOrders.find(o => o.id === orderId);
+    const order = findAdminPaymentOrderById(orderId);
     if (order) {
       order.status = 'delivery_completed';
       order.courier_company = courierCompany || null;

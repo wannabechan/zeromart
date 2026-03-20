@@ -4,7 +4,6 @@
 
 const TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
-const STORE_ORDERS_TAB_KEY = 'bzcat_store_orders_tab';
 
 let storeOrdersData = [];
 let storeOrdersTotal = 0;
@@ -21,8 +20,6 @@ const STORE_ORDERS_IDLE_MS = 180000; // 180초 무활동 시 주문 목록 리�
 const STORE_ORDERS_FULL_LOAD_LIMIT = 2000;
 let storeOrdersIdleTimerId = null;
 let storeOrdersIdleListenersAttached = false;
-let storeOrdersStatsMenuFilter = 'top10';
-let storeOrdersStatsLastData = null;
 
 function getStoreOrdersLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
@@ -57,6 +54,12 @@ function attachStoreOrdersPeriodListeners(container) {
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+function findStoreOrderById(orderId) {
+  if (orderId == null || orderId === '') return null;
+  const want = String(orderId);
+  return storeOrdersData.find((o) => String(o.id) === want) || null;
 }
 
 function escapeHtml(s) {
@@ -150,64 +153,6 @@ function getStoreOrdersStartDateForPeriod(period) {
     return `${yy}-${pad(mm)}-01`;
   }
   return `${y}-${pad(m)}-01`;
-}
-
-function toDateKeyKST(d) {
-  if (d == null) return '';
-  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-}
-function getStatsDateStr(d) {
-  return toDateKeyKST(d);
-}
-function getThisWeekMondayKST(dateStr) {
-  const d = new Date(dateStr + 'T12:00:00+09:00');
-  const day = d.getUTCDay();
-  const diff = day === 0 ? 6 : day - 1;
-  const monday = new Date(d.getTime() - diff * 86400000);
-  return monday.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-}
-function getDefaultStatsRange() {
-  const end = getTodayKST();
-  const start = getThisWeekMondayKST(end);
-  return { start, end };
-}
-function getPresetStatsRange(preset) {
-  const today = getTodayKST();
-  if (preset === 'today') return { start: today, end: today };
-  if (preset === 'this_week') {
-    const start = getThisWeekMondayKST(today);
-    return { start, end: today };
-  }
-  if (preset === 'last_week') {
-    const thisMon = getThisWeekMondayKST(today);
-    const thisMonD = new Date(thisMon + 'T12:00:00+09:00');
-    const lastSun = new Date(thisMonD.getTime() - 86400000);
-    const lastMon = new Date(thisMonD.getTime() - 7 * 86400000);
-    return { start: toDateKeyKST(lastMon.getTime()), end: toDateKeyKST(lastSun.getTime()) };
-  }
-  if (preset === 'this_month') {
-    const d = new Date(today + 'T12:00:00+09:00');
-    const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
-    return { start: toDateKeyKST(first.getTime() + 9 * 3600000), end: today };
-  }
-  if (preset === 'last_month') {
-    const [y, m] = today.split('-').map(Number);
-    const lastMonthYear = m === 1 ? y - 1 : y;
-    const lastMonthNum = m === 1 ? 12 : m - 1;
-    const lastDayNum = new Date(lastMonthYear, lastMonthNum, 0).getDate();
-    const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
-    const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
-    return { start, end };
-  }
-  return null;
-}
-function getActiveStatsPreset(startVal, endVal) {
-  const presets = ['today', 'this_week', 'last_week', 'this_month', 'last_month'];
-  for (const p of presets) {
-    const r = getPresetStatsRange(p);
-    if (r && r.start === startVal && r.end === endVal) return p;
-  }
-  return null;
 }
 
 function sortPaymentOrders(orders, sortBy, dir) {
@@ -351,7 +296,7 @@ async function submitStoreDeliveryCompleteDirect() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
-    const order = storeOrdersData.find(o => o.id === orderId);
+    const order = findStoreOrderById(orderId);
     if (order) order.status = 'delivery_completed';
     alert('직접 배송 완료 처리되었습니다.');
     closeDeliveryCompleteModal();
@@ -382,7 +327,7 @@ async function submitStoreDeliveryCompleteParcel() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
-    const order = storeOrdersData.find(o => o.id === orderId);
+    const order = findStoreOrderById(orderId);
     if (order) {
       order.status = 'delivery_completed';
       order.courier_company = courierCompany || null;
@@ -577,8 +522,7 @@ function renderList() {
 
   content.querySelectorAll('[data-order-detail]').forEach(el => {
     el.addEventListener('click', () => {
-      const orderId = el.dataset.orderDetail;
-      const order = storeOrdersData.find(o => o.id === orderId);
+      const order = findStoreOrderById(el.dataset.orderDetail);
       if (order) openOrderDetail(order);
     });
   });
@@ -587,139 +531,6 @@ function renderList() {
     btn.addEventListener('click', () => {
       const orderId = btn.dataset.openDeliveryModal;
       openDeliveryCompleteModal(orderId);
-    });
-  });
-}
-
-async function loadStoreOrdersStats() {
-  const content = document.getElementById('storeOrdersStatsContent');
-  if (!content) return;
-  const startInput = document.getElementById('storeOrdersStatsStartDate');
-  const endInput = document.getElementById('storeOrdersStatsEndDate');
-  let startDate = startInput?.value?.trim() || '';
-  let endDate = endInput?.value?.trim() || '';
-  const defaultRange = getDefaultStatsRange();
-  if (!startDate) startDate = defaultRange.start;
-  if (!endDate) endDate = defaultRange.end;
-
-  content.innerHTML = getStoreOrdersLoadingHtml();
-  try {
-    const token = getToken();
-    if (!token) {
-      content.innerHTML = '<div class="admin-stats-error">로그인이 필요합니다.</div>';
-      return;
-    }
-    const params = new URLSearchParams();
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    const res = await fetch(`${API_BASE}/api/manager/stats?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      content.innerHTML = `<div class="admin-stats-error">${escapeHtml(err.error || '통계를 불러올 수 없습니다.')}</div>`;
-      return;
-    }
-    const data = await res.json();
-    storeOrdersStatsLastData = data;
-    renderStoreOrdersStats(content, data);
-  } catch (e) {
-    content.innerHTML = `<div class="admin-stats-error">${escapeHtml(e.message || '통계를 불러올 수 없습니다.')}</div>`;
-  }
-}
-
-function renderStoreOrdersStats(container, data) {
-  const orderSummary = data.orderSummary || {};
-  const revenue = data.revenue || {};
-  const conversion = data.conversion || {};
-  const topMenus = data.topMenus || [];
-  const timeSeries = data.timeSeries || [];
-  const crm = data.crm || {};
-  const dateRange = data.dateRange || {};
-  const defaultRange = getDefaultStatsRange();
-  const startVal = dateRange.startDate || defaultRange.start;
-  const endVal = dateRange.endDate || defaultRange.end;
-  const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
-  let html = '<div class="admin-stats-toolbar"><div class="admin-stats-daterange"><input type="date" id="storeOrdersStatsStartDate" value="' + escapeHtml(startVal) + '"><span>~</span><input type="date" id="storeOrdersStatsEndDate" value="' + escapeHtml(endVal) + '"><button type="button" class="admin-stats-search-btn" id="storeOrdersStatsApplyBtn" title="조회" aria-label="조회"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button></div>';
-  const activePreset = getActiveStatsPreset(startVal, endVal);
-  const presetClass = (key) => 'admin-stats-preset-btn' + (activePreset === key ? ' active' : '');
-  html += '<div class="admin-stats-presets">';
-  html += '<div class="admin-stats-preset-row"><button type="button" class="' + presetClass('today') + '" data-preset="today">오늘</button><button type="button" class="' + presetClass('this_week') + '" data-preset="this_week">이번주</button><button type="button" class="' + presetClass('last_week') + '" data-preset="last_week">지난1주일</button><button type="button" class="' + presetClass('this_month') + '" data-preset="this_month">이번달</button><button type="button" class="' + presetClass('last_month') + '" data-preset="last_month">지난1개월</button></div>';
-  html += '</div></div>';
-  html += '<div class="admin-stats-section"><h3>주문 현황</h3><p class="admin-stats-big">총 주문 <strong>' + (orderSummary.total ?? 0) + '</strong>건</p><div class="admin-stats-grid">';
-  const byStatus = orderSummary.byStatus || {};
-  Object.entries(byStatus).forEach(function (e) {
-    const v = e[1];
-    html += '<div class="admin-stats-card"><span class="admin-stats-card-label">' + escapeHtml((v && v.label) || e[0]) + '</span><span class="admin-stats-card-value">' + ((v && v.count) ?? 0) + '</span></div>';
-  });
-  html += '</div><br><h4 class="admin-stats-brand-heading">브랜드별 주문</h4><ul class="admin-stats-list">';
-  const byStore = orderSummary.byStore || {};
-  Object.entries(byStore).forEach(function (e) {
-    const v = e[1];
-    const paymentCompleted = (v && v.paymentCompletedCount) ?? 0;
-    const deliveryCompleted = (v && v.deliveryCompletedCount) ?? 0;
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : 주문완료 <strong>' + paymentCompleted + '</strong>건, 발송완료 <strong>' + deliveryCompleted + '</strong>건</li>';
-  });
-  html += '</ul></div>';
-  const revTotal = Number(revenue.total) || 0;
-  const totalRevText = formatMoney(revTotal);
-  html += '<div class="admin-stats-section"><h3>매출</h3><p class="admin-stats-big">총 매출 <strong>' + totalRevText + '</strong></p><br><h4 class="admin-stats-brand-heading">브랜드별 매출</h4><ul class="admin-stats-list">';
-  const revByStore = revenue.byStore || {};
-  Object.entries(revByStore).forEach(function (e) {
-    const v = e[1];
-    const amt = Number(v && v.amount) || 0;
-    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + formatMoney(amt) + '</li>';
-  });
-  html += '</ul></div>';
-  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출</h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
-  timeSeries.slice(-14).reverse().forEach(function (d) {
-    html += '<tr><td>' + escapeHtml(d.date) + '</td><td>' + d.orders + '</td><td>' + formatMoney(d.revenue) + '</td></tr>';
-  });
-  html += '</tbody></table></div>';
-  const menuFilterLimit = storeOrdersStatsMenuFilter === 'top10' ? 10 : (topMenus.length || 20);
-  const menuList = topMenus.slice(0, menuFilterLimit);
-  const menuFilterLabel = storeOrdersStatsMenuFilter === 'top10' ? 'top10' : 'all';
-  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출</h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
-  menuList.forEach(function (m) {
-    html += '<tr><td>' + escapeHtml(m.name) + '</td><td>' + m.orderCount + '</td><td>' + formatMoney(m.revenue) + '</td></tr>';
-  });
-  html += '</tbody></table></div>';
-  const totalOrders = Number(orderSummary.total) || 0;
-  const n2 = Number(conversion.paymentCompleted) || 0;
-  const n3 = Number(conversion.cancelledBeforePayment) || 0;
-  const n4 = Number(conversion.cancelledAfterPayment) || 0;
-  const n5 = Number(conversion.deliveryCompleted) || 0;
-  const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : '0.0');
-  html += '<div class="admin-stats-section"><h3>전환율</h3><ul class="admin-stats-list">';
-  html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제완료 <strong>' + n2 + '</strong> (' + pct(n2, totalOrders) + '%)</li>';
-  html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제전취소 <strong>' + n3 + '</strong> (' + pct(n3, totalOrders) + '%)</li>';
-  html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
-  html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
-  html += '</ul></div>';
-  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
-  (crm.byCustomer || []).forEach(function (c) {
-    const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '—';
-    html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
-  });
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
-  document.getElementById('storeOrdersStatsApplyBtn')?.addEventListener('click', loadStoreOrdersStats);
-  container.querySelectorAll('.admin-stats-preset-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const preset = btn.getAttribute('data-preset');
-      const range = getPresetStatsRange(preset);
-      if (!range) return;
-      const startEl = document.getElementById('storeOrdersStatsStartDate');
-      const endEl = document.getElementById('storeOrdersStatsEndDate');
-      if (startEl) startEl.value = range.start;
-      if (endEl) endEl.value = range.end;
-      loadStoreOrdersStats();
-    });
-  });
-  container.querySelectorAll('[data-menu-filter-toggle]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      storeOrdersStatsMenuFilter = storeOrdersStatsMenuFilter === 'top10' ? 'all' : 'top10';
-      if (storeOrdersStatsLastData) renderStoreOrdersStats(container, storeOrdersStatsLastData);
     });
   });
 }
@@ -815,117 +626,13 @@ document.getElementById('storeOrderDetailOverlay')?.addEventListener('click', (e
   if (e.target.id === 'storeOrderDetailOverlay') closeOrderDetail();
 });
 
-/** YYYY-MM-DD (KST) */
-function toDateKey(d) {
-  return toDateKeyKST(d);
-}
-
-/** yy/mm/dd hh:mm:ss KST (실시간 시계용) */
-function formatSettlementClock() {
-  const x = new Date();
-  const formatter = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  const parts = formatter.formatToParts(x);
-  const get = (t) => parts.find((p) => p.type === t)?.value || '';
-  return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
-}
-
-function renderStoreSettlementTable(byBrand) {
-  if (!byBrand || byBrand.length === 0) {
-    return '<p class="admin-settlement-empty">해당 날짜에 발송 완료된 주문이 없습니다.</p>';
-  }
-  const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
-  let html = '<table class="admin-stats-table"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
-  byBrand.forEach((b) => {
-    const sales = Number(b.totalAmount) || 0;
-    const fee = Math.round(sales * 0.048);
-    const settlement = sales - fee;
-    html += '<tr><td>' + escapeHtml(b.brandTitle || b.slug || '') + '</td><td>' + (b.orderCount || 0) + '</td><td>' + formatMoney(sales) + '</td><td>' + formatMoney(fee) + '</td><td>' + formatMoney(settlement) + '</td></tr>';
-  });
-  html += '</tbody></table>';
-  return html;
-}
-
-let storeSettlementClockIntervalId = null;
-
-async function loadStoreSettlement() {
-  const container = document.getElementById('storeOrdersSettlementContent');
-  if (!container) return;
-
-  const today = getTodayKST();
-  const todayD = new Date(today + 'T12:00:00+09:00');
-  const tomorrowD = new Date(todayD.getTime() + 86400000);
-  const todayMinus7D = new Date(todayD.getTime() - 7 * 86400000);
-
-  const dateToday = toDateKeyKST(todayMinus7D.getTime());
-  const dateTomorrow = toDateKeyKST(tomorrowD.getTime());
-
-  container.innerHTML =
-    '<div class="admin-settlement-clock" id="storeSettlementClock">' + escapeHtml(formatSettlementClock()) + '</div>' +
-    '<section class="admin-stats-section"><h3>오늘 정산 내역</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateToday) + ' 기준</p><div id="storeSettlementToday"></div></section>' +
-    '<section class="admin-stats-section"><h3>내일 정산 예정</h3><p class="admin-settlement-caption">발송완료일 ' + escapeHtml(dateTomorrow) + ' 기준</p><div id="storeSettlementTomorrow"></div></section>';
-
-  const clockEl = document.getElementById('storeSettlementClock');
-  if (storeSettlementClockIntervalId) clearInterval(storeSettlementClockIntervalId);
-  storeSettlementClockIntervalId = setInterval(() => {
-    if (clockEl) clockEl.textContent = formatSettlementClock();
-  }, 1000);
-
-  const token = getToken();
-  const todayBox = document.getElementById('storeSettlementToday');
-  const tomorrowBox = document.getElementById('storeSettlementTomorrow');
-  if (todayBox) todayBox.innerHTML = getStoreOrdersLoadingHtml();
-  if (tomorrowBox) tomorrowBox.innerHTML = getStoreOrdersLoadingHtml();
-
-  try {
-    const [resToday, resTomorrow] = await Promise.all([
-      fetch(`${API_BASE}/api/manager/settlement?date=${encodeURIComponent(dateToday)}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/api/manager/settlement?date=${encodeURIComponent(dateTomorrow)}`, { headers: { Authorization: `Bearer ${token}` } }),
-    ]);
-    const dataToday = resToday.ok ? await resToday.json() : { byBrand: [] };
-    const dataTomorrow = resTomorrow.ok ? await resTomorrow.json() : { byBrand: [] };
-    if (todayBox) todayBox.innerHTML = renderStoreSettlementTable(dataToday.byBrand || []);
-    if (tomorrowBox) tomorrowBox.innerHTML = renderStoreSettlementTable(dataTomorrow.byBrand || []);
-  } catch (e) {
-    if (todayBox) todayBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '오늘 정산을 불러올 수 없습니다.') + '</p>';
-    if (tomorrowBox) tomorrowBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '내일 정산 예정을 불러올 수 없습니다.') + '</p>';
-  }
-}
-
 function setupStoreOrdersTabs() {
-  const tabs = document.querySelectorAll('.store-orders-tab[data-store-tab]');
-  const listView = document.getElementById('storeOrdersListView');
-
-  function activateTab(targetTab) {
-    tabs.forEach((t) => {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
-    listView?.classList.remove('active');
-    const tabEl = document.querySelector(`.store-orders-tab[data-store-tab="${targetTab}"]`);
-    if (tabEl) {
-      tabEl.classList.add('active');
-      tabEl.setAttribute('aria-selected', 'true');
-    }
-    listView?.classList.add('active');
-    storeOrdersSubFilter = 'delivery_wait';
-    renderList();
-  }
-
-  tabs.forEach((tab) => {
+  document.querySelectorAll('.store-orders-tab[data-store-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
-      const targetTab = tab.dataset.storeTab;
-      if (targetTab) sessionStorage.setItem(STORE_ORDERS_TAB_KEY, targetTab);
-      activateTab(targetTab);
+      storeOrdersSubFilter = 'delivery_wait';
+      renderList();
     });
   });
-
-  const nav = performance.getEntriesByType?.('navigation')?.[0];
-  const isReload = nav?.type === 'reload' || (typeof performance.navigation !== 'undefined' && performance.navigation.type === 1);
-  const saved = sessionStorage.getItem(STORE_ORDERS_TAB_KEY);
-  const tabToActivate = 'list';
-  if (isReload && saved) {
-    activateTab(tabToActivate);
-  }
 }
 
 (function tickStoreOrdersLoadingProgress() {
