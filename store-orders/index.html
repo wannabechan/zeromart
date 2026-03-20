@@ -70,6 +70,13 @@
     .admin-order-detail-total strong { font-size: 1.125rem; }
     .admin-order-detail-item { padding: 8px 0; border-bottom: 1px solid var(--color-border); }
     .admin-order-detail-item:last-child { border-bottom: none; }
+    /* 주문 내역 팝업: 수량을 제품명과 동일 크기·톤으로 */
+    #storeOrderDetailContent .admin-order-detail-item .cart-item-price {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--color-text);
+      margin-top: 0;
+    }
     .admin-btn { padding: 8px 16px; font-size: 0.875rem; font-weight: 500; border-radius: var(--radius); cursor: pointer; border: none; font-family: inherit; }
     .admin-btn-secondary { background: var(--color-border); color: var(--color-text); }
     .admin-btn-secondary:hover { background: #bdbdbd; }

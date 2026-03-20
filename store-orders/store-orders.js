@@ -273,7 +273,7 @@ function renderOrderDetailHtml(order) {
     <div class="admin-order-detail-item">
       <div class="cart-item-info" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div class="cart-item-name">${escapeHtml(item.name || '')}</div>
-        <div class="cart-item-price">${qty}</div>
+        <div class="cart-item-price">x ${escapeHtml(String(Number(qty) || 0))}</div>
       </div>
     </div>
   `;
