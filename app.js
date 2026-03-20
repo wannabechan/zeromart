@@ -155,6 +155,14 @@ function getMenuCategoryHeaderTitle(slug) {
   return formatStoreSectionLabel(d.title, d.brand, slug);
 }
 
+function getMenuCategoryTabTitle(slug) {
+  const d = MENU_DATA[slug];
+  if (!d) return slug;
+  const title = (d.title != null ? String(d.title) : '').trim();
+  const brand = (d.brand != null ? String(d.brand) : '').trim();
+  return title || brand || slug;
+}
+
 // 유틸: 금액 포맷
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
@@ -347,7 +355,7 @@ function renderCategoryTabs(initialSlug) {
       return `<button class="category-tab category-tab-text${active}" data-category="${escapeHtml(slug)}">${escapeHtml(title)}</button>`;
     }),
     ...slugs.map((slug) => {
-      const title = escapeHtml(getMenuCategoryHeaderTitle(slug));
+      const title = escapeHtml(getMenuCategoryTabTitle(slug));
       const slugEsc = escapeHtml(slug);
       const active = slug === firstSlug ? ' active' : '';
       return `<button class="category-tab${active}" data-category="${slugEsc}">${title}</button>`;
