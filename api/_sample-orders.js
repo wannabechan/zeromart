@@ -1,3 +1,5 @@
+const { formatStoreSectionLabel } = require('./orders/_order-email');
+
 /**
  * 어드민 주문관리/통계관리/정산관리 테스트용 샘플 주문 (DB 미저장)
  * 환경변수 ADMIN_USE_SAMPLE_ORDERS === 'true' 일 때만 사용.
@@ -105,10 +107,22 @@ function getSampleOrders(stores, menusByStore) {
   const { mondays, tuesdays, thursdays } = getSampleOrderDates();
   const todayKST = getTodayKSTDateStr();
 
-  /** 매장 id → 대분류 표시명. 매장 정보의 '대분류' 입력란(title)에 저장된 값을 사용. */
+  /** 매장 → 주문 상세 구역 헤더용 표시명 (대분류명(브랜드명)). */
   function storeDisplayName(store) {
     if (!store) return '';
-    return (store.title || store.brand || store.id || '').toString().trim() || (store.id || '');
+    const fb = (store.slug || store.id || '').toString();
+    return formatStoreSectionLabel(store.title, store.brand, fb) || fb;
+  }
+
+  function storeDisplayNamesMap(...storeList) {
+    const out = {};
+    for (const st of storeList) {
+      if (!st) continue;
+      const label = storeDisplayName(st);
+      if (st.id) out[String(st.id).toLowerCase()] = label;
+      if (st.slug) out[String(st.slug).toLowerCase()] = label;
+    }
+    return out;
   }
 
   /** 주문일(YYYY-MM-DD) 기준: 다음날 11시에 발송완료 처리되므로, 오늘이 배송일 이상이면 delivery_completed */
@@ -133,7 +147,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
-    const storeDisplayNames = { [firstStore.id]: storeDisplayName(firstStore) };
+    const storeDisplayNames = storeDisplayNamesMap(firstStore);
     mondays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -171,7 +185,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
-    const storeDisplayNames = { [secondStore.id]: storeDisplayName(secondStore) };
+    const storeDisplayNames = storeDisplayNamesMap(secondStore);
     tuesdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -209,7 +223,7 @@ function getSampleOrders(stores, menusByStore) {
       price,
       quantity: 5,
     };
-    const storeDisplayNames = { [thirdStore.id]: storeDisplayName(thirdStore) };
+    const storeDisplayNames = storeDisplayNamesMap(thirdStore);
     tuesdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -254,10 +268,7 @@ function getSampleOrders(stores, menusByStore) {
       price: price5,
       quantity: 3,
     };
-    const storeDisplayNames = {
-      [fourthStore.id]: storeDisplayName(fourthStore),
-      [fifthStore.id]: storeDisplayName(fifthStore),
-    };
+    const storeDisplayNames = storeDisplayNamesMap(fourthStore, fifthStore);
     thursdays.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);
       const [y, m, d] = dateStr.split('-').map(Number);
@@ -295,7 +306,7 @@ function getSampleOrders(stores, menusByStore) {
       price: price6,
       quantity: 5,
     };
-    const storeDisplayNames = { [sixthStore.id]: storeDisplayName(sixthStore) };
+    const storeDisplayNames = storeDisplayNamesMap(sixthStore);
     const dailyDates = getSampleOrderDatesDailyFromMarch2026();
     dailyDates.forEach((dateStr) => {
       const { status, delivery_completed_at } = sampleOrderStatusAndDeliveryAt(dateStr);

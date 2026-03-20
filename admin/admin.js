@@ -84,6 +84,19 @@ function getOrderItemStoreKey(itemId) {
   return (parts[0] || 'unknown').toLowerCase();
 }
 
+function formatStoreSectionLabel(title, brand, slugFallback) {
+  const t = (title != null ? String(title) : '').trim();
+  const b = (brand != null ? String(brand) : '').trim();
+  const fb = (slugFallback != null ? String(slugFallback) : '').trim();
+  if (t && b) {
+    if (t === b) return t;
+    return `${t}(${b})`;
+  }
+  if (t) return t;
+  if (b) return b;
+  return fb;
+}
+
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   const items = order?.order_items || order?.orderItems || [];
@@ -1190,11 +1203,15 @@ async function loadPaymentManagement() {
         adminStoresMap = {};
         adminStoreOrder = [];
         (stores || []).forEach(s => {
-          const slug = s.slug || s.id;
-          const title = (s.title || s.brand || slug).toString().trim() || slug;
-          adminStoresMap[slug] = title;
-          if (s.id && s.id !== slug) adminStoresMap[s.id] = title;
-          adminStoreOrder.push(slug);
+          const slug = (s.slug || s.id || '').toString();
+          const slugKey = slug.toLowerCase();
+          const idKey = (s.id || '').toString().toLowerCase();
+          const label = formatStoreSectionLabel(s.title, s.brand, slug);
+          if (slugKey) {
+            adminStoresMap[slugKey] = label;
+            adminStoreOrder.push(slugKey);
+          }
+          if (idKey && idKey !== slugKey) adminStoresMap[idKey] = label;
         });
       }
     } catch (_) {}

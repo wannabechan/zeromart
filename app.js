@@ -136,6 +136,25 @@ function getOrderItemStoreKey(itemId) {
   return (parts[0] || 'unknown').toLowerCase();
 }
 
+function formatStoreSectionLabel(title, brand, slugFallback) {
+  const t = (title != null ? String(title) : '').trim();
+  const b = (brand != null ? String(brand) : '').trim();
+  const fb = (slugFallback != null ? String(slugFallback) : '').trim();
+  if (t && b) {
+    if (t === b) return t;
+    return `${t}(${b})`;
+  }
+  if (t) return t;
+  if (b) return b;
+  return fb;
+}
+
+function getMenuCategoryHeaderTitle(slug) {
+  const d = MENU_DATA[slug];
+  if (!d) return slug;
+  return formatStoreSectionLabel(d.title, d.brand, slug);
+}
+
 // 유틸: 금액 포맷
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
@@ -315,7 +334,7 @@ function renderCategoryTabs(initialSlug) {
       return `<button class="category-tab category-tab-text${active}" data-category="${escapeHtml(slug)}">${escapeHtml(title)}</button>`;
     }),
     ...slugs.map((slug) => {
-      const title = escapeHtml(MENU_DATA[slug]?.title || slug);
+      const title = escapeHtml(getMenuCategoryHeaderTitle(slug));
       const slugEsc = escapeHtml(slug);
       const active = slug === firstSlug ? ' active' : '';
       return `<button class="category-tab${active}" data-category="${slugEsc}">${title}</button>`;
@@ -528,7 +547,7 @@ function renderCartItems() {
   cartItems.innerHTML = categoryOrder
     .filter((slug) => byCategory[slug]?.length)
     .map((slug) => {
-      const categoryTitle = escapeHtml(MENU_DATA[slug]?.title || slug);
+      const categoryTitle = escapeHtml(getMenuCategoryHeaderTitle(slug));
       const catTotal = categoryTotals[slug] || 0;
       const totalClass = 'cart-category-total met';
       const itemsHtml = byCategory[slug].map(renderCartItem).join('');
@@ -610,7 +629,7 @@ function renderOrderDetailByCategory(byCategory, categoryOrder) {
   return categoryOrder
     .filter((slug) => byCategory[slug]?.length)
     .map((slug) => {
-      const categoryTitle = escapeHtml(MENU_DATA[slug]?.title || slug);
+      const categoryTitle = escapeHtml(getMenuCategoryHeaderTitle(slug));
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderDetailItem).join('');
       return `

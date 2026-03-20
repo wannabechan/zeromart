@@ -76,6 +76,19 @@ function getOrderItemStoreKey(itemId) {
   return (parts[0] || 'unknown').toLowerCase();
 }
 
+function formatStoreSectionLabel(title, brand, slugFallback) {
+  const t = (title != null ? String(title) : '').trim();
+  const b = (brand != null ? String(brand) : '').trim();
+  const fb = (slugFallback != null ? String(slugFallback) : '').trim();
+  if (t && b) {
+    if (t === b) return t;
+    return `${t}(${b})`;
+  }
+  if (t) return t;
+  if (b) return b;
+  return fb;
+}
+
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   if (order?.orderSlipNumbers && order.orderSlipNumbers.length > 0) {
@@ -233,8 +246,9 @@ function renderOrderDetailHtml(order) {
   const stores = storeOrdersStores || [];
   const slugToTitle = {};
   for (const s of stores) {
-    const id = (s.id || s.slug || '').toString().toLowerCase();
-    if (id) slugToTitle[id] = s.title || s.id || s.slug || id;
+    const label = formatStoreSectionLabel(s.title, s.brand, (s.slug || s.id || '').toString());
+    if (s.id) slugToTitle[String(s.id).toLowerCase()] = label;
+    if (s.slug) slugToTitle[String(s.slug).toLowerCase()] = label;
   }
   const orderItems = order.order_items || [];
   const byCategory = {};

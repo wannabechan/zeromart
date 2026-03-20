@@ -31,6 +31,22 @@ function getOrderItemStoreKey(itemId) {
   return (parts[0] || 'unknown').toLowerCase();
 }
 
+/**
+ * 주문서·주문관리 등 매장 구역 헤더: 대분류명(브랜드명). 브랜드가 없거나 대분류와 같으면 대분류만.
+ */
+function formatStoreSectionLabel(title, brand, slugFallback) {
+  const t = (title != null ? String(title) : '').trim();
+  const b = (brand != null ? String(brand) : '').trim();
+  const fb = (slugFallback != null ? String(slugFallback) : '').trim();
+  if (t && b) {
+    if (t === b) return t;
+    return `${t}(${b})`;
+  }
+  if (t) return t;
+  if (b) return b;
+  return fb;
+}
+
 function formatOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
@@ -155,8 +171,13 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const orderNumberDisplay = (options.orderNumberDisplay || getOrderNumberDisplay(order)).replace(/^#?/, '#');
   const slugToTitle = {};
   for (const s of stores || []) {
-    const id = (s.id || s.slug || '').toString();
-    slugToTitle[id.toLowerCase()] = s.title || s.id || s.slug || id;
+    const label = formatStoreSectionLabel(s.title, s.brand, (s.slug || s.id || '').toString());
+    const keys = new Set();
+    if (s.id) keys.add(String(s.id).toLowerCase());
+    if (s.slug) keys.add(String(s.slug).toLowerCase());
+    for (const k of keys) {
+      if (k) slugToTitle[k] = label;
+    }
   }
   const getCategoryTitle = (slug) => slugToTitle[slug] || slug || '기타';
 
@@ -251,6 +272,7 @@ module.exports = {
   getStoreDisplayName,
   getStoreEmailForOrder,
   getOrderItemStoreKey,
+  formatStoreSectionLabel,
   getOrderItemsByStore,
   getStoresWithItemsInOrder,
   getOrderNumberDisplay,

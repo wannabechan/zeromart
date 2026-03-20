@@ -100,6 +100,19 @@ function getOrderItemStoreKey(itemId) {
   return (parts[0] || 'unknown').toLowerCase();
 }
 
+function formatStoreSectionLabel(title, brand, slugFallback) {
+  const t = (title != null ? String(title) : '').trim();
+  const b = (brand != null ? String(brand) : '').trim();
+  const fb = (slugFallback != null ? String(slugFallback) : '').trim();
+  if (t && b) {
+    if (t === b) return t;
+    return `${t}(${b})`;
+  }
+  if (t) return t;
+  if (b) return b;
+  return fb;
+}
+
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   const items = order?.order_items || order?.orderItems || [];
@@ -652,13 +665,15 @@ async function loadOrdersView() {
       brandManagerStoresMap = {};
       brandManagerStoreOrder = [];
       (storeList || []).forEach((s) => {
-        const slug = (s.slug || s.id || '').toString().toLowerCase();
-        const title = (s.title || s.brand || slug).toString().trim() || slug;
-        if (slug) {
-          brandManagerStoresMap[slug] = title;
-          if (s.id && s.id !== slug) brandManagerStoresMap[s.id] = title;
-          brandManagerStoreOrder.push(slug);
+        const slugRaw = (s.slug || s.id || '').toString();
+        const slugKey = slugRaw.toLowerCase();
+        const idKey = (s.id || '').toString().toLowerCase();
+        const label = formatStoreSectionLabel(s.title, s.brand, slugRaw);
+        if (slugKey) {
+          brandManagerStoresMap[slugKey] = label;
+          brandManagerStoreOrder.push(slugKey);
         }
+        if (idKey && idKey !== slugKey) brandManagerStoresMap[idKey] = label;
       });
     }
 

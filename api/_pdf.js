@@ -4,7 +4,7 @@
  */
 
 const PDFDocument = require('pdfkit');
-const { getStoreForOrder, getStoreDisplayName, getOrderNumberDisplay, getOrderItemStoreKey } = require('./orders/_order-email');
+const { getStoreForOrder, getStoreDisplayName, getOrderNumberDisplay, getOrderItemStoreKey, formatStoreSectionLabel } = require('./orders/_order-email');
 const { getProfileSettings } = require('./_redis');
 const path = require('path');
 const fs = require('fs');
@@ -48,8 +48,13 @@ async function generateOrderPdf(order, stores = [], options = {}) {
   const isCancelled = options.isCancelled === true;
   const slugToTitle = {};
   for (const s of stores) {
-    const k = (s.id || s.slug || '').toString().toLowerCase();
-    if (k) slugToTitle[k] = s.title || s.id || s.slug || k;
+    const label = formatStoreSectionLabel(s.title, s.brand, (s.slug || s.id || '').toString());
+    const keys = new Set();
+    if (s.id) keys.add(String(s.id).toLowerCase());
+    if (s.slug) keys.add(String(s.slug).toLowerCase());
+    for (const k of keys) {
+      if (k) slugToTitle[k] = label;
+    }
   }
   const getCategoryTitle = (slug) => slugToTitle[slug] || DEFAULT_CATEGORY_TITLES[slug] || slug;
 
