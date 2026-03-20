@@ -6,6 +6,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores } = require('../_redis');
 const { toKSTDateKey, getKSTDayRange } = require('../_kst');
+const { getOrderItemStoreKey } = require('../orders/_order-email');
 
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
 function isWithinPaymentCancelWindow(o) {
@@ -30,9 +31,8 @@ function getOrderStoreSlugs(order) {
   const items = order.order_items || order.orderItems || [];
   const slugs = new Set();
   for (const item of items) {
-    const id = (item.id || '').toString();
-    const slug = (id.split('-')[0] || '').toLowerCase();
-    if (slug) slugs.add(slug);
+    const slug = getOrderItemStoreKey(item.id);
+    if (slug && slug !== 'unknown') slugs.add(slug);
   }
   return slugs.size ? [...slugs] : ['unknown'];
 }
@@ -133,8 +133,7 @@ module.exports = async (req, res) => {
         revenueTotal += Number(o.total_amount) || 0;
         const items = o.order_items || o.orderItems || [];
         for (const item of items) {
-          const id = (item.id || '').toString();
-          const slug = (id.split('-')[0] || '').toLowerCase() || 'unknown';
+          const slug = getOrderItemStoreKey(item.id);
           const price = Number(item.price) || 0;
           const qty = Number(item.quantity) || 0;
           revenueByStore[slug] = (revenueByStore[slug] || 0) + price * qty;
@@ -145,8 +144,7 @@ module.exports = async (req, res) => {
         revenueExpectedTotal += amt;
         const items = o.order_items || o.orderItems || [];
         for (const item of items) {
-          const id = (item.id || '').toString();
-          const slug = (id.split('-')[0] || '').toLowerCase() || 'unknown';
+          const slug = getOrderItemStoreKey(item.id);
           const price = Number(item.price) || 0;
           const qty = Number(item.quantity) || 0;
           revenueExpectedByStore[slug] = (revenueExpectedByStore[slug] || 0) + price * qty;
@@ -170,7 +168,7 @@ module.exports = async (req, res) => {
         const name = item.name || id;
         const qty = Number(item.quantity) || 0;
         const price = Number(item.price) || 0;
-        const slugFromItem = (id.split('-')[0] || '').toLowerCase();
+        const slugFromItem = getOrderItemStoreKey(id);
         const key = slugFromItem + ':' + id;
         if (!isCancelled && confirmedPaid) menuOrderCount[key] = (menuOrderCount[key] || 0) + qty;
         if (confirmedPaid) menuRevenue[key] = (menuRevenue[key] || 0) + price * qty;

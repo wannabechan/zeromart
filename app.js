@@ -124,11 +124,23 @@ const ORDER_STATUS_STEPS = [
 ];
 const PENDING_ORDER_STATUSES = ['submitted', 'order_accepted', 'payment_link_issued', 'payment_completed'];
 
+// 주문 상품 id → 매장(대분류) 키 (어드민 generateId: storeId-ts-rand, storeId에 하이픈 가능)
+function getOrderItemStoreKey(itemId) {
+  const raw = (itemId || '').toString().trim();
+  if (!raw) return 'unknown';
+  const parts = raw.split('-');
+  if (parts.length >= 3) {
+    const prefix = parts.slice(0, -2).join('-');
+    if (prefix) return prefix.toLowerCase();
+  }
+  return (parts[0] || 'unknown').toLowerCase();
+}
+
 // 유틸: 금액 포맷
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   const items = order?.order_items || order?.orderItems || [];
-  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))];
   slugs.sort();
   const n = slugs.length || 1;
   if (n <= 1) return `#${id}-1`;
@@ -208,7 +220,7 @@ function getCategoryForItem(itemId) {
   for (const [slug, data] of Object.entries(MENU_DATA)) {
     if (data.items?.some((i) => i.id === itemId)) return slug;
   }
-  return itemId.split('-')[0];
+  return getOrderItemStoreKey(itemId);
 }
 
 // 장바구니에 담긴 카테고리 (1가지만 허용)
@@ -243,7 +255,7 @@ function getPaymentForCart() {
   const itemIds = Object.keys(cart).filter((id) => cart[id] > 0);
   const firstId = itemIds[0];
   if (!firstId) return MENU_DATA.bento?.payment || MENU_DATA_FALLBACK.bento.payment;
-  const storeSlug = firstId.split('-')[0];
+  const storeSlug = getOrderItemStoreKey(firstId);
   const storeData = MENU_DATA[storeSlug];
   return storeData?.payment || MENU_DATA.bento?.payment || MENU_DATA_FALLBACK.bento.payment;
 }

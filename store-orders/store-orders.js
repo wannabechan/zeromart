@@ -65,13 +65,24 @@ function escapeHtml(s) {
   return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function getOrderItemStoreKey(itemId) {
+  const raw = (itemId || '').toString().trim();
+  if (!raw) return 'unknown';
+  const parts = raw.split('-');
+  if (parts.length >= 3) {
+    const prefix = parts.slice(0, -2).join('-');
+    if (prefix) return prefix.toLowerCase();
+  }
+  return (parts[0] || 'unknown').toLowerCase();
+}
+
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   if (order?.orderSlipNumbers && order.orderSlipNumbers.length > 0) {
     return order.orderSlipNumbers.map((n) => `#${id}-${n}`).join(', ');
   }
   const items = order?.order_items || order?.orderItems || [];
-  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))];
   slugs.sort();
   const n = slugs.length || 1;
   if (n <= 1) return `#${id}-1`;
@@ -229,7 +240,7 @@ function renderOrderDetailHtml(order) {
   const byCategory = {};
   for (const oi of orderItems) {
     const itemId = oi.id || '';
-    const slug = (itemId.split('-')[0] || 'default').toLowerCase();
+    const slug = getOrderItemStoreKey(itemId);
     const item = { name: oi.name || '', price: Number(oi.price) || 0 };
     const qty = Number(oi.quantity) || 0;
     if (qty <= 0) continue;

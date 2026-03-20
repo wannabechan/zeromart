@@ -6,14 +6,14 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores, getProfileSettingsBatch } = require('../_redis');
 const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded, getAllowedSlugSet } = require('./_helpers');
+const { getOrderItemStoreKey } = require('../orders/_order-email');
 
 function orderSlugs(order) {
   const items = order.order_items || order.orderItems || [];
   const slugs = new Set();
   for (const item of items) {
-    const id = (item.id || '').toString();
-    const slug = (id.split('-')[0] || '').toLowerCase();
-    if (slug) slugs.add(slug);
+    const slug = getOrderItemStoreKey(item.id);
+    if (slug && slug !== 'unknown') slugs.add(slug);
   }
   return slugs;
 }

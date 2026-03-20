@@ -4,7 +4,7 @@
  */
 
 const PDFDocument = require('pdfkit');
-const { getStoreForOrder, getStoreDisplayName, getOrderNumberDisplay } = require('./orders/_order-email');
+const { getStoreForOrder, getStoreDisplayName, getOrderNumberDisplay, getOrderItemStoreKey } = require('./orders/_order-email');
 const { getProfileSettings } = require('./_redis');
 const path = require('path');
 const fs = require('fs');
@@ -48,7 +48,8 @@ async function generateOrderPdf(order, stores = [], options = {}) {
   const isCancelled = options.isCancelled === true;
   const slugToTitle = {};
   for (const s of stores) {
-    slugToTitle[s.slug || s.id] = s.title || s.id;
+    const k = (s.id || s.slug || '').toString().toLowerCase();
+    if (k) slugToTitle[k] = s.title || s.id || s.slug || k;
   }
   const getCategoryTitle = (slug) => slugToTitle[slug] || DEFAULT_CATEGORY_TITLES[slug] || slug;
 
@@ -56,7 +57,7 @@ async function generateOrderPdf(order, stores = [], options = {}) {
   const byCategory = {};
   for (const oi of orderItems) {
     const itemId = oi.id || '';
-    const slug = (itemId.split('-')[0] || 'default').toLowerCase();
+    const slug = getOrderItemStoreKey(itemId);
     const item = { name: oi.name || '', price: oi.price || 0, qty: oi.quantity || 0 };
     if (!byCategory[slug]) byCategory[slug] = [];
     byCategory[slug].push(item);

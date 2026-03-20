@@ -6,7 +6,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores } = require('../_redis');
-const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder, getOrderItemStoreKey } = require('../orders/_order-email');
 const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
@@ -28,9 +28,7 @@ function scopeOrderToManagerStores(order, managerEmail, stores) {
 
   const items = order.order_items || order.orderItems || [];
   const scopedItems = items.filter((item) => {
-    const id = (item.id || '').toString();
-    const slug = (id.split('-')[0] || '').toLowerCase();
-    return managerSlugs.has(slug);
+    return managerSlugs.has(getOrderItemStoreKey(item.id));
   });
   if (scopedItems.length === 0) return null;
 
@@ -50,8 +48,7 @@ function scopeOrderToManagerStores(order, managerEmail, stores) {
 function getStoreSlugFromOrder(order) {
   const items = order.order_items || order.orderItems || [];
   const firstId = items[0]?.id || '';
-  const slug = (firstId.split('-')[0] || '').toLowerCase();
-  return slug || 'unknown';
+  return getOrderItemStoreKey(firstId);
 }
 
 module.exports = async (req, res) => {
@@ -177,7 +174,7 @@ module.exports = async (req, res) => {
         const name = item.name || id;
         const qty = Number(item.quantity) || 0;
         const price = Number(item.price) || 0;
-        const slugFromItem = (id.split('-')[0] || '').toLowerCase();
+        const slugFromItem = getOrderItemStoreKey(id);
         const key = slugFromItem + ':' + id;
         if (!isCancelled && confirmedPaid) menuOrderCount[key] = (menuOrderCount[key] || 0) + qty;
         if (confirmedPaid) menuRevenue[key] = (menuRevenue[key] || 0) + price * qty;

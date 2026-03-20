@@ -5,7 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores } = require('../_redis');
-const { getStoresWithItemsInOrder } = require('../orders/_order-email');
+const { getStoresWithItemsInOrder, getOrderItemStoreKey } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
 
 function normalizeDate(str) {
@@ -31,9 +31,7 @@ function scopeOrderToManagerStores(order, managerEmail, stores) {
 
   const items = order.order_items || order.orderItems || [];
   const scopedItems = items.filter((item) => {
-    const id = (item.id || '').toString();
-    const slug = (id.split('-')[0] || '').toLowerCase();
-    return managerSlugs.has(slug);
+    return managerSlugs.has(getOrderItemStoreKey(item.id));
   });
   if (scopedItems.length === 0) return null;
 
@@ -79,7 +77,7 @@ module.exports = async (req, res) => {
       const { scopedItems, storeBySlug } = scoped;
       const amountBySlug = {};
       for (const item of scopedItems) {
-        const slug = (item.id || '').toString().split('-')[0].toLowerCase() || 'unknown';
+        const slug = getOrderItemStoreKey(item.id);
         const amt = Number(item.price || 0) * Math.max(0, Number(item.quantity) || 0);
         amountBySlug[slug] = (amountBySlug[slug] || 0) + amt;
       }

@@ -73,10 +73,21 @@ function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+function getOrderItemStoreKey(itemId) {
+  const raw = (itemId || '').toString().trim();
+  if (!raw) return 'unknown';
+  const parts = raw.split('-');
+  if (parts.length >= 3) {
+    const prefix = parts.slice(0, -2).join('-');
+    if (prefix) return prefix.toLowerCase();
+  }
+  return (parts[0] || 'unknown').toLowerCase();
+}
+
 function getOrderNumberDisplay(order) {
   const id = order?.id ?? '';
   const items = order?.order_items || order?.orderItems || [];
-  const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))];
   slugs.sort();
   const n = slugs.length || 1;
   if (n <= 1) return `#${id}-1`;
@@ -2037,7 +2048,7 @@ function renderAdminOrderDetailHtml(order) {
   const byCategory = {};
   for (const oi of orderItems) {
     const itemId = oi.id || '';
-    const slug = (itemId.split('-')[0] || 'default');
+    const slug = getOrderItemStoreKey(itemId) || 'default';
     const item = { name: oi.name || '', price: Number(oi.price) || 0 };
     const qty = Number(oi.quantity) || 0;
     if (qty <= 0) continue;
@@ -2098,7 +2109,7 @@ function openAdminOrderDetail(order) {
   const pdfWrap = document.getElementById('adminOrderDetailPdfWrap');
   if (pdfWrap) {
     const items = order.order_items || order.orderItems || [];
-    const slugs = [...new Set(items.map((i) => ((i.id || '').toString().split('-')[0] || '').toLowerCase()).filter(Boolean))].sort();
+    const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
     pdfWrap.innerHTML = '';
     pdfWrap.style.display = slugs.length ? '' : 'none';
     const pdfLabel = order.status === 'cancelled' ? '주문서 확인 (취소 건)' : '주문서 확인';

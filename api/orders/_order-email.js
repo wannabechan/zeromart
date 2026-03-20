@@ -14,6 +14,23 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * 주문 상품 id에서 매장(대분류) 키 추출.
+ * 어드민 generateId: `${storeId}-${Date.now().toString(36)}-${random4}` 형태이므로
+ * storeId에 하이픈이 있으면(예: store-m5abc) split('-')[0] === 'store'로 여러 매장이 한 덩어리로 묶이는 문제가 생김.
+ * 마지막 두 세그먼트(타임스탬프·랜덤)를 제거한 접두사를 매장 키로 사용.
+ */
+function getOrderItemStoreKey(itemId) {
+  const raw = (itemId || '').toString().trim();
+  if (!raw) return 'unknown';
+  const parts = raw.split('-');
+  if (parts.length >= 3) {
+    const prefix = parts.slice(0, -2).join('-');
+    if (prefix) return prefix.toLowerCase();
+  }
+  return (parts[0] || 'unknown').toLowerCase();
+}
+
 function formatOrderDate(isoStr) {
   if (!isoStr) return '—';
   const d = new Date(isoStr);
@@ -73,15 +90,14 @@ function getStoreEmailForOrder(order, stores) {
 }
 
 /**
- * 주문 상품을 매장(slug)별로 묶어 반환. item.id의 접두사로 slug 추출.
+ * 주문 상품을 매장(대분류)별로 묶어 반환. item.id에서 getOrderItemStoreKey로 slug 추출.
  * @returns {Record<string, object[]>} { [slug]: orderItems }
  */
 function getOrderItemsByStore(order) {
   const items = order.order_items || order.orderItems || [];
   const byStore = {};
   for (const item of items) {
-    const id = (item.id || '').toString();
-    const slug = (id.split('-')[0] || 'unknown').toLowerCase();
+    const slug = getOrderItemStoreKey(item.id);
     if (!byStore[slug]) byStore[slug] = [];
     byStore[slug].push(item);
   }
@@ -148,7 +164,7 @@ function buildOrderNotificationHtml(order, stores, options = {}) {
   const byCategory = {};
   for (const oi of orderItems) {
     const itemId = (oi.id || '').toString();
-    const slug = (itemId.split('-')[0] || 'default').toLowerCase();
+    const slug = getOrderItemStoreKey(itemId);
     const name = oi.name || '';
     const qty = Number(oi.quantity) || 0;
     if (qty <= 0) continue;
@@ -234,6 +250,7 @@ module.exports = {
   getStoreForOrder,
   getStoreDisplayName,
   getStoreEmailForOrder,
+  getOrderItemStoreKey,
   getOrderItemsByStore,
   getStoresWithItemsInOrder,
   getOrderNumberDisplay,

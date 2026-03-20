@@ -7,7 +7,7 @@
 const { verifyToken, setCorsHeaders } = require('../_utils');
 const { getOrderById, getStores } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
-const { getOrderItemsByStore } = require('./_order-email');
+const { getOrderItemsByStore, getOrderItemStoreKey } = require('./_order-email');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -48,9 +48,7 @@ module.exports = async (req, res) => {
 
     const items = order.order_items || order.orderItems || [];
     const filtered = items.filter((item) => {
-      const id = (item.id || '').toString();
-      const slug = (id.split('-')[0] || '').toLowerCase();
-      return slug === storeSlug;
+      return getOrderItemStoreKey(item.id) === storeSlug;
     });
     order = { ...order, order_items: filtered };
   }
