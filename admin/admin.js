@@ -113,6 +113,20 @@ function getOrderNumberDisplay(order) {
   return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
 }
 
+/** 대분류(slug)별 주문서 번호 — getOrderNumberDisplay·PDF와 동일한 정렬·인덱스 */
+function getOrderSlipLabelForCategory(order, categorySlug) {
+  const id = order?.id;
+  if (id == null || id === '') return '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
+  const key = String(categorySlug).toLowerCase();
+  const idx = slugs.indexOf(key);
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  if (idx < 0) return `#${id}-1`;
+  return `#${id}-${idx + 1}`;
+}
+
 function escapeHtml(s) {
   if (s == null || s === '') return '';
   const t = String(s);
@@ -2105,13 +2119,21 @@ function renderAdminOrderDetailHtml(order) {
       const title = storeDisplayNames[slug] || adminStoresMap[slug] || slug;
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderItem).join('');
+      const slipLabel = escapeHtml(getOrderSlipLabelForCategory(order, slug));
       return `
         <div class="cart-category-group">
           <div class="cart-category-header">
             <span class="cart-category-title">${escapeHtml(title || '')}</span>
-            <span class="cart-category-total met">${formatAdminPrice(catTotal)}</span>
+            <span class="cart-category-slip met">${slipLabel}</span>
           </div>
           ${itemsHtml}
+          <div class="cart-category-subtotal-wrap">
+            <div class="cart-category-subtotal-lines" aria-hidden="true">
+              <hr class="cart-category-rule" />
+              <hr class="cart-category-rule" />
+            </div>
+            <div class="cart-category-subtotal-text met">${formatAdminPrice(catTotal)}</div>
+          </div>
         </div>
       `;
     })

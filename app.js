@@ -166,6 +166,19 @@ function getOrderNumberDisplay(order) {
   return slugs.map((_, i) => `#${id}-${i + 1}`).join(', ');
 }
 
+function getOrderSlipLabelForCategory(order, categorySlug) {
+  const id = order?.id;
+  if (id == null || id === '') return '';
+  const items = order?.order_items || order?.orderItems || [];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
+  const key = String(categorySlug).toLowerCase();
+  const idx = slugs.indexOf(key);
+  const n = slugs.length || 1;
+  if (n <= 1) return `#${id}-1`;
+  if (idx < 0) return `#${id}-1`;
+  return `#${id}-${idx + 1}`;
+}
+
 function formatPrice(price) {
   return price.toLocaleString() + '원';
 }
@@ -592,10 +605,10 @@ function renderOrderSummaryList(entries) {
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
-  return renderOrderDetailByCategory(byCategory, categoryOrder);
+  return renderOrderDetailByCategory(byCategory, categoryOrder, null);
 }
 
-function renderOrderSummaryFromOrderItems(orderItems) {
+function renderOrderSummaryFromOrderItems(orderItems, order) {
   const categoryOrder = Object.keys(MENU_DATA);
   const byCategory = {};
   for (const oi of orderItems || []) {
@@ -610,10 +623,10 @@ function renderOrderSummaryFromOrderItems(orderItems) {
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
-  return renderOrderDetailByCategory(byCategory, categoryOrder);
+  return renderOrderDetailByCategory(byCategory, categoryOrder, order || null);
 }
 
-function renderOrderDetailByCategory(byCategory, categoryOrder) {
+function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
   const categoryTotals = {};
   for (const slug of Object.keys(byCategory)) {
     categoryTotals[slug] = byCategory[slug].reduce((sum, { item, qty }) => sum + item.price * qty, 0);
@@ -632,13 +645,22 @@ function renderOrderDetailByCategory(byCategory, categoryOrder) {
       const categoryTitle = escapeHtml(getMenuCategoryHeaderTitle(slug));
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderDetailItem).join('');
+      const slipRaw = order ? getOrderSlipLabelForCategory(order, slug) : '';
+      const slipLabel = escapeHtml(slipRaw);
       return `
         <div class="cart-category-group">
           <div class="cart-category-header">
             <span class="cart-category-title">${categoryTitle}</span>
-            <span class="cart-category-total met">${formatPrice(catTotal)}</span>
+            <span class="cart-category-slip met">${slipLabel}</span>
           </div>
           ${itemsHtml}
+          <div class="cart-category-subtotal-wrap">
+            <div class="cart-category-subtotal-lines" aria-hidden="true">
+              <hr class="cart-category-rule" />
+              <hr class="cart-category-rule" />
+            </div>
+            <div class="cart-category-subtotal-text met">${formatPrice(catTotal)}</div>
+          </div>
         </div>
       `;
     })
@@ -726,7 +748,7 @@ function closeProfile() {
 }
 
 function openProfileOrderDetail(order) {
-  const html = renderOrderSummaryFromOrderItems(order.orderItems || []);
+  const html = renderOrderSummaryFromOrderItems(order.orderItems || [], order);
   orderDetailContent.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
   const totalEl = document.getElementById('orderDetailTotal');
   if (totalEl) totalEl.textContent = formatPrice(order.totalAmount || 0);
