@@ -89,9 +89,7 @@ module.exports = async (req, res) => {
       const scoped = scopeOrderToManagerStores(order, managerEmail, stores);
       if (scoped) scopedList.push(scoped);
     }
-    const sorted = scopedList.sort((a, b) =>
-      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const sorted = scopedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 

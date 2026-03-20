@@ -639,7 +639,22 @@ function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
       </div>
     </div>
   `;
-  return categoryOrder
+  const keys = Object.keys(byCategory);
+  let displaySlugs;
+  if (order) {
+    const items = order.orderItems || order.order_items || [];
+    const slipOrdered = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
+    const orderedKeys = [];
+    for (const s of slipOrdered) {
+      const k = keys.find((key) => String(key).toLowerCase() === s && byCategory[key]?.length);
+      if (k != null && !orderedKeys.includes(k)) orderedKeys.push(k);
+    }
+    const orphan = keys.filter((k) => !orderedKeys.includes(k)).sort((a, b) => a.localeCompare(b, 'ko'));
+    displaySlugs = orderedKeys.concat(orphan);
+  } else {
+    displaySlugs = categoryOrder.filter((slug) => byCategory[slug]?.length);
+  }
+  return displaySlugs
     .filter((slug) => byCategory[slug]?.length)
     .map((slug) => {
       const categoryTitle = escapeHtml(getMenuCategoryHeaderTitle(slug));
@@ -660,7 +675,6 @@ function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
-            <br />
           </div>
         </div>
       `;
@@ -1113,9 +1127,7 @@ async function fetchRecentOrderItems() {
     const data = await res.json().catch(() => ({}));
     const orders = data.orders || [];
     const orderDate = (o) => (o.createdAt ? new Date(o.createdAt).getTime() : 0);
-    orders.sort((a, b) =>
-      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
-    );
+    orders.sort((a, b) => orderDate(b) - orderDate(a));
     const flattened = [];
     for (const order of orders) {
       const ts = orderDate(order);

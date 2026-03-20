@@ -9,8 +9,8 @@ let storeOrdersData = [];
 let storeOrdersTotal = 0;
 let storeOrdersStores = [];
 let storeOrdersStoreOrder = [];
-let storeOrdersSortBy = 'order_id';
-let storeOrdersSortDir = { order_id: 'asc' };
+let storeOrdersSortBy = 'created_at';
+let storeOrdersSortDir = { created_at: 'desc' };
 let storeOrdersSubFilter = 'delivery_wait';
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months' */
 let storeOrdersPeriod = 'this_month';
@@ -157,9 +157,9 @@ function getStoreOrdersStartDateForPeriod(period) {
 
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
-  const cmpId = (a, b) =>
-    String(a?.id ?? '').localeCompare(String(b?.id ?? ''), undefined, { numeric: true, sensitivity: 'base' });
-  copy.sort((a, b) => ((dir || 'asc') === 'desc' ? -1 : 1) * cmpId(a, b));
+  const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
+  if ((dir || 'desc') === 'desc') copy.reverse();
   return copy;
 }
 
@@ -386,7 +386,7 @@ function renderList() {
   }
 
   const sortBy = storeOrdersSortBy;
-  const dir = storeOrdersSortDir[sortBy] || 'asc';
+  const dir = storeOrdersSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
   const periodStartDate = getStoreOrdersStartDateForPeriod(storeOrdersPeriod);

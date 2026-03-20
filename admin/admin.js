@@ -9,8 +9,8 @@ const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
 let adminPaymentOrders = [];
 let adminPaymentTotal = 0;
-let adminPaymentSortBy = 'order_id';
-let adminPaymentSortDir = { order_id: 'asc' };
+let adminPaymentSortBy = 'created_at';
+let adminPaymentSortDir = { created_at: 'desc' };
 let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'delivery_completed' | 'cancelled'
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months'. API에 startDate(YYYY-MM-DD)로 전달 */
 let adminPaymentPeriod = 'this_month';
@@ -898,9 +898,9 @@ function setupTabs() {
 
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
-  const cmpId = (a, b) =>
-    String(a?.id ?? '').localeCompare(String(b?.id ?? ''), undefined, { numeric: true, sensitivity: 'base' });
-  copy.sort((a, b) => ((dir || 'asc') === 'desc' ? -1 : 1) * cmpId(a, b));
+  const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
+  if ((dir || 'desc') === 'desc') copy.reverse();
   return copy;
 }
 
@@ -963,7 +963,7 @@ function renderPaymentList() {
   }
 
   const sortBy = adminPaymentSortBy;
-  const dir = adminPaymentSortDir[sortBy] || 'asc';
+  const dir = adminPaymentSortDir[sortBy] || 'desc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
   const periodStartDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
@@ -2091,11 +2091,11 @@ function renderAdminOrderDetailHtml(order) {
     if (!byCategory[slug]) byCategory[slug] = [];
     byCategory[slug].push({ item, qty });
   }
-  // 매장 순서를 따르되, 주문에만 있는 slug(매장 목록에 없을 수 있음)도 포함해 상세가 비지 않도록 함
   const byCategorySlugs = Object.keys(byCategory);
-  const categoryOrder = adminStoreOrder.length
-    ? [...adminStoreOrder, ...byCategorySlugs.filter((s) => !adminStoreOrder.includes(s))]
-    : byCategorySlugs.sort();
+  const slipOrderedSlugs = [...new Set(orderItems.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
+  const categoryOrder = slipOrderedSlugs.filter((slug) => byCategory[slug]?.length);
+  const orphanSlugs = byCategorySlugs.filter((s) => !slipOrderedSlugs.includes(s)).sort();
+  const displaySlugs = categoryOrder.concat(orphanSlugs);
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
@@ -2113,9 +2113,9 @@ function renderAdminOrderDetailHtml(order) {
   `;
   // 샘플 주문 등 서버에서 내려준 slug별 표시명이 있으면 우선 사용 (4번 매장 id가 'store'일 때 대분류명 정상 표시)
   const storeDisplayNames = order.store_display_names || {};
-  return categoryOrder
-    .filter(slug => byCategory[slug]?.length)
-    .map(slug => {
+  return displaySlugs
+    .filter((slug) => byCategory[slug]?.length)
+    .map((slug) => {
       const title = storeDisplayNames[slug] || adminStoresMap[slug] || slug;
       const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderItem).join('');
@@ -2133,7 +2133,6 @@ function renderAdminOrderDetailHtml(order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
-            <br />
           </div>
         </div>
       `;

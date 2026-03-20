@@ -455,9 +455,10 @@ function renderBrandManagerOrderDetailHtml(order) {
     byCategory[slug].push({ item, qty });
   }
   const byCategorySlugs = Object.keys(byCategory);
-  const categoryOrder = brandManagerStoreOrder.length
-    ? [...brandManagerStoreOrder, ...byCategorySlugs.filter((s) => !brandManagerStoreOrder.includes(s))]
-    : byCategorySlugs.sort();
+  const slipOrderedSlugs = [...new Set(orderItems.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
+  const categoryOrder = slipOrderedSlugs.filter((slug) => byCategory[slug]?.length);
+  const orphanSlugs = byCategorySlugs.filter((s) => !slipOrderedSlugs.includes(s)).sort();
+  const displaySlugs = categoryOrder.concat(orphanSlugs);
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
@@ -474,7 +475,7 @@ function renderBrandManagerOrderDetailHtml(order) {
       </div>
     </div>
   `;
-  return categoryOrder
+  return displaySlugs
     .filter((slug) => byCategory[slug]?.length)
     .map((slug) => {
       const title = storeDisplayNames[slug] || brandManagerStoresMap[slug] || slug;
@@ -494,7 +495,6 @@ function renderBrandManagerOrderDetailHtml(order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
-            <br />
           </div>
         </div>
       `;
@@ -526,9 +526,8 @@ function closeBrandManagerOrderDetail() {
 
 function sortBrandManagerOrders(orders, sortBy, dir) {
   const copy = orders.slice();
-  const cmpId = (a, b) =>
-    String(a?.id ?? '').localeCompare(String(b?.id ?? ''), undefined, { numeric: true, sensitivity: 'base' });
-  copy.sort((a, b) => ((dir || 'asc') === 'desc' ? -1 : 1) * cmpId(a, b));
+  copy.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  if ((dir || 'desc') === 'desc') copy.reverse();
   return copy;
 }
 
@@ -559,7 +558,7 @@ function renderBrandManagerOrderList() {
     filtered = allOrders.filter((o) => o.status === 'payment_completed');
   }
 
-  const sorted = sortBrandManagerOrders(filtered, 'order_id', 'asc');
+  const sorted = sortBrandManagerOrders(filtered, 'created_at', 'desc');
   const periodStartDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
   const periodBar = `
     <div class="admin-payment-sort">
