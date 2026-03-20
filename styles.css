@@ -1359,13 +1359,16 @@ body {
 
 .cart-category-subtotal-wrap {
   margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .cart-category-subtotal-lines {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 10px 0 8px;
+  margin: 0;
 }
 
 .cart-category-rule {

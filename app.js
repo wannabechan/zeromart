@@ -655,11 +655,11 @@ function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
           </div>
           ${itemsHtml}
           <div class="cart-category-subtotal-wrap">
+            <div class="cart-category-subtotal-text met">${formatPrice(catTotal)}</div>
             <div class="cart-category-subtotal-lines" aria-hidden="true">
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
-            <div class="cart-category-subtotal-text met">${formatPrice(catTotal)}</div>
           </div>
         </div>
       `;
