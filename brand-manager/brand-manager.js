@@ -596,11 +596,23 @@ function renderBrandManagerOrderList() {
     });
   });
 
+  function findBrandManagerOrderByDetailId(orderId) {
+    if (orderId == null || orderId === '') return null;
+    const want = String(orderId);
+    return brandManagerOrders.find((o) => String(o.id) === want) || null;
+  }
+
   content.querySelectorAll('[data-order-detail]').forEach((el) => {
-    el.addEventListener('click', () => {
-      const orderId = el.dataset.orderDetail;
-      const order = brandManagerOrders.find((o) => o.id === orderId);
+    const openDetail = () => {
+      const order = findBrandManagerOrderByDetailId(el.dataset.orderDetail);
       if (order) openBrandManagerOrderDetail(order);
+    };
+    el.addEventListener('click', openDetail);
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openDetail();
+      }
     });
   });
 
