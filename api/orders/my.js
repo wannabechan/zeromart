@@ -63,6 +63,9 @@ module.exports = async (req, res) => {
         deliveryType: o.delivery_type || null,
       };
     });
+    items.sort((a, b) =>
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
+    );
 
     return apiResponse(res, 200, { orders: items });
   } catch (error) {

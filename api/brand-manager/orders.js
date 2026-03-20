@@ -62,7 +62,9 @@ module.exports = async (req, res) => {
       return [...slugs].some((slug) => allowedSlugs.has(slug));
     });
 
-    const sorted = filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const sorted = filtered.slice().sort((a, b) =>
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
+    );
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 

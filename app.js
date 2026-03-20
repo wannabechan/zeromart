@@ -660,6 +660,7 @@ function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
+            <br />
           </div>
         </div>
       `;
@@ -1112,7 +1113,9 @@ async function fetchRecentOrderItems() {
     const data = await res.json().catch(() => ({}));
     const orders = data.orders || [];
     const orderDate = (o) => (o.createdAt ? new Date(o.createdAt).getTime() : 0);
-    orders.sort((a, b) => orderDate(b) - orderDate(a));
+    orders.sort((a, b) =>
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
+    );
     const flattened = [];
     for (const order of orders) {
       const ts = orderDate(order);

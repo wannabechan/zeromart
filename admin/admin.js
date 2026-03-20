@@ -9,8 +9,8 @@ const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
 let adminPaymentOrders = [];
 let adminPaymentTotal = 0;
-let adminPaymentSortBy = 'created_at';
-let adminPaymentSortDir = { created_at: 'desc' };
+let adminPaymentSortBy = 'order_id';
+let adminPaymentSortDir = { order_id: 'asc' };
 let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'delivery_completed' | 'cancelled'
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months'. API에 startDate(YYYY-MM-DD)로 전달 */
 let adminPaymentPeriod = 'this_month';
@@ -898,9 +898,9 @@ function setupTabs() {
 
 function sortPaymentOrders(orders, sortBy, dir) {
   const copy = orders.slice();
-  const asc = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-  copy.sort((a, b) => asc(new Date(a.created_at), new Date(b.created_at)));
-  if ((dir || 'desc') === 'desc') copy.reverse();
+  const cmpId = (a, b) =>
+    String(a?.id ?? '').localeCompare(String(b?.id ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+  copy.sort((a, b) => ((dir || 'asc') === 'desc' ? -1 : 1) * cmpId(a, b));
   return copy;
 }
 
@@ -963,7 +963,7 @@ function renderPaymentList() {
   }
 
   const sortBy = adminPaymentSortBy;
-  const dir = adminPaymentSortDir[sortBy] || 'desc';
+  const dir = adminPaymentSortDir[sortBy] || 'asc';
   const sorted = sortPaymentOrders(filtered, sortBy, dir);
 
   const periodStartDate = getPaymentStartDateForPeriod(adminPaymentPeriod);
@@ -2133,6 +2133,7 @@ function renderAdminOrderDetailHtml(order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
+            <br />
           </div>
         </div>
       `;

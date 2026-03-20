@@ -494,6 +494,7 @@ function renderBrandManagerOrderDetailHtml(order) {
               <hr class="cart-category-rule" />
               <hr class="cart-category-rule" />
             </div>
+            <br />
           </div>
         </div>
       `;
@@ -525,8 +526,9 @@ function closeBrandManagerOrderDetail() {
 
 function sortBrandManagerOrders(orders, sortBy, dir) {
   const copy = orders.slice();
-  copy.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  if ((dir || 'desc') === 'desc') copy.reverse();
+  const cmpId = (a, b) =>
+    String(a?.id ?? '').localeCompare(String(b?.id ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+  copy.sort((a, b) => ((dir || 'asc') === 'desc' ? -1 : 1) * cmpId(a, b));
   return copy;
 }
 
@@ -557,7 +559,7 @@ function renderBrandManagerOrderList() {
     filtered = allOrders.filter((o) => o.status === 'payment_completed');
   }
 
-  const sorted = sortBrandManagerOrders(filtered, 'created_at', 'desc');
+  const sorted = sortBrandManagerOrders(filtered, 'order_id', 'asc');
   const periodStartDate = getBrandManagerStartDateForPeriod(brandManagerPeriod);
   const periodBar = `
     <div class="admin-payment-sort">

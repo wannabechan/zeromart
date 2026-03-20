@@ -34,7 +34,9 @@ module.exports = async (req, res) => {
         return !Number.isNaN(t) && t >= startMs && t <= endMs;
       });
     }
-    const sorted = list.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const sorted = list.slice().sort((a, b) =>
+      String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' })
+    );
     const total = sorted.length;
     const orders = sorted.slice(offset, offset + limit);
 
