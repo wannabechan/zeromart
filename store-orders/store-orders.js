@@ -269,15 +269,11 @@ function renderOrderDetailHtml(order) {
   for (const slug of Object.keys(byCategory)) {
     byCategory[slug].sort((a, b) => (a.item.name || '').localeCompare(b.item.name || '', 'ko'));
   }
-  const categoryTotals = {};
-  for (const slug of Object.keys(byCategory)) {
-    categoryTotals[slug] = byCategory[slug].reduce((sum, { item, qty }) => sum + item.price * qty, 0);
-  }
   const renderItem = ({ item, qty }) => `
     <div class="admin-order-detail-item">
-      <div class="cart-item-info">
+      <div class="cart-item-info" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div class="cart-item-name">${escapeHtml(item.name || '')}</div>
-        <div class="cart-item-price">${formatAdminPrice(item.price)} × ${qty}</div>
+        <div class="cart-item-price">${qty}</div>
       </div>
     </div>
   `;
@@ -285,13 +281,11 @@ function renderOrderDetailHtml(order) {
     .filter(slug => byCategory[slug]?.length)
     .map(slug => {
       const title = slugToTitle[slug] || slug;
-      const catTotal = categoryTotals[slug] || 0;
       const itemsHtml = byCategory[slug].map(renderItem).join('');
       return `
         <div class="cart-category-group">
           <div class="cart-category-header">
             <span class="cart-category-title">${escapeHtml(title || '')}</span>
-            <span class="cart-category-total met">${formatAdminPrice(catTotal)}</span>
           </div>
           ${itemsHtml}
         </div>
@@ -302,13 +296,11 @@ function renderOrderDetailHtml(order) {
 
 function openOrderDetail(order) {
   const content = document.getElementById('storeOrderDetailContent');
-  const totalEl = document.getElementById('storeOrderDetailTotal');
   const overlay = document.getElementById('storeOrderDetailOverlay');
   const panel = overlay?.querySelector('.admin-order-detail-panel');
   if (!content || !overlay) return;
   const html = renderOrderDetailHtml(order);
   content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
-  if (totalEl) totalEl.textContent = formatAdminPrice(order.total_amount || 0);
   if (panel) panel.classList.toggle('admin-order-detail-cancelled', order.status === 'cancelled');
 
   overlay.classList.add('visible');
@@ -902,7 +894,6 @@ async function loadStoreSettlement() {
 function setupStoreOrdersTabs() {
   const tabs = document.querySelectorAll('.store-orders-tab[data-store-tab]');
   const listView = document.getElementById('storeOrdersListView');
-  const statsView = document.getElementById('storeOrdersStatsView');
 
   function activateTab(targetTab) {
     tabs.forEach((t) => {
@@ -910,20 +901,14 @@ function setupStoreOrdersTabs() {
       t.setAttribute('aria-selected', 'false');
     });
     listView?.classList.remove('active');
-    statsView?.classList.remove('active');
     const tabEl = document.querySelector(`.store-orders-tab[data-store-tab="${targetTab}"]`);
     if (tabEl) {
       tabEl.classList.add('active');
       tabEl.setAttribute('aria-selected', 'true');
     }
-    if (targetTab === 'list') {
-      listView?.classList.add('active');
-      storeOrdersSubFilter = 'delivery_wait';
-      renderList();
-    } else if (targetTab === 'stats') {
-      statsView?.classList.add('active');
-      loadStoreOrdersStats();
-    }
+    listView?.classList.add('active');
+    storeOrdersSubFilter = 'delivery_wait';
+    renderList();
   }
 
   tabs.forEach((tab) => {
@@ -937,7 +922,7 @@ function setupStoreOrdersTabs() {
   const nav = performance.getEntriesByType?.('navigation')?.[0];
   const isReload = nav?.type === 'reload' || (typeof performance.navigation !== 'undefined' && performance.navigation.type === 1);
   const saved = sessionStorage.getItem(STORE_ORDERS_TAB_KEY);
-  const tabToActivate = (saved && ['list', 'stats'].includes(saved)) ? saved : 'list';
+  const tabToActivate = 'list';
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
