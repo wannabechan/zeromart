@@ -4,7 +4,7 @@
  * 본인 주문 또는 관리자만 접근
  */
 
-const { verifyToken, setCorsHeaders } = require('../_utils');
+const { verifyToken, setCorsHeaders, getOrderPdfAccessTokenStatus } = require('../_utils');
 const { getOrderById, getStores } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
 const { getOrderItemsByStore, getOrderItemStoreKey } = require('./_order-email');
@@ -53,13 +53,17 @@ module.exports = async (req, res) => {
     order = { ...order, order_items: filtered };
   }
 
-  const tokenFromQuery = (req.query.token || '').trim();
-  const allowedByToken = tokenFromQuery && order.accept_token && order.accept_token === tokenFromQuery;
+  const accessToken = (req.query.access || '').trim();
+  const accessStatus = getOrderPdfAccessTokenStatus(accessToken, order.id, storeSlug, order.accept_token || '');
+  const allowedByAccessToken = accessStatus.ok;
 
-  if (!allowedByToken) {
+  if (!allowedByAccessToken) {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       setCorsHeaders(res);
+      if (accessStatus.reason === 'expired') {
+        return res.status(401).json({ error: '링크가 만료되었습니다. 메일 본문을 확인해주세요.' });
+      }
       return res.status(401).json({ error: '로그인이 필요합니다.' });
     }
     const user = verifyToken(authHeader.substring(7));

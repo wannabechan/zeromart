@@ -5,7 +5,7 @@
  */
 
 const { getAllOrders, getStores, getProfileSettings, setOrderNotificationSent } = require('../_redis');
-const { requireAuthCron } = require('../_utils');
+const { requireAuthCron, generateOrderPdfAccessToken } = require('../_utils');
 const {
   getStoresWithItemsInOrder,
   getOrderNumberForStoreIndex,
@@ -63,8 +63,9 @@ module.exports = async (req, res) => {
         if (!toEmail) continue;
         const profile = await getProfileSettings(order.user_email || '');
         const profileStoreName = (profile?.storeName || '').trim();
+        const pdfAccessToken = generateOrderPdfAccessToken(orderIdStr, slug, order.accept_token || '');
         const pdfUrl = origin
-          ? `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&token=${encodeURIComponent(order.accept_token || '')}&store=${encodeURIComponent(slug)}`
+          ? `${origin}/api/orders/pdf?orderId=${encodeURIComponent(orderIdStr)}&store=${encodeURIComponent(slug)}&access=${encodeURIComponent(pdfAccessToken)}`
           : '#';
         const orderForStore = { ...order, order_items: items };
         const html = buildOrderNotificationHtml(orderForStore, stores, {

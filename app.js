@@ -690,8 +690,38 @@ function renderOrderDetailByCategory(byCategory, categoryOrder, order) {
     .join('');
 }
 
+function isProfileSettingsComplete(data) {
+  const storeName = (data?.storeName || '').trim();
+  const bizNumberRaw = (data?.bizNumber || '').replace(/\D/g, '');
+  const name = (data?.name || '').trim();
+  const contact = (data?.contact || '').replace(/\D/g, '');
+  const address = (data?.address || '').trim();
+  if (!storeName) return false;
+  if (bizNumberRaw.length !== 10) return false;
+  if (!name) return false;
+  if (contact.length !== 11 || !contact.startsWith('010')) return false;
+  if (!address) return false;
+  return true;
+}
+
+async function fetchProfileSettings() {
+  const token = window.BzCatAuth?.getToken();
+  if (!token) return null;
+  try {
+    const res = await fetch('/api/profile/settings', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.settings) return null;
+    return json.settings;
+  } catch (_) {
+    return null;
+  }
+}
+
 // 결제 모달 열기 (마이프로필 설정이 있으면 주문자명·연락처·배송주소·상세주소 기본값 적용)
-async function openCheckoutModal() {
+async function openCheckoutModal(profileSettings) {
   const total = calculateTotal();
   const entries = Object.entries(cart).filter(([, qty]) => qty > 0);
   const orderTime = new Date();
@@ -712,23 +742,13 @@ async function openCheckoutModal() {
   detailAddressRow.style.display = 'none';
   inputDetailAddress.value = '';
 
-  const token = window.BzCatAuth?.getToken();
-  if (token) {
-    try {
-      const res = await fetch('/api/profile/settings', {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json().catch(() => ({}));
-      const data = res.ok && json.settings ? json.settings : {};
-      if (data.name) inputDepositor.value = data.name;
-      if (data.contact) inputContact.value = data.contact;
-      if ((data.address || '').trim()) {
-        inputDeliveryAddress.value = (data.address || '').trim();
-        detailAddressRow.style.display = '';
-        if (data.detailAddress) inputDetailAddress.value = (data.detailAddress || '').trim();
-      }
-    } catch (_) {}
+  const data = profileSettings || await fetchProfileSettings() || {};
+  if (data.name) inputDepositor.value = data.name;
+  if (data.contact) inputContact.value = data.contact;
+  if ((data.address || '').trim()) {
+    inputDeliveryAddress.value = (data.address || '').trim();
+    detailAddressRow.style.display = '';
+    if (data.detailAddress) inputDetailAddress.value = (data.detailAddress || '').trim();
   }
 
   btnOrderSubmit.textContent = '결제하기';
@@ -744,30 +764,10 @@ async function openCheckoutModal() {
   document.body.style.overflow = 'hidden';
 }
 
-async function hasCompletedProfileSettings() {
-  const token = window.BzCatAuth?.getToken();
-  if (!token) return false;
-  try {
-    const res = await fetch('/api/profile/settings', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await res.json().catch(() => ({}));
-    const data = res.ok && json.settings ? json.settings : {};
-    const storeName = (data.storeName || '').trim();
-    const bizNumberRaw = (data.bizNumber || '').replace(/\D/g, '');
-    const name = (data.name || '').trim();
-    const contact = (data.contact || '').replace(/\D/g, '');
-    const address = (data.address || '').trim();
-    if (!storeName) return false;
-    if (bizNumberRaw.length !== 10) return false;
-    if (!name) return false;
-    if (contact.length !== 11 || !contact.startsWith('010')) return false;
-    if (!address) return false;
-    return true;
-  } catch (_) {
-    return false;
-  }
+async function getCompletedProfileSettings() {
+  const settings = await fetchProfileSettings();
+  if (!settings) return null;
+  return isProfileSettingsComplete(settings) ? settings : null;
 }
 
 function openOrderDetailOverlay() {
@@ -1333,7 +1333,8 @@ function init() {
 
   startProfileIdleRefresh();
   window.BzCatAppOnShow = function () {
-    fetchAndRenderProfileOrders();
+    const isProfileOpen = profileOverlay?.classList.contains('visible') || profileDrawer?.classList.contains('open');
+    if (isProfileOpen) fetchAndRenderProfileOrders();
     refreshMenuAndRender();
   };
   window.BzCatAppRefreshMenu = refreshMenuAndRender;
@@ -1628,13 +1629,13 @@ function init() {
     }
   });
   btnCheckout.addEventListener('click', async () => {
-    const ok = await hasCompletedProfileSettings();
-    if (!ok) {
+    const settings = await getCompletedProfileSettings();
+    if (!settings) {
       alert('마이 프로필 설정을 완료해주세요.');
       return;
     }
     closeCart();
-    openCheckoutModal();
+    openCheckoutModal(settings);
   });
   checkoutClose.addEventListener('click', closeCheckoutModal);
   checkoutModal.addEventListener('click', (e) => {

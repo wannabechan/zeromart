@@ -4,7 +4,18 @@
  */
 
 const { generateToken, getUserLevel, apiResponse } = require('../_utils');
-const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel } = require('../_redis');
+const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel, getRedis } = require('../_redis');
+
+const VERIFY_CODE_LIMIT_PER_EMAIL = 10;
+const VERIFY_CODE_LIMIT_PER_IP = 30;
+const VERIFY_CODE_WINDOW_SECONDS = 60;
+
+async function checkRateLimit(key, limit, windowSeconds) {
+  const redis = getRedis();
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, windowSeconds);
+  return count <= limit;
+}
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -30,6 +41,17 @@ module.exports = async (req, res) => {
 
     const normalizedEmail = rawEmail.toLowerCase();
     const codeTrimmed = rawCode;
+    const rawFwd = typeof req.headers['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'] : '';
+    const clientIp = (rawFwd.split(',')[0] || req.socket?.remoteAddress || 'unknown').trim();
+    const emailRateKey = `ratelimit:auth:verify-code:email:${normalizedEmail}`;
+    const ipRateKey = `ratelimit:auth:verify-code:ip:${clientIp}`;
+    const [emailAllowed, ipAllowed] = await Promise.all([
+      checkRateLimit(emailRateKey, VERIFY_CODE_LIMIT_PER_EMAIL, VERIFY_CODE_WINDOW_SECONDS),
+      checkRateLimit(ipRateKey, VERIFY_CODE_LIMIT_PER_IP, VERIFY_CODE_WINDOW_SECONDS),
+    ]);
+    if (!emailAllowed || !ipAllowed) {
+      return apiResponse(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
+    }
 
     let valid = await getAndDeleteAuthCode(normalizedEmail, codeTrimmed);
     if (!valid) {

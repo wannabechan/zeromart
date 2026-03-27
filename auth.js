@@ -4,7 +4,8 @@
  * - 사용자 레벨: admin(1) | manager(2) | user(3)
  */
 
-const TOKEN_KEY = 'bzcat_token';
+const TOKEN_KEY = 'bzcat_token_session';
+const LEGACY_TOKEN_KEY = 'bzcat_token';
 const API_BASE = ''; // Same origin
 const CODE_VALID_SECONDS = 120; // 2분
 
@@ -12,15 +13,23 @@ let pendingEmail = null;
 let codeCountdownInterval = null;
 
 function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const current = sessionStorage.getItem(TOKEN_KEY);
+  if (current) return current;
+  const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (!legacy) return null;
+  sessionStorage.setItem(TOKEN_KEY, legacy);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  return legacy;
 }
 
 function setToken(token) {
-  localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
   pendingEmail = null;
 }
 

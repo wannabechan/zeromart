@@ -2,7 +2,8 @@
  * 주문 접수 목록 - 매장 담당자 전용 (담당자 이메일로 등록된 매장의 주문만 표시)
  */
 
-const TOKEN_KEY = 'bzcat_token';
+const TOKEN_KEY = 'bzcat_token_session';
+const LEGACY_TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 
 let storeOrdersData = [];
@@ -53,7 +54,13 @@ function attachStoreOrdersPeriodListeners(container) {
 }
 
 function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const current = sessionStorage.getItem(TOKEN_KEY);
+  if (current) return current;
+  const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (!legacy) return null;
+  sessionStorage.setItem(TOKEN_KEY, legacy);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  return legacy;
 }
 
 function findStoreOrderById(orderId) {

@@ -2,7 +2,8 @@
  * Admin 페이지 - 매장·메뉴·결제정보 관리
  */
 
-const TOKEN_KEY = 'bzcat_token';
+const TOKEN_KEY = 'bzcat_token_session';
+const LEGACY_TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
 const ADMIN_TAB_KEY = 'bzcat_admin_tab';
@@ -70,7 +71,13 @@ const SETTLEMENT_MOCK_FOR_TEST = false;
 const SETTLEMENT_SAMPLE_DATA = false;
 
 function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const current = sessionStorage.getItem(TOKEN_KEY);
+  if (current) return current;
+  const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (!legacy) return null;
+  sessionStorage.setItem(TOKEN_KEY, legacy);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  return legacy;
 }
 
 function findAdminPaymentOrderById(orderId) {

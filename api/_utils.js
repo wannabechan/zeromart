@@ -108,6 +108,58 @@ function requireAuth(req) {
   return user ? { user, token } : null;
 }
 
+function sha256Hex(value) {
+  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
+}
+
+function getPdfAccessTokenTtl() {
+  const raw = String(process.env.PDF_ACCESS_TOKEN_TTL || '').trim();
+  if (!raw) return '2h';
+  const hours = Number.parseInt(raw, 10);
+  if (!Number.isFinite(hours) || hours <= 0) return '2h';
+  return `${hours}h`;
+}
+
+function generateOrderPdfAccessToken(orderId, storeSlug, acceptToken) {
+  const payload = {
+    type: 'order_pdf',
+    orderId: String(orderId || ''),
+    store: String(storeSlug || '').toLowerCase(),
+    ath: sha256Hex(acceptToken || '').slice(0, 24),
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: getPdfAccessTokenTtl() });
+}
+
+function verifyOrderPdfAccessToken(accessToken, orderId, storeSlug, acceptToken) {
+  if (!accessToken) return false;
+  try {
+    const decoded = jwt.verify(String(accessToken), JWT_SECRET);
+    if (!decoded || decoded.type !== 'order_pdf') return false;
+    if (String(decoded.orderId || '') !== String(orderId || '')) return false;
+    if (String(decoded.store || '') !== String(storeSlug || '').toLowerCase()) return false;
+    const expectedAth = sha256Hex(acceptToken || '').slice(0, 24);
+    return decoded.ath === expectedAth;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getOrderPdfAccessTokenStatus(accessToken, orderId, storeSlug, acceptToken) {
+  if (!accessToken) return { ok: false, reason: 'missing' };
+  try {
+    const decoded = jwt.verify(String(accessToken), JWT_SECRET);
+    if (!decoded || decoded.type !== 'order_pdf') return { ok: false, reason: 'invalid' };
+    if (String(decoded.orderId || '') !== String(orderId || '')) return { ok: false, reason: 'invalid' };
+    if (String(decoded.store || '') !== String(storeSlug || '').toLowerCase()) return { ok: false, reason: 'invalid' };
+    const expectedAth = sha256Hex(acceptToken || '').slice(0, 24);
+    if (decoded.ath !== expectedAth) return { ok: false, reason: 'invalid' };
+    return { ok: true, reason: 'ok' };
+  } catch (err) {
+    if (err && err.name === 'TokenExpiredError') return { ok: false, reason: 'expired' };
+    return { ok: false, reason: 'invalid' };
+  }
+}
+
 /**
  * API 응답 헬퍼
  */
@@ -126,4 +178,7 @@ module.exports = {
   setCorsHeaders,
   apiResponse,
   requireAuth,
+  generateOrderPdfAccessToken,
+  verifyOrderPdfAccessToken,
+  getOrderPdfAccessTokenStatus,
 };
