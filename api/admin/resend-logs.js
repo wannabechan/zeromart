@@ -1,10 +1,11 @@
 /**
  * GET /api/admin/resend-logs
- * Resend 발송 메타 로그 (관리자 전용, 최근 30일)
+ * Resend 발송 메타 로그 (관리자 전용, 최근 30일, 상한 500건)
+ * — Redis 앱 로그와 Resend List Emails API 결과를 병합해, Resend에 기록된 발송도 표시합니다.
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getResendLogsForAdmin } = require('../_redis');
+const { getMergedResendLogsForAdmin } = require('../_resendMerge');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return apiResponse(res, 200, {});
@@ -20,7 +21,7 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     if (user.level !== 'admin') return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
 
-    const logs = await getResendLogsForAdmin();
+    const logs = await getMergedResendLogsForAdmin();
     return apiResponse(res, 200, { logs });
   } catch (e) {
     console.error('resend-logs:', e);

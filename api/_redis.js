@@ -585,4 +585,5 @@ module.exports = {
   setProfileSettings,
   appendResendLog,
   getResendLogsForAdmin,
+  maskEmailForResendLog,
 };

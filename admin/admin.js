@@ -601,6 +601,7 @@ async function loadLogsView() {
 function resendKindLabel(kind) {
   if (kind === 'login_code') return '로그인 코드';
   if (kind === 'order_notification') return '주문 알림';
+  if (kind === 'other') return '기타';
   return kind ? String(kind) : '—';
 }
 
