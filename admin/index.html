@@ -342,15 +342,26 @@
     .admin-logs-footer { display: flex; justify-content: flex-end; margin-top: 16px; }
     .admin-logs-download-btn { font-size: 0.8125rem; color: #8C8C8C; background: transparent; border: none; cursor: pointer; padding: 0; font-family: inherit; -webkit-tap-highlight-color: transparent; }
     .admin-logs-download-btn:hover { color: #757575; }
+    .admin-resend-title { font-size: 0.9375rem; font-weight: 600; margin: 0 0 8px; color: var(--color-text); }
+    .admin-resend-hint { font-size: 0.8125rem; color: var(--color-text-secondary); margin: 0 0 16px; }
+    .admin-resend-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .admin-resend-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; min-width: 720px; }
+    .admin-resend-table th, .admin-resend-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); vertical-align: top; word-break: break-word; }
+    .admin-resend-table th { font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+    .admin-resend-ok { color: #16a34a; font-weight: 500; }
+    .admin-resend-fail { color: #c5221f; font-weight: 500; }
+    .admin-resend-id { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--color-text-secondary); }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
       .admin-tab[data-tab="permissions"] { display: none; }
       .admin-tab[data-tab="logs"] { display: none; }
+      .admin-tab[data-tab="resend"] { display: none; }
       #storesView { display: none !important; }
       #settlementView { display: none !important; }
       #permissionsView { display: none !important; }
       #logsView { display: none !important; }
+      #resendView { display: none !important; }
       .admin-tabs { display: flex; gap: 0; }
       .admin-tabs .admin-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
       .admin-payment-subfilter-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -382,6 +393,7 @@
       <button class="admin-tab" data-tab="settlement">정산관리</button>
       <button class="admin-tab" data-tab="permissions">권한관리</button>
       <button class="admin-tab" data-tab="logs">로그관리</button>
+      <button class="admin-tab" data-tab="resend">Resend관리</button>
     </div>
 
     <div id="adminError" class="admin-error" style="display: none;"></div>
@@ -417,6 +429,12 @@
 
     <div id="logsView" class="admin-view">
       <div id="adminLogsContent">
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>
+      </div>
+    </div>
+
+    <div id="resendView" class="admin-view">
+      <div id="adminResendContent">
         <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>
       </div>
     </div>

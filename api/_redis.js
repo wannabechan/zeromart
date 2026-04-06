@@ -8,8 +8,67 @@
  * - orders:by_user:{email} = Sorted Set (score=timestamp, member=orderId)
  */
 
+const crypto = require('crypto');
 const { Redis } = require('@upstash/redis');
 const { getUserLevel } = require('./_utils');
+
+/** Resend 발송 메타 로그 (sorted set, score = 시각 ms, member = JSON) */
+const RESEND_LOGS_ZSET = 'resend:send_logs';
+const RESEND_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const RESEND_LOG_MAX_FETCH = 500;
+
+function maskEmailForResendLog(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return '—';
+  const at = e.indexOf('@');
+  const local = e.slice(0, at);
+  const domain = e.slice(at + 1);
+  if (!domain) return '—';
+  const vis = local.length <= 1 ? '*' : `${local.slice(0, Math.min(2, local.length))}***`;
+  return `${vis}@${domain}`;
+}
+
+async function appendResendLog({ ok, kind, toEmail, resendId, errorMessage }) {
+  try {
+    const redis = getRedis();
+    const at = Date.now();
+    const id = `${at}-${crypto.randomBytes(6).toString('hex')}`;
+    const payload = JSON.stringify({
+      id,
+      at: new Date(at).toISOString(),
+      ok: !!ok,
+      kind: kind || 'unknown',
+      to: maskEmailForResendLog(toEmail),
+      resendId: resendId || null,
+      error: errorMessage ? String(errorMessage).slice(0, 500) : null,
+    });
+    await redis.zadd(RESEND_LOGS_ZSET, { score: at, member: payload });
+    const cutoff = at - RESEND_LOG_RETENTION_MS;
+    await redis.zremrangebyscore(RESEND_LOGS_ZSET, '-inf', cutoff);
+  } catch (e) {
+    console.error('appendResendLog:', e);
+  }
+}
+
+async function getResendLogsForAdmin() {
+  try {
+    const redis = getRedis();
+    const cutoff = Date.now() - RESEND_LOG_RETENTION_MS;
+    await redis.zremrangebyscore(RESEND_LOGS_ZSET, '-inf', cutoff);
+    const members = await redis.zrange(RESEND_LOGS_ZSET, 0, RESEND_LOG_MAX_FETCH - 1, { rev: true });
+    const out = [];
+    for (const m of members || []) {
+      try {
+        const row = typeof m === 'string' ? JSON.parse(m) : null;
+        if (row) out.push(row);
+      } catch (_) {}
+    }
+    return out;
+  } catch (e) {
+    console.error('getResendLogsForAdmin:', e);
+    return [];
+  }
+}
 
 let _redisClient = null;
 
@@ -524,4 +583,6 @@ module.exports = {
   getProfileSettings,
   getProfileSettingsBatch,
   setProfileSettings,
+  appendResendLog,
+  getResendLogsForAdmin,
 };

@@ -598,6 +598,86 @@ async function loadLogsView() {
   }
 }
 
+function resendKindLabel(kind) {
+  if (kind === 'login_code') return '로그인 코드';
+  if (kind === 'order_notification') return '주문 알림';
+  return kind ? String(kind) : '—';
+}
+
+function formatResendAt(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(d);
+}
+
+async function loadResendLogsView() {
+  const container = document.getElementById('adminResendContent');
+  if (!container) return;
+  container.innerHTML = getAdminLoadingHtml();
+  const token = getToken();
+  if (!token) {
+    container.innerHTML = '<p class="admin-error">로그인이 필요합니다.</p>';
+    return;
+  }
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/resend-logs`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      container.innerHTML = '<p class="admin-error">' + escapeHtml(data.error || '목록을 불러올 수 없습니다.') + '</p>';
+      return;
+    }
+    const logs = data.logs || [];
+    let html = '<h4 class="admin-resend-title">Resend 발송 로그</h4>';
+    html += '<p class="admin-resend-hint">최근 30일 이내 기록만 표시됩니다. (조회 상한 500건)</p>';
+    html += '<div class="admin-resend-wrap"><table class="admin-resend-table"><thead><tr>';
+    html += '<th>발송 시각 (KST)</th><th>구분</th><th>수신자</th><th>결과</th><th>Resend ID</th><th>오류</th>';
+    html += '</tr></thead><tbody>';
+    if (logs.length === 0) {
+      html += '<tr><td colspan="6">기록이 없습니다.</td></tr>';
+    } else {
+      logs.forEach((row) => {
+        const atEsc = escapeHtml(formatResendAt(row.at));
+        const kindEsc = escapeHtml(resendKindLabel(row.kind));
+        const toEsc = escapeHtml(row.to || '');
+        const ok = row.ok === true;
+        const statusHtml = ok ? '<span class="admin-resend-ok">성공</span>' : '<span class="admin-resend-fail">실패</span>';
+        const idEsc = row.resendId ? escapeHtml(String(row.resendId)) : '—';
+        const errEsc = row.error ? escapeHtml(row.error) : '—';
+        html +=
+          '<tr><td>' +
+          atEsc +
+          '</td><td>' +
+          kindEsc +
+          '</td><td>' +
+          toEsc +
+          '</td><td>' +
+          statusHtml +
+          '</td><td class="admin-resend-id">' +
+          idEsc +
+          '</td><td>' +
+          errEsc +
+          '</td></tr>';
+      });
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
+  }
+}
+
 async function uploadImage(file) {
   const token = getToken();
   const formData = new FormData();
@@ -880,6 +960,9 @@ function setupTabs() {
       } else if (targetTab === 'logs') {
         document.getElementById('logsView').classList.add('active');
         loadLogsView();
+      } else if (targetTab === 'resend') {
+        document.getElementById('resendView').classList.add('active');
+        loadResendLogsView();
       }
   }
 
@@ -897,7 +980,7 @@ function setupTabs() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
     ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs'].includes(saved) ? saved : 'stores');
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }

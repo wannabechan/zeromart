@@ -5,7 +5,7 @@
 
 const { Resend } = require('resend');
 const { generateCode, apiResponse } = require('../_utils');
-const { saveAuthCode, getRedis } = require('../_redis');
+const { saveAuthCode, getRedis, appendResendLog } = require('../_redis');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const SEND_CODE_LIMIT_PER_EMAIL = 3;
@@ -59,6 +59,12 @@ module.exports = async (req, res) => {
     // Resend API Key 확인
     if (!process.env.RESEND_API_KEY) {
       console.error('RESEND_API_KEY is not set');
+      await appendResendLog({
+        ok: false,
+        kind: 'login_code',
+        toEmail: normalizedEmail,
+        errorMessage: 'RESEND_API_KEY 미설정',
+      });
       return apiResponse(res, 500, { error: '이메일 발송 설정이 되어 있지 않습니다.' });
     }
 
@@ -68,7 +74,7 @@ module.exports = async (req, res) => {
 
     // 이메일 발송
     try {
-      await resend.emails.send({
+      const sendResult = await resend.emails.send({
         from: `${fromName} <${fromEmail}>`,
         to: normalizedEmail,
         subject: '[Zero Mart] 로그인 인증 코드',
@@ -87,8 +93,30 @@ module.exports = async (req, res) => {
           </div>
         `,
       });
+      if (sendResult.error) {
+        const errMsg = sendResult.error.message || JSON.stringify(sendResult.error);
+        await appendResendLog({
+          ok: false,
+          kind: 'login_code',
+          toEmail: normalizedEmail,
+          errorMessage: errMsg,
+        });
+        return apiResponse(res, 500, { error: '이메일 발송에 실패했습니다.' });
+      }
+      await appendResendLog({
+        ok: true,
+        kind: 'login_code',
+        toEmail: normalizedEmail,
+        resendId: sendResult.data?.id || null,
+      });
     } catch (emailError) {
       console.error('Resend error:', emailError);
+      await appendResendLog({
+        ok: false,
+        kind: 'login_code',
+        toEmail: normalizedEmail,
+        errorMessage: emailError?.message || String(emailError),
+      });
       return apiResponse(res, 500, { error: '이메일 발송에 실패했습니다.' });
     }
 

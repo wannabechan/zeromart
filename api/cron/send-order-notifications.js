@@ -4,7 +4,7 @@
  * CRON_SECRET 필요 (Authorization: Bearer <CRON_SECRET>).
  */
 
-const { getAllOrders, getStores, getProfileSettings, setOrderNotificationSent } = require('../_redis');
+const { getAllOrders, getStores, getProfileSettings, setOrderNotificationSent, appendResendLog } = require('../_redis');
 const { requireAuthCron, generateOrderPdfAccessToken } = require('../_utils');
 const {
   getStoresWithItemsInOrder,
@@ -74,14 +74,39 @@ module.exports = async (req, res) => {
           orderNumberDisplay,
         });
         const storeBrand = getStoreDisplayName(store);
-        await resend.emails.send({
-          from: `${fromName} <${fromEmail}>`,
-          to: toEmail,
-          subject: `[Zero Mart 신규 주문] ${storeBrand} ${orderNumberDisplay}`,
-          html,
-        });
-        anySent = true;
-        sent += 1;
+        try {
+          const sendResult = await resend.emails.send({
+            from: `${fromName} <${fromEmail}>`,
+            to: toEmail,
+            subject: `[Zero Mart 신규 주문] ${storeBrand} ${orderNumberDisplay}`,
+            html,
+          });
+          if (sendResult.error) {
+            const errMsg = sendResult.error.message || JSON.stringify(sendResult.error);
+            await appendResendLog({
+              ok: false,
+              kind: 'order_notification',
+              toEmail: toEmail,
+              errorMessage: errMsg,
+            });
+          } else {
+            await appendResendLog({
+              ok: true,
+              kind: 'order_notification',
+              toEmail: toEmail,
+              resendId: sendResult.data?.id || null,
+            });
+            anySent = true;
+            sent += 1;
+          }
+        } catch (sendErr) {
+          await appendResendLog({
+            ok: false,
+            kind: 'order_notification',
+            toEmail: toEmail,
+            errorMessage: sendErr?.message || String(sendErr),
+          });
+        }
       }
 
       if (anySent) {
