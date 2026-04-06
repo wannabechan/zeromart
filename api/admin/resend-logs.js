@@ -21,8 +21,12 @@ module.exports = async (req, res) => {
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
     if (user.level !== 'admin') return apiResponse(res, 403, { error: '관리자만 접근할 수 있습니다.' });
 
-    const logs = await getMergedResendLogsForAdmin();
-    return apiResponse(res, 200, { logs });
+    const { logs, resendListSync, resendListSyncMessage } = await getMergedResendLogsForAdmin();
+    return apiResponse(res, 200, {
+      logs,
+      resendListSync,
+      resendListSyncMessage: resendListSyncMessage || null,
+    });
   } catch (e) {
     console.error('resend-logs:', e);
     return apiResponse(res, 500, { error: '목록을 불러오지 못했습니다.' });
