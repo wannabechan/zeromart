@@ -639,7 +639,7 @@ async function loadResendLogsView() {
       return;
     }
     const logs = data.logs || [];
-    let html = '<h4 class="admin-resend-title">Resend 발송 로그</h4>';
+    let html = '<h4 class="admin-resend-title">*Resend 발송 로그</h4>';
     html += '<p class="admin-resend-hint">최근 30일 이내 기록만 표시됩니다. (조회 상한 500건)</p>';
     html += '<div class="admin-resend-wrap"><table class="admin-resend-table"><thead><tr>';
     html += '<th>발송 시각 (KST)</th><th>구분</th><th>수신자</th><th>결과</th><th>Resend ID</th><th>오류</th>';
