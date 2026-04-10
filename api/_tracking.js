@@ -1,13 +1,10 @@
 /**
- * 택배 송장 조회 API 연동 (스윗트래커 / 스마트택배 API)
- * 발송 처리 시 송장 번호가 택배사 시스템에 실제 존재하는지 검증
+ * 택배 송장 조회 API (스윗트래커 / 스마트택배) — 참고용 모듈
+ * 현재 발송 완료 API에서는 호출하지 않으며, 입력한 택배사·송장을 그대로 저장합니다.
+ * 나중에 다시 연동할 때 사용할 수 있습니다.
  *
- * 환경 변수 (선택): SWEETTRACKER_API_KEY
- * - 설정 시: CJ/한진/로젠/우체국 등 지원 택배사 송장은 API로 유효성 검증 후 저장
- * - 미설정 시: 검증 없이 저장 (기존 동작)
- * - CU편의점택배·기타 등 미지원 택배사는 검증 생략 후 저장
- *
- * API 키 발급: https://tracking.sweettracker.co.kr/ 회원가입 후 조회 API 키 발급
+ * 환경 변수: SWEETTRACKER_API_KEY
+ * API 키: https://tracking.sweettracker.co.kr/
  */
 
 const TRACKING_API_BASE = 'https://info.sweettracker.co.kr';
