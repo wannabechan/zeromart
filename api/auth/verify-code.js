@@ -1,10 +1,38 @@
 /**
  * POST /api/auth/verify-code
  * 인증 코드 검증 및 JWT 토큰 발급
+ * - 이메일로 발송한 6자리 임시 코드
+ * - 매장 담당자(storeContactEmail 일치)이고, 해당 매장 사업자등록번호가 숫자 10자리로 저장된 경우에 한해 끝 6자리
  */
 
 const { generateToken, getUserLevel, apiResponse } = require('../_utils');
-const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel, getRedis } = require('../_redis');
+const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel, getRedis, getStores } = require('../_redis');
+
+function digitsOnly(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+/** 하이픈 등 제거 후 숫자만 정확히 10자리인 사업자등록번호만 유효로 본다. */
+function isValidTenDigitBizNo(bizNo) {
+  const d = digitsOnly(bizNo);
+  return d.length === 10 && /^\d{10}$/.test(d);
+}
+
+/**
+ * 이메일이 매장 담당 이메일인 매장 중, 저장된 사업자번호(10자리 숫자) 끝 6자리가 codeSix와 일치하면 true
+ */
+function verifyStoreManagerBizNoSuffix(email, codeSix, stores) {
+  if (!email || !codeSix || codeSix.length !== 6) return false;
+  const normalizedEmail = String(email).trim().toLowerCase();
+  for (const s of stores || []) {
+    const contact = (s.storeContactEmail || '').trim().toLowerCase();
+    if (contact !== normalizedEmail) continue;
+    if (!isValidTenDigitBizNo(s.bizNo)) continue;
+    const d = digitsOnly(s.bizNo);
+    if (d.slice(-6) === codeSix) return true;
+  }
+  return false;
+}
 
 const VERIFY_CODE_LIMIT_PER_EMAIL = 10;
 const VERIFY_CODE_LIMIT_PER_IP = 30;
@@ -54,6 +82,13 @@ module.exports = async (req, res) => {
     }
 
     let valid = await getAndDeleteAuthCode(normalizedEmail, codeTrimmed);
+    if (!valid) {
+      const codeDigits = digitsOnly(codeTrimmed);
+      if (codeDigits.length === 6) {
+        const stores = await getStores();
+        valid = verifyStoreManagerBizNoSuffix(normalizedEmail, codeDigits, stores);
+      }
+    }
     if (!valid) {
       return apiResponse(res, 401, { error: '인증 코드가 유효하지 않거나 만료되었습니다.' });
     }
