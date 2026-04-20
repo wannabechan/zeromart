@@ -13,21 +13,30 @@ let pendingEmail = null;
 let codeCountdownInterval = null;
 
 function getToken() {
-  const current = sessionStorage.getItem(TOKEN_KEY);
+  let current = localStorage.getItem(TOKEN_KEY);
+  if (!current) {
+    current = sessionStorage.getItem(TOKEN_KEY);
+    if (current) {
+      localStorage.setItem(TOKEN_KEY, current);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+  }
   if (current) return current;
   const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
   if (!legacy) return null;
-  sessionStorage.setItem(TOKEN_KEY, legacy);
+  localStorage.setItem(TOKEN_KEY, legacy);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   return legacy;
 }
 
 function setToken(token) {
-  sessionStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   pendingEmail = null;

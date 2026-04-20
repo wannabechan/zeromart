@@ -71,11 +71,18 @@ const SETTLEMENT_MOCK_FOR_TEST = false;
 const SETTLEMENT_SAMPLE_DATA = false;
 
 function getToken() {
-  const current = sessionStorage.getItem(TOKEN_KEY);
+  let current = localStorage.getItem(TOKEN_KEY);
+  if (!current) {
+    current = sessionStorage.getItem(TOKEN_KEY);
+    if (current) {
+      localStorage.setItem(TOKEN_KEY, current);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+  }
   if (current) return current;
   const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
   if (!legacy) return null;
-  sessionStorage.setItem(TOKEN_KEY, legacy);
+  localStorage.setItem(TOKEN_KEY, legacy);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   return legacy;
 }

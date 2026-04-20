@@ -10,6 +10,9 @@ if (!JWT_SECRET || JWT_SECRET.length < 16) {
   throw new Error('JWT_SECRET is required and must be at least 16 characters. Set it in Vercel Environment Variables (and .env.local for local dev).');
 }
 
+/** 로그인 JWT 유효 기간 (jsonwebtoken 형식, 예: 7d, 30d). `JWT_EXPIRES_IN` 환경 변수로 변경 가능. */
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
 /**
  * JWT 토큰 생성
  */
@@ -17,7 +20,7 @@ function generateToken(email, level) {
   return jwt.sign(
     { email, level },
     JWT_SECRET,
-    { expiresIn: '3d' }
+    { expiresIn: JWT_EXPIRES_IN }
   );
 }
 
