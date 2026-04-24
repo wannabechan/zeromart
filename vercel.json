@@ -1,1 +1,30 @@
-{"buildCommand":null,"outputDirectory":".","rewrites":[{"source":"/api/(.*)","destination":"/api/$1"},{"source":"/store-orders","destination":"/store-orders/index.html"},{"source":"/store-orders/","destination":"/store-orders/index.html"},{"source":"/store-orders/:path*","destination":"/store-orders/:path*"},{"source":"/brand-manager","destination":"/brand-manager/index.html"},{"source":"/brand-manager/","destination":"/brand-manager/index.html"},{"source":"/brand-manager/:path*","destination":"/brand-manager/:path*"},{"source":"/(.*)","destination":"/index.html"}],"crons":[{"path":"/api/cron/auto-cancel-orders","schedule":"0 * * * *"},{"path":"/api/cron/send-order-notifications","schedule":"*/10 * * * *"},{"path":"/api/cron/export-order-raw-log","schedule":"0 1 * * *"}]}
+{
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/store-orders", "destination": "/store-orders/index.html" },
+    { "source": "/store-orders/", "destination": "/store-orders/index.html" },
+    { "source": "/store-orders/:path*", "destination": "/store-orders/:path*" },
+    { "source": "/brand-manager", "destination": "/brand-manager/index.html" },
+    { "source": "/brand-manager/", "destination": "/brand-manager/index.html" },
+    { "source": "/brand-manager/:path*", "destination": "/brand-manager/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/cron/auto-cancel-orders", "schedule": "0 * * * *" },
+    { "path": "/api/cron/send-order-notifications", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/export-order-raw-log", "schedule": "0 1 * * *" }
+  ]
+}

@@ -60,16 +60,28 @@ function requireAuthCron(req) {
 }
 
 /**
- * 사용자 레벨 결정 (관리자 이메일은 Vercel 환경 변수 EMAIL_ADMIN 사용)
+ * 환경 변수 EMAIL_ADMIN을 정규화한 값 (소문자·trim·따옴표 제거). 미설정 시 빈 문자열.
+ * 브랜드 매니저 “마스터” 권한·관리자 레벨 판별에 동일하게 사용합니다.
  */
-function getUserLevel(email) {
-  const normalized = (email || '').toLowerCase().trim();
+function getNormalizedAdminEmail() {
   let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
   if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
   if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
-  adminEmail = adminEmail.toLowerCase().trim();
-  if (adminEmail && normalized === adminEmail) return 'admin';
-  return 'user';
+  return adminEmail.toLowerCase().trim();
+}
+
+/** 해당 이메일이 EMAIL_ADMIN(마스터)과 동일한지 */
+function isAdminEmail(email) {
+  const admin = getNormalizedAdminEmail();
+  if (!admin) return false;
+  return (email || '').trim().toLowerCase() === admin;
+}
+
+/**
+ * 사용자 레벨 결정 (관리자 이메일은 Vercel 환경 변수 EMAIL_ADMIN 사용)
+ */
+function getUserLevel(email) {
+  return isAdminEmail(email) ? 'admin' : 'user';
 }
 
 /**
@@ -175,6 +187,8 @@ module.exports = {
   generateToken,
   verifyToken,
   getUserLevel,
+  getNormalizedAdminEmail,
+  isAdminEmail,
   isAdmin,
   requireAuthCron,
   generateCode,

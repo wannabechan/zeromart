@@ -4,7 +4,7 @@
  * emailAdmin: 문의용 이메일 (환경변수 EMAIL_ADMIN)
  */
 
-const { apiResponse } = require('./_utils');
+const { apiResponse, getNormalizedAdminEmail } = require('./_utils');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const emailAdmin = (process.env.EMAIL_ADMIN || '').trim();
+    const emailAdmin = getNormalizedAdminEmail();
     return apiResponse(res, 200, { emailAdmin });
   } catch (error) {
     console.error('Config error:', error);

@@ -63,6 +63,8 @@ npm run local
 
 브라우저에서 `http://localhost:3000` 접속 (`vercel dev` 사용)
 
+배포 전 점검: `npm test`(관리자 이메일 유틸 등), `npm run audit`(의존성 취약점, moderate 이상 시 실패).
+
 ## Vercel 배포
 
 ### 1. GitHub 연결

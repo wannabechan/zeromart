@@ -5,9 +5,14 @@
 
 const { put } = require('@vercel/blob');
 const { verifyToken, apiResponse } = require('../_utils');
-const { createOrder, updateOrderPdfUrl, getStores } = require('../_redis');
+const { createOrder, updateOrderPdfUrl, getStores, checkRateLimitIncr } = require('../_redis');
 const { generateOrderPdf } = require('../_pdf');
 const { appendOrderRawLog } = require('../_orderRawLog');
+
+/** 계정·IP 단위 주문 생성 남용 방지 (1시간 윈도) */
+const ORDER_CREATE_LIMIT_PER_EMAIL = 40;
+const ORDER_CREATE_LIMIT_PER_IP = 120;
+const ORDER_CREATE_WINDOW_SECONDS = 3600;
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -31,6 +36,19 @@ module.exports = async (req, res) => {
 
     if (!user) {
       return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
+    }
+
+    const rawFwd = typeof req.headers['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'] : '';
+    const clientIp = (rawFwd.split(',')[0] || req.socket?.remoteAddress || 'unknown').trim().slice(0, 200);
+    const emailNorm = String(user.email || '').trim().toLowerCase();
+    const orderRateEmailKey = `ratelimit:order:create:email:${emailNorm}`;
+    const orderRateIpKey = `ratelimit:order:create:ip:${clientIp}`;
+    const [orderRateEmailOk, orderRateIpOk] = await Promise.all([
+      checkRateLimitIncr(orderRateEmailKey, ORDER_CREATE_LIMIT_PER_EMAIL, ORDER_CREATE_WINDOW_SECONDS),
+      checkRateLimitIncr(orderRateIpKey, ORDER_CREATE_LIMIT_PER_IP, ORDER_CREATE_WINDOW_SECONDS),
+    ]);
+    if (!orderRateEmailOk || !orderRateIpOk) {
+      return apiResponse(res, 429, { error: '주문 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
     }
 
     const {

@@ -4,10 +4,14 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById } = require('../_redis');
+const { getOrderById, checkRateLimitIncr } = require('../_redis');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
 
 const TOSS_API = 'https://api.tosspayments.com/v1/payments';
+
+const PAYMENT_CREATE_LIMIT_PER_EMAIL = 60;
+const PAYMENT_CREATE_LIMIT_PER_IP = 150;
+const PAYMENT_CREATE_WINDOW_SECONDS = 3600;
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return require('../_utils').apiResponse(res, 200, {});
@@ -24,6 +28,19 @@ module.exports = async (req, res) => {
 
     const user = verifyToken(authHeader.substring(7));
     if (!user) return apiResponse(res, 401, { error: '로그인이 필요합니다.' });
+
+    const rawFwd = typeof req.headers['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'] : '';
+    const clientIp = (rawFwd.split(',')[0] || req.socket?.remoteAddress || 'unknown').trim().slice(0, 200);
+    const emailNorm = String(user.email || '').trim().toLowerCase();
+    const payRateEmailKey = `ratelimit:payment:create:email:${emailNorm}`;
+    const payRateIpKey = `ratelimit:payment:create:ip:${clientIp}`;
+    const [payRateEmailOk, payRateIpOk] = await Promise.all([
+      checkRateLimitIncr(payRateEmailKey, PAYMENT_CREATE_LIMIT_PER_EMAIL, PAYMENT_CREATE_WINDOW_SECONDS),
+      checkRateLimitIncr(payRateIpKey, PAYMENT_CREATE_LIMIT_PER_IP, PAYMENT_CREATE_WINDOW_SECONDS),
+    ]);
+    if (!payRateEmailOk || !payRateIpOk) {
+      return apiResponse(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
+    }
 
     const { orderId } = req.body && typeof req.body === 'object' ? req.body : {};
     if (!orderId || typeof orderId !== 'string') {

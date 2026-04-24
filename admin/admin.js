@@ -231,8 +231,6 @@ async function patchStoreAllowedEmails(storeId, email, action, type) {
   }
 }
 
-const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
-
 async function loadStoresView() {
   const content = document.getElementById('adminContent');
   if (!content) return;
@@ -452,10 +450,12 @@ async function loadPermissionsView() {
         );
       })
       .join('');
+    const managerMasterNorm = (adminEmailFromServer || '').trim().toLowerCase();
     const toManagerEntries = (s) => {
       const list = toAllowedEntries(s.managerEmails || []);
-      const withoutMaster = list.filter((e) => e.email !== MASTER_MANAGER_EMAIL);
-      return [{ email: MASTER_MANAGER_EMAIL, addedAt: null }, ...withoutMaster];
+      if (!managerMasterNorm) return list;
+      const withoutMaster = list.filter((e) => e.email !== managerMasterNorm);
+      return [{ email: managerMasterNorm, addedAt: null }, ...withoutMaster];
     };
     const seenGroupName = new Set();
     const managerRows = [];
@@ -474,7 +474,7 @@ async function loadPermissionsView() {
           '<ul class="admin-permissions-emails-list">' +
           entries
             .map((entry) => {
-              const isMaster = entry.email === MASTER_MANAGER_EMAIL;
+              const isMaster = !!managerMasterNorm && entry.email === managerMasterNorm;
               const dateStr = formatAddedAt(entry.addedAt);
               if (isMaster) {
                 return '<li class="admin-permissions-email-row"><span class="admin-permissions-email-chip admin-permissions-email-chip--master">' + escapeHtml(entry.email) + '</span><span class="admin-permissions-date">' + escapeHtml(dateStr) + '</span></li>';

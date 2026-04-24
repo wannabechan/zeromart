@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "local": "vercel dev",
-    "build": "echo 'Static site - no build needed'"
+    "build": "echo 'Static site - no build needed'",
+    "test": "node --test tests/**/*.test.js",
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",

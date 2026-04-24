@@ -4,9 +4,7 @@
  */
 
 const { getStores, getMenus, saveStoresAndMenus } = require('../_redis');
-const { requireAuth, apiResponse, isAdmin } = require('../_utils');
-
-const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
+const { requireAuth, apiResponse, isAdmin, getNormalizedAdminEmail, isAdminEmail } = require('../_utils');
 
 function todayYYYYMMDD() {
   return new Date().toISOString().slice(0, 10);
@@ -56,10 +54,7 @@ module.exports = async (req, res) => {
       for (const store of stores) {
         menusByStore[store.id] = await getMenus(store.id);
       }
-      let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
-      if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
-      if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
-      adminEmail = adminEmail.toLowerCase().trim();
+      const adminEmail = getNormalizedAdminEmail();
       return apiResponse(res, 200, { stores, menus: menusByStore, adminEmail: adminEmail || null });
     }
 
@@ -77,14 +72,11 @@ module.exports = async (req, res) => {
         return apiResponse(res, 400, { error: '전체 메뉴 수는 2000개를 초과할 수 없습니다.' });
       }
       const previousStores = await getStores();
-      let adminEmail = (process.env.EMAIL_ADMIN || '').trim();
-      if (adminEmail.startsWith('"') && adminEmail.endsWith('"')) adminEmail = adminEmail.slice(1, -1);
-      if (adminEmail.startsWith("'") && adminEmail.endsWith("'")) adminEmail = adminEmail.slice(1, -1);
-      adminEmail = adminEmail.toLowerCase().trim();
+      const adminEmail = getNormalizedAdminEmail();
       const storesWithAdmin = (stores || []).map((s) => {
         const existing = (previousStores || []).find((p) => p.id === s.id);
         const managerEntries = toEmailEntries(existing?.managerEmails || s.managerEmails || []);
-        let normalizedManager = emailEntriesToUniqueList(managerEntries).filter((x) => x.email !== MASTER_MANAGER_EMAIL);
+        let normalizedManager = emailEntriesToUniqueList(managerEntries).filter((x) => !adminEmail || x.email !== adminEmail);
         let allowedEntries = toEmailEntries(existing?.allowedEmails ?? s.allowedEmails ?? []);
         allowedEntries = emailEntriesToUniqueList(allowedEntries);
         if (adminEmail) {
@@ -119,8 +111,8 @@ module.exports = async (req, res) => {
       }
       const store = stores[storeIndex];
       if (permType === 'manager') {
-        if (action === 'remove' && emailTrim === MASTER_MANAGER_EMAIL) {
-          return apiResponse(res, 400, { error: '마스터 관리자(zeromartmanager@gmail.com)는 제거할 수 없습니다.' });
+        if (action === 'remove' && isAdminEmail(emailTrim)) {
+          return apiResponse(res, 400, { error: '관리자(EMAIL_ADMIN) 계정은 브랜드 매니저 목록에서 제거할 수 없습니다.' });
         }
         let list = emailEntriesToUniqueList(toEmailEntries(store.managerEmails || []));
         if (action === 'add') {

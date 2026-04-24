@@ -3,13 +3,12 @@
  */
 
 const { getStores } = require('../_redis');
-
-const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
+const { isAdminEmail } = require('../_utils');
 
 function isStoreAllowedForManager(store, userEmail) {
   if (!userEmail) return false;
   const normalized = String(userEmail).trim().toLowerCase();
-  if (normalized === MASTER_MANAGER_EMAIL) return true;
+  if (isAdminEmail(normalized)) return true;
   const list = Array.isArray(store.managerEmails) ? store.managerEmails : [];
   return list.some((e) => {
     const em = e && typeof e === 'object' && e.email != null ? String(e.email).trim().toLowerCase() : String(e).trim().toLowerCase();
@@ -69,7 +68,6 @@ function getAllowedSlugSet(stores) {
 }
 
 module.exports = {
-  MASTER_MANAGER_EMAIL,
   isStoreAllowedForManager,
   getAllowedStoresForManager,
   getAllowedStoresForManagerExpanded,

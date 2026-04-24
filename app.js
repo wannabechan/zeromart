@@ -31,6 +31,19 @@ async function loadMenuData() {
   return false;
 }
 
+/** 프로필 하단 문의 이메일: 서버 `EMAIL_ADMIN`과 동일 (`/api/config`) */
+async function loadProfileFooterContactEmail() {
+  const el = document.getElementById('profileFooterContactEmail');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    const em = data && typeof data.emailAdmin === 'string' ? data.emailAdmin.trim() : '';
+    if (em) el.textContent = '✉️ ' + em;
+  } catch (_) {}
+}
+
 /** 로그인 직후 등 앱 표시 시점에 메뉴를 다시 불러와 권한이 있는 매장/메뉴만 보이도록 갱신 */
 async function refreshMenuAndRender() {
   const token = window.BzCatAuth?.getToken?.();
@@ -1307,6 +1320,7 @@ function handleMenuGridClick(e) {
 
 // 이벤트 바인딩
 function init() {
+  loadProfileFooterContactEmail();
   window.BzCatAppOpenProfile = openProfile;
   categoryTabs.addEventListener('click', handleCategoryClick);
   searchToggle?.addEventListener('click', openSearchMode);

@@ -5,19 +5,12 @@
 
 const { Resend } = require('resend');
 const { generateCode, apiResponse } = require('../_utils');
-const { saveAuthCode, getRedis, appendResendLog } = require('../_redis');
+const { saveAuthCode, appendResendLog, checkRateLimitIncr } = require('../_redis');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const SEND_CODE_LIMIT_PER_EMAIL = 3;
 const SEND_CODE_LIMIT_PER_IP = 10;
 const SEND_CODE_WINDOW_SECONDS = 60;
-
-async function checkRateLimit(key, limit, windowSeconds) {
-  const redis = getRedis();
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, windowSeconds);
-  return count <= limit;
-}
 
 module.exports = async (req, res) => {
   // CORS preflight
@@ -44,8 +37,8 @@ module.exports = async (req, res) => {
     const emailRateKey = `ratelimit:auth:send-code:email:${normalizedEmail}`;
     const ipRateKey = `ratelimit:auth:send-code:ip:${clientIp}`;
     const [emailAllowed, ipAllowed] = await Promise.all([
-      checkRateLimit(emailRateKey, SEND_CODE_LIMIT_PER_EMAIL, SEND_CODE_WINDOW_SECONDS),
-      checkRateLimit(ipRateKey, SEND_CODE_LIMIT_PER_IP, SEND_CODE_WINDOW_SECONDS),
+      checkRateLimitIncr(emailRateKey, SEND_CODE_LIMIT_PER_EMAIL, SEND_CODE_WINDOW_SECONDS),
+      checkRateLimitIncr(ipRateKey, SEND_CODE_LIMIT_PER_IP, SEND_CODE_WINDOW_SECONDS),
     ]);
     if (!emailAllowed || !ipAllowed) {
       return apiResponse(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });

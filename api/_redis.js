@@ -78,6 +78,17 @@ function getRedis() {
   return _redisClient;
 }
 
+/**
+ * 고정 윈도 레이트 리밋 (INCR + EXPIRE). 인증·주문·결제 등에서 공통 사용.
+ * @returns {Promise<boolean>} 허용이면 true, 한도 초과면 false
+ */
+async function checkRateLimitIncr(key, limit, windowSeconds) {
+  const redis = getRedis();
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, windowSeconds);
+  return count <= limit;
+}
+
 const CODE_TTL_SECONDS = 120; // 2분
 const BUSINESS_HOURS_SLOTS = ['09:00-10:00', '10:00-11:00', '11:00-12:00', '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00', '17:00-18:00', '18:00-19:00', '19:00-20:00', '20:00-21:00'];
 
@@ -547,6 +558,7 @@ async function setProfileSettings(email, data) {
 }
 
 module.exports = {
+  checkRateLimitIncr,
   saveAuthCode,
   getAndDeleteAuthCode,
   getUser,

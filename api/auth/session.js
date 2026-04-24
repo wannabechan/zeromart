@@ -5,10 +5,8 @@
  * user.isBrandManager: 브랜드 매니저(managerEmails 또는 마스터)로 등록된 경우 true
  */
 
-const { verifyToken, getUserLevel, apiResponse } = require('../_utils');
+const { verifyToken, getUserLevel, apiResponse, isAdminEmail } = require('../_utils');
 const { getStores } = require('../_redis');
-
-const MASTER_MANAGER_EMAIL = 'zeromartmanager@gmail.com';
 
 function isStoreManagerEmail(email, stores) {
   if (!email || !Array.isArray(stores)) return false;
@@ -21,7 +19,7 @@ function isStoreManagerEmail(email, stores) {
 function isBrandManagerEmail(email, stores) {
   if (!email || !Array.isArray(stores)) return false;
   const normalized = String(email).trim().toLowerCase();
-  if (normalized === MASTER_MANAGER_EMAIL) return true;
+  if (isAdminEmail(normalized)) return true;
   return stores.some((s) => {
     const list = Array.isArray(s.managerEmails) ? s.managerEmails : [];
     return list.some((e) => {
