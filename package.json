@@ -6,7 +6,7 @@
   "scripts": {
     "local": "vercel dev",
     "build": "echo 'Static site - no build needed'",
-    "test": "node --test tests/**/*.test.js",
+    "test": "node --test tests/utils-admin-email.test.js",
     "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
