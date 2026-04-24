@@ -17,15 +17,10 @@ const RESEND_LOGS_ZSET = 'resend:send_logs';
 const RESEND_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const RESEND_LOG_MAX_FETCH = 500;
 
-function maskEmailForResendLog(email) {
+function normalizeResendLogRecipientEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   if (!e || !e.includes('@')) return '—';
-  const at = e.indexOf('@');
-  const local = e.slice(0, at);
-  const domain = e.slice(at + 1);
-  if (!domain) return '—';
-  const vis = local.length <= 1 ? '*' : `${local.slice(0, Math.min(2, local.length))}***`;
-  return `${vis}@${domain}`;
+  return e;
 }
 
 async function appendResendLog({ ok, kind, toEmail, resendId, errorMessage }) {
@@ -38,7 +33,7 @@ async function appendResendLog({ ok, kind, toEmail, resendId, errorMessage }) {
       at: new Date(at).toISOString(),
       ok: !!ok,
       kind: kind || 'unknown',
-      to: maskEmailForResendLog(toEmail),
+      to: normalizeResendLogRecipientEmail(toEmail),
       resendId: resendId || null,
       error: errorMessage ? String(errorMessage).slice(0, 500) : null,
     });
@@ -585,5 +580,5 @@ module.exports = {
   setProfileSettings,
   appendResendLog,
   getResendLogsForAdmin,
-  maskEmailForResendLog,
+  normalizeResendLogRecipientEmail,
 };

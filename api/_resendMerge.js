@@ -2,7 +2,7 @@
  * Redis 앱 로그 + Resend List Emails API 병합 (최근 30일, 상한 500건)
  */
 
-const { getResendLogsForAdmin, maskEmailForResendLog } = require('./_redis');
+const { getResendLogsForAdmin, normalizeResendLogRecipientEmail } = require('./_redis');
 
 const RESEND_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const RESEND_LOG_MAX_FETCH = 500;
@@ -37,7 +37,7 @@ function normalizeApiEmail(email) {
     at: email.created_at,
     ok,
     kind: inferKindFromSubject(email.subject),
-    to: maskEmailForResendLog(toRaw),
+    to: normalizeResendLogRecipientEmail(toRaw),
     resendId: email.id,
     error: ok ? null : String(email.last_event || ''),
   };
@@ -131,7 +131,7 @@ function mergeResendLogs(redisLogs, apiRows) {
     return {
       ...apiRow,
       kind: redisMatch.kind || apiRow.kind,
-      to: redisMatch.to || apiRow.to,
+      to: apiRow.to || redisMatch.to,
     };
   });
 

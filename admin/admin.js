@@ -263,10 +263,32 @@ async function loadStoresView() {
   }
 }
 
+function resetPermissionsAddModalBusyUi() {
+  const wrap = document.getElementById('adminPermissionsAddProgressWrap');
+  const addClose = document.getElementById('adminPermissionsAddModalClose');
+  const addCancel = document.getElementById('adminPermissionsAddCancel');
+  const addSubmit = document.getElementById('adminPermissionsAddSubmit');
+  const addTextarea = document.getElementById('adminPermissionsAddTextarea');
+  if (wrap) wrap.hidden = true;
+  const loadingEl = wrap && wrap.querySelector('.admin-loading');
+  if (loadingEl) {
+    loadingEl.removeAttribute('data-loading-start');
+    const bar = loadingEl.querySelector('.admin-loading-progress-bar');
+    const pct = loadingEl.querySelector('.admin-loading-progress-pct');
+    if (bar) bar.style.width = '0%';
+    if (pct) pct.textContent = '0%';
+  }
+  if (addClose) addClose.disabled = false;
+  if (addCancel) addCancel.disabled = false;
+  if (addSubmit) addSubmit.disabled = false;
+  if (addTextarea) addTextarea.disabled = false;
+}
+
 function openPermissionsAddModal(storeId, type) {
   const modal = document.getElementById('adminPermissionsAddModal');
   const textarea = document.getElementById('adminPermissionsAddTextarea');
   if (!modal || !textarea) return;
+  resetPermissionsAddModalBusyUi();
   modal.dataset.storeId = storeId || '';
   modal.dataset.permType = type === 'manager' ? 'manager' : 'allowed';
   textarea.value = '';
@@ -281,6 +303,7 @@ function closePermissionsAddModal() {
     modal.classList.remove('admin-modal-visible');
     modal.setAttribute('aria-hidden', 'true');
   }
+  resetPermissionsAddModalBusyUi();
 }
 
 function openPermissionsRemoveModal(storeId, email, type) {
@@ -329,7 +352,14 @@ function initPermissionsModalsOnce() {
         alert('올바른 이메일을 한 줄에 하나씩 입력해 주세요.');
         return;
       }
+      const progressWrap = document.getElementById('adminPermissionsAddProgressWrap');
+      const progressLoading = progressWrap && progressWrap.querySelector('.admin-loading');
+      if (progressWrap) progressWrap.hidden = false;
+      if (progressLoading) progressLoading.setAttribute('data-loading-start', String(Date.now()));
       addSubmit.disabled = true;
+      if (addCancel) addCancel.disabled = true;
+      if (addClose) addClose.disabled = true;
+      if (addTextarea) addTextarea.disabled = true;
       try {
         for (const email of emails) {
           await patchStoreAllowedEmails(storeId, email, 'add', permType === 'manager' ? 'manager' : undefined);
@@ -339,7 +369,7 @@ function initPermissionsModalsOnce() {
       } catch (e) {
         alert(e.message || '추가에 실패했습니다.');
       } finally {
-        addSubmit.disabled = false;
+        resetPermissionsAddModalBusyUi();
       }
     });
   }
@@ -628,6 +658,14 @@ function formatResendAt(iso) {
   }).format(d);
 }
 
+/** Resend ID: 앞 12자만 표시 (어드민 발송 로그 테이블용) */
+function formatResendIdForTable(id) {
+  const s = id == null ? '' : String(id);
+  if (!s) return '—';
+  if (s.length <= 12) return s;
+  return s.slice(0, 12) + '...';
+}
+
 async function loadResendLogsView() {
   const container = document.getElementById('adminResendContent');
   if (!container) return;
@@ -669,7 +707,9 @@ async function loadResendLogsView() {
         const toEsc = escapeHtml(row.to || '');
         const ok = row.ok === true;
         const statusHtml = ok ? '<span class="admin-resend-ok">성공</span>' : '<span class="admin-resend-fail">실패</span>';
-        const idEsc = row.resendId ? escapeHtml(String(row.resendId)) : '—';
+        const idForTitle = row.resendId ? escapeHtml(String(row.resendId)) : '';
+        const idTitleAttr = idForTitle ? ' title="' + idForTitle + '"' : '';
+        const idEsc = row.resendId ? escapeHtml(formatResendIdForTable(row.resendId)) : '—';
         const errEsc = row.error ? escapeHtml(row.error) : '—';
         html +=
           '<tr><td>' +
@@ -680,7 +720,9 @@ async function loadResendLogsView() {
           toEsc +
           '</td><td>' +
           statusHtml +
-          '</td><td class="admin-resend-id">' +
+          '</td><td class="admin-resend-id"' +
+          idTitleAttr +
+          '>' +
           idEsc +
           '</td><td>' +
           errEsc +

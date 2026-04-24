@@ -187,6 +187,13 @@
     .admin-loading-progress-bar { height: 100%; width: 0%; background: var(--color-primary); border-radius: 3px; transition: width 0.15s ease-out; }
     .admin-loading-progress-pct { font-size: 0.8125rem; color: var(--color-text-secondary); margin-top: 8px; display: block; }
     .admin-loading-wrap { margin-top: 12px; }
+    .admin-permissions-add-progress { padding: 0 20px 12px; border-top: 1px solid var(--color-border); }
+    .admin-permissions-add-progress[hidden] { display: none !important; }
+    .admin-permissions-add-progress .admin-loading { padding: 14px 0 6px; margin: 0; }
+    .admin-permissions-add-progress .admin-loading-progress { max-width: 100%; }
+    .admin-permissions-add-progress-hint { display: block; font-size: 0.8125rem; color: var(--color-text-secondary); margin-top: 6px; text-align: center; }
+    .admin-btn:disabled,
+    .admin-modal-close:disabled { opacity: 0.55; cursor: not-allowed; }
     .admin-error { color: #c5221f; padding: 16px; background: #FFEBEE; border-radius: var(--radius); margin-bottom: 16px; }
     .admin-payment-order-id-link { cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
     .admin-payment-order-id-link:hover { opacity: 0.8; }
@@ -448,6 +455,13 @@
         <div class="admin-modal-body">
           <p class="admin-modal-hint">권한 추가할 이메일을 한 줄에 하나씩 입력하세요.</p>
           <textarea id="adminPermissionsAddTextarea" class="admin-form-input" rows="6" placeholder="user1@example.com&#10;user2@example.com"></textarea>
+        </div>
+        <div id="adminPermissionsAddProgressWrap" class="admin-permissions-add-progress" hidden>
+          <div class="admin-loading" role="status" aria-live="polite" aria-label="추가 중" data-loading-start="">
+            <div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div>
+            <span class="admin-loading-progress-pct">0%</span>
+            <span class="admin-permissions-add-progress-hint">권한을 추가하는 중입니다…</span>
+          </div>
         </div>
         <div class="admin-modal-footer">
           <button type="button" class="admin-btn admin-btn-secondary" id="adminPermissionsAddCancel">취소</button>
