@@ -899,7 +899,7 @@ function renderMenuItem(storeId, item, index) {
           <div class="admin-form-field">
             <label style="display:block;text-align:left;margin-bottom:6px;">품절</label>
             <label style="display:block;text-align:left;cursor:pointer;">
-              <input type="checkbox" data-field="isSoldOut" ${isSoldOut ? 'checked' : ''}>
+              <input type="checkbox" data-field="isSoldOut" ${isSoldOut ? 'checked' : ''} style="width:auto;padding:0;margin:0;display:block;">
             </label>
           </div>
         </div>
