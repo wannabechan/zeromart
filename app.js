@@ -1179,7 +1179,7 @@ async function fetchRecentOrderItems() {
     for (const order of orders) {
       const ts = orderDate(order);
       for (const oi of order.orderItems || []) {
-        if (oi && (oi.id || oi.name)) {
+        if (oi && (oi.id || oi.name) && findItemById(oi.id || '')) {
           flattened.push({
             id: oi.id || '',
             name: oi.name || '',

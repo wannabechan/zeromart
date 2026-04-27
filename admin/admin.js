@@ -872,6 +872,7 @@ function renderStore(store, menus, groupNames) {
 
 function renderMenuItem(storeId, item, index) {
   const nameReadonly = item.registered === true;
+  const isSoldOut = item.isSoldOut === true;
   return `
     <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}"${nameReadonly ? ' data-menu-registered="1"' : ''}>
       <div class="admin-menu-fields">
@@ -892,6 +893,14 @@ function renderMenuItem(storeId, item, index) {
               <button type="button" class="admin-btn admin-btn-upload" data-upload-btn title="파일 업로드">📤 업로드</button>
             </div>
             <div class="admin-image-rule">${IMAGE_RULE}</div>
+          </div>
+        </div>
+        <div class="admin-form-row">
+          <div class="admin-form-field">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" data-field="isSoldOut" ${isSoldOut ? 'checked' : ''}>
+              <span>품절</span>
+            </label>
           </div>
         </div>
       </div>
@@ -951,6 +960,7 @@ function collectData() {
       const nameInput = itemEl.querySelector('input[data-field="name"]');
       const priceInput = itemEl.querySelector('input[data-field="price"]');
       const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
+      const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
       const name = nameInput?.value?.trim();
       if (!name) return;
       items.push({
@@ -959,6 +969,7 @@ function collectData() {
         price: parseInt(priceInput?.value || '0', 10) || 0,
         description: '',
         imageUrl: imageInput?.value?.trim() || '',
+        isSoldOut: soldOutInput?.checked === true,
       });
     });
     menus[storeId] = items;
@@ -2562,12 +2573,14 @@ async function init() {
             const nameInput = itemEl.querySelector('input[data-field="name"]');
             const priceInput = itemEl.querySelector('input[data-field="price"]');
             const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
+            const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
             items.push({
               id: itemEl.dataset.menuId || generateId(storeId),
               name: nameInput?.value?.trim() || '',
               price: parseInt(priceInput?.value || '0', 10) || 0,
               description: '',
               imageUrl: imageInput?.value?.trim() || '',
+              isSoldOut: soldOutInput?.checked === true,
               registered: itemEl.dataset.menuRegistered === '1',
             });
           });
@@ -2590,7 +2603,7 @@ async function init() {
       if (e.target.closest('[data-add-menu]')) {
         const storeId = e.target.closest('[data-add-menu]').dataset.addMenu;
         const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
-        const newItem = { id: generateId(storeId), name: '', price: 0, imageUrl: '' };
+        const newItem = { id: generateId(storeId), name: '', price: 0, imageUrl: '', isSoldOut: false };
         const div = document.createElement('div');
         div.innerHTML = renderMenuItem(storeId, newItem, list.children.length);
         const itemEl = div.firstElementChild;
@@ -2716,7 +2729,7 @@ async function init() {
           const name = (parts[0] || '').trim();
           if (!name) continue;
           const price = parseInt(parts[1], 10) || 0;
-          const newItem = { id: generateId(storeId), name, price, imageUrl: '' };
+          const newItem = { id: generateId(storeId), name, price, imageUrl: '', isSoldOut: false };
           const div = document.createElement('div');
           div.innerHTML = renderMenuItem(storeId, newItem, startIndex + added);
           const itemEl = div.firstElementChild;

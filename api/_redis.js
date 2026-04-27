@@ -78,6 +78,11 @@ function getRedis() {
   return _redisClient;
 }
 
+function normalizeMenuItem(item) {
+  if (!item || typeof item !== 'object') return item;
+  return { ...item, isSoldOut: item.isSoldOut === true };
+}
+
 /**
  * 고정 윈도 레이트 리밋 (INCR + EXPIRE). 인증·주문·결제 등에서 공통 사용.
  * @returns {Promise<boolean>} 허용이면 true, 한도 초과면 false
@@ -452,9 +457,10 @@ async function getMenus(storeId) {
   const redis = getRedis();
   const raw = await redis.get(`app:menus:${storeId}`);
   if (raw) {
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.map(normalizeMenuItem) : [];
   }
-  return DEFAULT_MENUS[storeId] || [];
+  return (DEFAULT_MENUS[storeId] || []).map(normalizeMenuItem);
 }
 
 async function saveStoresAndMenus(stores, menusByStore) {
@@ -465,7 +471,8 @@ async function saveStoresAndMenus(stores, menusByStore) {
   const removedIds = [...previousIds].filter((id) => !newIds.has(id));
   await redis.set(STORES_KEY, JSON.stringify(stores));
   for (const [storeId, menus] of Object.entries(menusByStore)) {
-    await redis.set(`app:menus:${storeId}`, JSON.stringify(menus));
+    const normalizedMenus = Array.isArray(menus) ? menus.map(normalizeMenuItem) : [];
+    await redis.set(`app:menus:${storeId}`, JSON.stringify(normalizedMenus));
   }
   for (const storeId of removedIds) {
     await redis.del(`app:menus:${storeId}`);
@@ -500,9 +507,12 @@ async function getMenuDataForApp(userEmail) {
         ? JSON.parse(raw)
         : raw
       : DEFAULT_MENUS[stores[i].id] || [];
+    const visibleItems = (Array.isArray(items) ? items : [])
+      .map(normalizeMenuItem)
+      .filter((item) => item.isSoldOut !== true);
     const businessDays = stores[i].businessDays && Array.isArray(stores[i].businessDays) ? stores[i].businessDays : [0, 1, 2, 3, 4, 5, 6];
     const businessHours = stores[i].businessHours && Array.isArray(stores[i].businessHours) && stores[i].businessHours.length > 0 ? stores[i].businessHours : BUSINESS_HOURS_SLOTS;
-    result[stores[i].slug] = { title: stores[i].title, items, payment: stores[i].payment, suburl: (stores[i].suburl || ''), brand: (stores[i].brand || ''), bizNo: (stores[i].bizNo || ''), businessDays, businessHours };
+    result[stores[i].slug] = { title: stores[i].title, items: visibleItems, payment: stores[i].payment, suburl: (stores[i].suburl || ''), brand: (stores[i].brand || ''), bizNo: (stores[i].bizNo || ''), businessDays, businessHours };
   }
   return result;
 }
