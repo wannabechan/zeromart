@@ -459,6 +459,7 @@ function renderList() {
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
         </div>
         ${slipLinesBlock}
+        ${effectiveFilter === 'delivery_wait' ? '<br>' : ''}
         <div class="admin-payment-link-row">
           ${effectiveFilter === 'cancelled'
             ? ''
