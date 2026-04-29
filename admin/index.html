@@ -583,6 +583,10 @@
           <button type="button" class="admin-modal-close" id="adminDeliveryCompleteModalClose" aria-label="닫기">&times;</button>
         </div>
         <div class="admin-modal-body">
+          <div class="admin-delivery-slip-row" id="adminDeliverySlipRow" style="display:none;margin-bottom:12px;">
+            <label for="adminDeliverySlipSelect" style="display:block;margin-bottom:6px;font-size:0.875rem;color:#444;">발송 완료할 주문서</label>
+            <select id="adminDeliverySlipSelect" class="admin-delivery-courier-select" style="max-width:100%;"></select>
+          </div>
           <button type="button" class="admin-btn admin-btn-primary admin-delivery-direct-btn" id="adminDeliveryCompleteDirectBtn">직접 배송 완료</button>
           <p class="admin-delivery-or">또는</p>
           <div class="admin-delivery-parcel-row">

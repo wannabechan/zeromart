@@ -4,7 +4,8 @@
  */
 
 const crypto = require('crypto');
-const { getOrderById, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken } = require('../_redis');
+const { getOrderById, getStores, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken } = require('../_redis');
+const { persistSlipsIfMissing } = require('../orders/_orderSlips');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
@@ -87,6 +88,13 @@ module.exports = async (req, res) => {
     // 주문서 PDF 링크용 토큰만 설정. 매장 담당자 메일은 결제 완료 45분 후 cron에서 발송
     const pdfToken = crypto.randomBytes(24).toString('hex');
     await updateOrderAcceptToken(orderIdStr, pdfToken);
+
+    try {
+      const stores = await getStores() || [];
+      await persistSlipsIfMissing(orderIdStr, stores);
+    } catch (e) {
+      console.error('Payment success: persist slips', e.message);
+    }
 
     return res.redirect(302, `${redirectBase}?payment=success`);
   } catch (err) {

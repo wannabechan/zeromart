@@ -226,6 +226,16 @@ async function getOrderById(orderId) {
   return typeof raw === 'string' ? JSON.parse(raw) : raw;
 }
 
+/** 주문 JSON 전체 저장 (슬립·부분 갱신 등) */
+async function saveOrder(order) {
+  const redis = getRedis();
+  if (!order || order.id == null) return null;
+  const id = String(order.id).trim();
+  if (!id) return null;
+  await redis.set(`order:${id}`, JSON.stringify(order));
+  return order;
+}
+
 async function deleteOrder(orderId) {
   const redis = getRedis();
   const order = await getOrderById(orderId);
@@ -578,6 +588,7 @@ module.exports = {
   createOrder,
   getOrdersByUser,
   getOrderById,
+  saveOrder,
   deleteOrder,
   updateOrderStatus,
   updateOrderCancelReason,

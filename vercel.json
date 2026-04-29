@@ -25,6 +25,7 @@
   "crons": [
     { "path": "/api/cron/auto-cancel-orders", "schedule": "0 * * * *" },
     { "path": "/api/cron/send-order-notifications", "schedule": "*/10 * * * *" },
-    { "path": "/api/cron/export-order-raw-log", "schedule": "0 1 * * *" }
+    { "path": "/api/cron/export-order-raw-log", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/migrate-order-slips", "schedule": "15 4 * * *" }
   ]
 }

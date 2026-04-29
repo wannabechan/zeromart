@@ -82,6 +82,42 @@ function escapeHtml(s) {
   return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function formatOneSlipLineClient(slip, orderId) {
+  const id = String(orderId || '');
+  const num = slip.slipIndex != null ? slip.slipIndex : 1;
+  const st = slip.delivery_status || slip.deliveryStatus;
+  if (st !== 'delivery_completed') return `#${id}-${num}: 미입력`;
+  const dt = slip.delivery_type || slip.deliveryType;
+  if (dt === 'direct') return `#${id}-${num}: 직접 배송 완료`;
+  const cc = (slip.courier_company || slip.courierCompany || '').trim();
+  const tn = (slip.tracking_number || slip.trackingNumber || '').trim();
+  if (cc || tn) return `#${id}-${num}: ${cc || '—'} / ${tn}`;
+  return `#${id}-${num}: 미입력`;
+}
+
+function formatOrderSlipLinesHtml(order) {
+  const id = String(order.id || '');
+  const slips = order.order_slips || order.orderSlips;
+  if (Array.isArray(slips) && slips.length > 0) {
+    return slips.map((s) =>
+      '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' +
+      escapeHtml(formatOneSlipLineClient(s, id)) +
+      '</span></div>'
+    ).join('');
+  }
+  if (order.status === 'delivery_completed') {
+    const cc = (order.courier_company || '').trim();
+    const tn = (order.tracking_number || '').trim();
+    const hasParcel = !!cc || !!tn;
+    let text;
+    if (order.delivery_type === 'direct') text = '직접 배송 완료';
+    else if (hasParcel) text = `${cc || '—'} / ${tn}`;
+    else text = '배송 정보 없음';
+    return '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' + escapeHtml(text) + '</span></div>';
+  }
+  return '';
+}
+
 function getOrderItemStoreKey(itemId) {
   const raw = (itemId || '').toString().trim();
   if (!raw) return 'unknown';
@@ -310,11 +346,9 @@ async function submitStoreDeliveryCompleteDirect() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
-    const order = findStoreOrderById(orderId);
-    if (order) order.status = 'delivery_completed';
     alert('직접 배송 완료 처리되었습니다.');
     closeDeliveryCompleteModal();
-    renderList();
+    await loadStoreOrders();
   } catch (e) {
     alert(e.message || '처리에 실패했습니다.');
   }
@@ -341,15 +375,9 @@ async function submitStoreDeliveryCompleteParcel() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
-    const order = findStoreOrderById(orderId);
-    if (order) {
-      order.status = 'delivery_completed';
-      order.courier_company = courierCompany || null;
-      order.tracking_number = (trackingNumber || '').replace(/\D/g, '') || null;
-    }
     alert('저장되었습니다.');
     closeDeliveryCompleteModal();
-    renderList();
+    await loadStoreOrders();
   } catch (e) {
     alert(e.message || '저장에 실패했습니다.');
   }
@@ -379,7 +407,7 @@ function renderList() {
 
   const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
   const isOrderWait = (o) => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o));
-  const isDeliveryWait = (o) => !cancelled(o) && o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o);
+  const isDeliveryWait = (o) => !cancelled(o) && ((o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping');
   const newCount = allOrders.filter(isOrderWait).length;
   const deliveryWaitCount = allOrders.filter(isDeliveryWait).length;
   const deliveryCompletedCount = allOrders.filter(o => !cancelled(o) && o.status === 'delivery_completed').length;
@@ -390,13 +418,13 @@ function renderList() {
   if (effectiveFilter === 'new') {
     filtered = allOrders.filter(o => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o)));
   } else if (effectiveFilter === 'delivery_wait') {
-    filtered = allOrders.filter(o => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o));
+    filtered = allOrders.filter(o => (o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping');
   } else if (effectiveFilter === 'delivery_completed') {
     filtered = allOrders.filter(o => o.status === 'delivery_completed');
   } else if (effectiveFilter === 'cancelled') {
     filtered = allOrders.filter(o => o.status === 'cancelled');
   } else {
-    filtered = allOrders.filter(o => o.status === 'payment_completed');
+    filtered = allOrders.filter(o => o.status === 'payment_completed' || o.status === 'shipping');
   }
 
   const sortBy = storeOrdersSortBy;
@@ -442,17 +470,9 @@ function renderList() {
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
     const hideDeliveryBtn = effectiveFilter === 'new';
     const isDeliveryCompletedFilter = effectiveFilter === 'delivery_completed';
-    const showDeliveryInfo = isDeliveryCompletedFilter && order.status === 'delivery_completed';
-    const deliveryInfoText = showDeliveryInfo
-      ? (() => {
-          const cc = (order.courier_company || '').trim();
-          const tn = (order.tracking_number || '').trim();
-          const hasParcel = !!cc || !!tn;
-          if (order.delivery_type === 'direct') return '직접 배송 완료';
-          if (hasParcel) return `${cc || '—'} / ${tn}`;
-          return '배송 정보 없음';
-        })()
-      : '';
+    const showSlipLinesInWait = effectiveFilter === 'delivery_wait' && (order.status === 'payment_completed' || order.status === 'shipping');
+    const showSlipLinesInDoneTab = isDeliveryCompletedFilter && order.status === 'delivery_completed';
+    const slipLinesBlock = (showSlipLinesInWait || showSlipLinesInDoneTab) ? `<div class="admin-payment-slip-lines">${formatOrderSlipLinesHtml(order)}</div>` : '';
     const ordererDisplay = effectiveFilter === 'delivery_wait'
       ? `${escapeHtml((order.depositor || '').trim() || '—')} / ${escapeHtml(order.contact || '—')}`
       : escapeHtml((order.depositor || '').trim() || '—');
@@ -469,14 +489,17 @@ function renderList() {
           <div>주문자: ${ordererDisplay}</div>
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
         </div>
+        ${slipLinesBlock}
         <div class="admin-payment-link-row">
           ${effectiveFilter === 'cancelled'
             ? ''
             : hideDeliveryBtn
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
-            : showDeliveryInfo
-            ? `<span class="admin-payment-delivery-info">*배송정보 : ${escapeHtml(deliveryInfoText)}</span>`
-            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>${effectiveFilter === 'delivery_wait' ? '<span class="admin-payment-delivery-complete-hint">발송 후 발송 완료 처리해주세요.</span>' : ''}`}
+            : showSlipLinesInDoneTab
+            ? ''
+            : effectiveFilter === 'delivery_wait'
+            ? `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>${effectiveFilter === 'delivery_wait' ? '<span class="admin-payment-delivery-complete-hint">발송 후 발송 완료 처리해주세요.</span>' : ''}`
+            : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${(order.status !== 'payment_completed' && order.status !== 'shipping') ? 'disabled' : ''}>발송 완료</button>`}
         </div>
       </div>
     `;

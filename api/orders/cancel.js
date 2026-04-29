@@ -7,8 +7,9 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById } = require('../_redis');
+const { getOrderById, getStores } = require('../_redis');
 const { cancelOrderAndRegeneratePdf } = require('../_orderCancel');
+const { withHydratedSlips, anySlipDelivered, isWithinPaymentCancelWindow } = require('./_orderSlips');
 const { getTossSecretKeyForOrder } = require('../payment/_helpers');
 
 const CANCELABLE_BEFORE_PAYMENT = ['submitted', 'pending', 'order_accepted', 'payment_link_issued'];
@@ -66,6 +67,18 @@ module.exports = async (req, res) => {
     }
 
     if (status === 'payment_completed') {
+      const stores = await getStores() || [];
+      const hydrated = withHydratedSlips(order, stores);
+      if (!isWithinPaymentCancelWindow(hydrated)) {
+        return apiResponse(res, 400, {
+          error: '결제 취소 가능 시간이 지났습니다. 고객센터로 문의해 주세요.',
+        });
+      }
+      if (anySlipDelivered(hydrated.order_slips)) {
+        return apiResponse(res, 400, {
+          error: '일부 주문서가 이미 발송 완료되어 결제를 취소할 수 없습니다.',
+        });
+      }
       const paymentKey = order.toss_payment_key || order.payment_key || '';
       if (!paymentKey.trim()) {
         const adminEmail = process.env.EMAIL_ADMIN || '고객센터';

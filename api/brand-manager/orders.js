@@ -5,6 +5,7 @@
 
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores, getProfileSettingsBatch } = require('../_redis');
+const { hydrateOrdersList } = require('../orders/_orderSlips');
 const { getAllowedStoresForManager, getAllowedStoresForManagerExpanded, getAllowedSlugSet } = require('./_helpers');
 const { getOrderItemStoreKey } = require('../orders/_order-email');
 
@@ -64,7 +65,8 @@ module.exports = async (req, res) => {
 
     const sorted = filtered.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
-    const orders = sorted.slice(offset, offset + limit);
+    const storesList = await getStores() || [];
+    const orders = hydrateOrdersList(sorted.slice(offset, offset + limit), storesList);
 
     const emails = orders.map((o) => o.user_email || '').filter(Boolean);
     const profilesByEmail = await getProfileSettingsBatch(emails);

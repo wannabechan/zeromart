@@ -4,7 +4,8 @@
  */
 
 const { requireAuth, apiResponse } = require('../_utils');
-const { getOrdersForAdmin, getProfileSettingsBatch } = require('../_redis');
+const { getOrdersForAdmin, getProfileSettingsBatch, getStores } = require('../_redis');
+const { hydrateOrdersList } = require('../orders/_orderSlips');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -36,7 +37,8 @@ module.exports = async (req, res) => {
     }
     const sorted = list.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const total = sorted.length;
-    const orders = sorted.slice(offset, offset + limit);
+    const stores = await getStores() || [];
+    const orders = hydrateOrdersList(sorted.slice(offset, offset + limit), stores);
 
     const emails = orders.map((o) => o.user_email || '').filter(Boolean);
     const profilesByEmail = await getProfileSettingsBatch(emails);

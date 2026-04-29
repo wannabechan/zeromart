@@ -7,6 +7,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoresWithItemsInOrder, getOrderItemStoreKey } = require('../orders/_order-email');
+const { withHydratedSlips } = require('../orders/_orderSlips');
 
 function scopeOrderToManagerStores(order, managerEmail, stores) {
   const entries = getStoresWithItemsInOrder(order, stores);
@@ -86,7 +87,8 @@ module.exports = async (req, res) => {
     }
     const scopedList = [];
     for (const order of allOrders) {
-      const scoped = scopeOrderToManagerStores(order, managerEmail, stores);
+      const hydrated = withHydratedSlips(order, stores);
+      const scoped = scopeOrderToManagerStores(hydrated, managerEmail, stores);
       if (scoped) scopedList.push(scoped);
     }
     const sorted = scopedList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

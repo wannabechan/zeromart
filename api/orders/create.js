@@ -6,6 +6,7 @@
 const { put } = require('@vercel/blob');
 const { verifyToken, apiResponse } = require('../_utils');
 const { createOrder, updateOrderPdfUrl, getStores, checkRateLimitIncr } = require('../_redis');
+const { persistSlipsIfMissing } = require('./_orderSlips');
 const { generateOrderPdf } = require('../_pdf');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
@@ -126,6 +127,13 @@ module.exports = async (req, res) => {
     } catch (pdfErr) {
       console.error('PDF generation/upload error:', pdfErr);
       // 주문은 완료됐으므로 PDF 실패만 로깅
+    }
+
+    try {
+      const storesForSlips = stores.length ? stores : await getStores();
+      await persistSlipsIfMissing(order.id, storesForSlips || []);
+    } catch (slipErr) {
+      console.error('Order create: persist slips', slipErr.message);
     }
 
     appendOrderRawLog(order, {

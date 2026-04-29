@@ -974,17 +974,17 @@ function renderProfileOrdersList() {
       if (cancelled) {
         stepsHtml = '';
       } else {
-        const isDeliveryCompleted = o.status === 'delivery_completed' || o.status === 'shipping';
+        const isDeliveryInfoClickable = o.status === 'delivery_completed' || o.status === 'shipping' || (o.status === 'payment_completed' && profileOrderHasAnySlipDelivered(o));
         stepsHtml = ORDER_STATUS_STEPS.map((s, i) => {
           let cls = 'step';
           if (i < currentIdx) cls += ' done';
           else if (i === currentIdx) cls += ' active';
           else cls += ' pending';
           if (i === 0 && paymentLinkActive) cls += ' payment-link-ready';
-          if (i === 2 && isDeliveryCompleted) cls += ' delivery-info-ready';
+          if (i === 2 && isDeliveryInfoClickable) cls += ' delivery-info-ready';
           const attrs = [];
           if (i === 0 && paymentLinkActive) attrs.push('data-action="open-payment-link"');
-          if (i === 2 && isDeliveryCompleted) attrs.push(`data-action="show-delivery-info" data-order-id="${escapeHtml(String(o.id))}" role="button" tabindex="0"`);
+          if (i === 2 && isDeliveryInfoClickable) attrs.push(`data-action="show-delivery-info" data-order-id="${escapeHtml(String(o.id))}" role="button" tabindex="0"`);
           return `<span class="${cls}" ${attrs.join(' ')}>${s.label}</span>`;
         }).join('');
       }
@@ -1138,15 +1138,37 @@ function showUnsupportedRegionModal() {
   modal.setAttribute('aria-hidden', 'false');
 }
 
+function profileOrderHasAnySlipDelivered(o) {
+  const slips = o.orderSlips;
+  if (!Array.isArray(slips)) return false;
+  return slips.some((s) => s.deliveryStatus === 'delivery_completed');
+}
+
 function openDeliveryInfoModal(order) {
   const modal = document.getElementById('deliveryInfoModal');
   const msgEl = document.getElementById('deliveryInfoModalMsg');
   if (!modal || !msgEl) return;
-  const hasParcel = !!(order.courierCompany && order.courierCompany.trim()) || !!(order.trackingNumber && order.trackingNumber.trim());
+  const slips = order.orderSlips;
   let text;
-  if (order.deliveryType === 'direct') text = '직접 배송 완료';
-  else if (hasParcel) text = `${(order.courierCompany || '—').trim()} / ${(order.trackingNumber || '').trim()}`;
-  else text = '배송 정보 없음';
+  if (Array.isArray(slips) && slips.length > 0) {
+    msgEl.style.whiteSpace = 'pre-line';
+    const oid = String(order.id || '');
+    text = slips.map((s) => {
+      const num = s.slipIndex != null ? s.slipIndex : 1;
+      if (s.deliveryStatus !== 'delivery_completed') return `*배송정보 : #${oid}-${num}: 미입력`;
+      if (s.deliveryType === 'direct') return `*배송정보 : #${oid}-${num}: 직접 배송 완료`;
+      const cc = (s.courierCompany || '').trim();
+      const tn = (s.trackingNumber || '').trim();
+      if (cc || tn) return `*배송정보 : #${oid}-${num}: ${cc || '—'} / ${tn}`;
+      return `*배송정보 : #${oid}-${num}: 미입력`;
+    }).join('\n');
+  } else {
+    msgEl.style.whiteSpace = '';
+    const hasParcel = !!(order.courierCompany && order.courierCompany.trim()) || !!(order.trackingNumber && order.trackingNumber.trim());
+    if (order.deliveryType === 'direct') text = '직접 배송 완료';
+    else if (hasParcel) text = `${(order.courierCompany || '—').trim()} / ${(order.trackingNumber || '').trim()}`;
+    else text = '배송 정보 없음';
+  }
   msgEl.textContent = text;
   const closeBtn = document.getElementById('deliveryInfoModalClose');
   const backdrop = modal.querySelector('.delivery-info-modal-backdrop');

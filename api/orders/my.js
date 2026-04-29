@@ -4,7 +4,8 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrdersByUser } = require('../_redis');
+const { getOrdersByUser, getStores } = require('../_redis');
+const { withHydratedSlips } = require('./_orderSlips');
 
 const STATUS_LABELS = {
   submitted: '결제하기',
@@ -39,13 +40,23 @@ module.exports = async (req, res) => {
     }
 
     const orders = await getOrdersByUser(user.email);
+    const stores = await getStores() || [];
 
-    const items = orders.map((o) => {
+    const items = orders.map((raw) => {
+      const o = withHydratedSlips(raw, stores);
       const status = o.status === 'pending' ? 'submitted' : (o.status || 'submitted');
       const baseLabel = STATUS_LABELS[status] || STATUS_LABELS.submitted;
       const statusLabel = status === 'cancelled' && o.cancel_reason
         ? `${baseLabel}(${o.cancel_reason})`
         : baseLabel;
+      const slips = Array.isArray(o.order_slips) ? o.order_slips.map((s) => ({
+        slipIndex: s.slipIndex,
+        slug: s.slug,
+        deliveryStatus: s.delivery_status,
+        courierCompany: s.courier_company || null,
+        trackingNumber: s.tracking_number || null,
+        deliveryType: s.delivery_type || null,
+      })) : [];
       return {
         id: o.id,
         status,
@@ -61,6 +72,7 @@ module.exports = async (req, res) => {
         courierCompany: o.courier_company || null,
         trackingNumber: o.tracking_number || null,
         deliveryType: o.delivery_type || null,
+        orderSlips: slips,
       };
     });
 

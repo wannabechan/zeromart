@@ -201,8 +201,8 @@ module.exports = async (req, res) => {
     const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
     const cancelledOrder = (o) => (o.status || '') === 'cancelled';
     const newOrdersCount = orders.filter((o) => !cancelledOrder(o) && (orderWaitStatuses.includes(o.status || '') || (o.status === 'payment_completed' && isWithinPaymentCancelWindow(o)))).length;
-    const deliveryWaitCount = orders.filter((o) => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)).length;
-    const paymentCompletedOrMore = deliveryWaitCount + (byStatus.shipping || 0) + (byStatus.delivery_completed || 0);
+    const deliveryWaitCount = orders.filter((o) => (o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping').length;
+    const paymentCompletedOrMore = deliveryWaitCount + (byStatus.delivery_completed || 0);
     const orderSummaryByStatus = {};
     orderSummaryByStatus.new_orders = { count: newOrdersCount, label: '주문대기' };
     orderSummaryByStatus.payment_completed = { count: deliveryWaitCount, label: '주문완료' };

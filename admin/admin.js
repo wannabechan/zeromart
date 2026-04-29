@@ -93,6 +93,42 @@ function findAdminPaymentOrderById(orderId) {
   return adminPaymentOrders.find((o) => String(o.id) === want) || null;
 }
 
+function formatOneSlipLineClient(slip, orderId) {
+  const id = String(orderId || '');
+  const num = slip.slipIndex != null ? slip.slipIndex : 1;
+  const st = slip.delivery_status || slip.deliveryStatus;
+  if (st !== 'delivery_completed') return `#${id}-${num}: 미입력`;
+  const dt = slip.delivery_type || slip.deliveryType;
+  if (dt === 'direct') return `#${id}-${num}: 직접 배송 완료`;
+  const cc = (slip.courier_company || slip.courierCompany || '').trim();
+  const tn = (slip.tracking_number || slip.trackingNumber || '').trim();
+  if (cc || tn) return `#${id}-${num}: ${cc || '—'} / ${tn}`;
+  return `#${id}-${num}: 미입력`;
+}
+
+function formatOrderSlipLinesHtml(order) {
+  const id = String(order.id || '');
+  const slips = order.order_slips || order.orderSlips;
+  if (Array.isArray(slips) && slips.length > 0) {
+    return slips.map((s) =>
+      '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' +
+      escapeHtml(formatOneSlipLineClient(s, id)) +
+      '</span></div>'
+    ).join('');
+  }
+  if (order.status === 'delivery_completed') {
+    const cc = (order.courier_company || '').trim();
+    const tn = (order.tracking_number || '').trim();
+    const hasParcel = !!cc || !!tn;
+    let text;
+    if (order.delivery_type === 'direct') text = '직접 배송 완료';
+    else if (hasParcel) text = `${cc || '—'} / ${tn}`;
+    else text = '배송 정보 없음';
+    return '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' + escapeHtml(text) + '</span></div>';
+  }
+  return '';
+}
+
 function getOrderItemStoreKey(itemId) {
   const raw = (itemId || '').toString().trim();
   if (!raw) return 'unknown';
@@ -1101,7 +1137,7 @@ function renderPaymentList() {
 
   const orderWaitStatuses = ['submitted', 'order_accepted', 'payment_link_issued'];
   const isOrderWait = (o) => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o));
-  const isDeliveryWait = (o) => !cancelled(o) && o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o);
+  const isDeliveryWait = (o) => !cancelled(o) && ((o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping');
   const newCount = allOrders.filter(isOrderWait).length;
   const deliveryWaitCount = allOrders.filter(isDeliveryWait).length;
   const deliveryCompletedCount = allOrders.filter(o => !cancelled(o) && o.status === 'delivery_completed').length;
@@ -1112,13 +1148,13 @@ function renderPaymentList() {
   if (effectiveFilter === 'new') {
     filtered = allOrders.filter(o => !cancelled(o) && (orderWaitStatuses.includes(o.status) || isWithinPaymentCancelWindow(o)));
   } else if (effectiveFilter === 'delivery_wait') {
-    filtered = allOrders.filter(o => o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o));
+    filtered = allOrders.filter(o => (o.status === 'payment_completed' && !isWithinPaymentCancelWindow(o)) || o.status === 'shipping');
   } else if (effectiveFilter === 'delivery_completed') {
     filtered = allOrders.filter(o => o.status === 'delivery_completed');
   } else if (effectiveFilter === 'cancelled') {
     filtered = allOrders.filter(o => o.status === 'cancelled');
   } else {
-    filtered = allOrders.filter(o => o.status === 'payment_completed');
+    filtered = allOrders.filter(o => o.status === 'payment_completed' || o.status === 'shipping');
   }
 
   const sortBy = adminPaymentSortBy;
@@ -1165,17 +1201,9 @@ function renderPaymentList() {
     const deliveryAddressEsc = escapeHtml([(order.delivery_address || '').trim(), (order.detail_address || '').trim()].filter(Boolean).join(' ') || '—');
     const hideDeliveryBtn = effectiveFilter === 'new';
     const isDeliveryCompletedFilter = effectiveFilter === 'delivery_completed';
-    const showDeliveryInfo = isDeliveryCompletedFilter && order.status === 'delivery_completed';
-    const deliveryInfoText = showDeliveryInfo
-      ? (() => {
-          const cc = (order.courier_company || '').trim();
-          const tn = (order.tracking_number || '').trim();
-          const hasParcel = !!cc || !!tn;
-          if (order.delivery_type === 'direct') return '직접 배송 완료';
-          if (hasParcel) return `${cc || '—'} / ${tn}`;
-          return '배송 정보 없음';
-        })()
-      : '';
+    const showSlipLinesInWait = effectiveFilter === 'delivery_wait' && (order.status === 'payment_completed' || order.status === 'shipping');
+    const showSlipLinesInDoneTab = isDeliveryCompletedFilter && order.status === 'delivery_completed';
+    const slipLinesBlock = (showSlipLinesInWait || showSlipLinesInDoneTab) ? `<div class="admin-payment-slip-lines">${formatOrderSlipLinesHtml(order)}</div>` : '';
     const storeName = order.profileStoreName || '—';
     const ordererDisplay = effectiveFilter === 'delivery_wait'
       ? `${escapeHtml(storeName)} / ${escapeHtml(order.contact || '—')}`
@@ -1193,19 +1221,20 @@ function renderPaymentList() {
           <div>주문자: ${ordererDisplay}</div>
           <div>이메일: ${escapeHtml(order.user_email || '—')}</div>
         </div>
+        ${slipLinesBlock}
         <div class="admin-payment-link-row">
           ${effectiveFilter === 'cancelled'
             ? ''
             : hideDeliveryBtn
             ? '<span class="admin-payment-order-id admin-payment-order-notice">주문 완료 전입니다. 아직 발송하지 마세요.</span>'
-            : showDeliveryInfo
-            ? `<span class="admin-payment-delivery-info">*배송정보 : ${escapeHtml(deliveryInfoText)}</span>`
+            : showSlipLinesInDoneTab
+            ? ''
             : effectiveFilter === 'delivery_wait'
             ? ''
             : `<button type="button" class="admin-btn admin-btn-primary admin-payment-link-btn" data-open-delivery-modal="${orderIdEsc}" ${deliveryRowDisabled ? 'disabled' : ''}>발송 완료</button>`}
         </div>
         <div class="admin-payment-order-delete-row">
-          ${effectiveFilter === 'delivery_wait' && !hideDeliveryBtn && !showDeliveryInfo && (order.status === 'payment_completed' || order.status === 'shipping') ? `<button type="button" class="admin-payment-delivery-row-btn" data-open-delivery-modal="${orderIdEsc}">발송 처리</button>` : ''}
+          ${effectiveFilter === 'delivery_wait' && !hideDeliveryBtn && !showSlipLinesInDoneTab && (order.status === 'payment_completed' || order.status === 'shipping') ? `<button type="button" class="admin-payment-delivery-row-btn" data-open-delivery-modal="${orderIdEsc}">발송 처리</button>` : ''}
           ${order.status !== 'cancelled' && (order.status === 'submitted' || order.status === 'order_accepted' || order.status === 'payment_link_issued') ? `<button type="button" class="admin-payment-cancel-btn" data-cancel-order="${orderIdEsc}">취소</button>` : ''}
           <button type="button" class="admin-payment-delete-btn" data-delete-order="${orderIdEsc}">삭제</button>
         </div>
@@ -2849,6 +2878,20 @@ function openDeliveryCompleteModal(orderId) {
   const trackingInput = document.getElementById('adminDeliveryTrackingInput');
   if (courierSelect) courierSelect.value = '';
   if (trackingInput) trackingInput.value = '';
+  const slipRow = document.getElementById('adminDeliverySlipRow');
+  const slipSelect = document.getElementById('adminDeliverySlipSelect');
+  const order = findAdminPaymentOrderById(orderId);
+  const slips = order && (order.order_slips || order.orderSlips);
+  if (slipRow && slipSelect && order && Array.isArray(slips) && slips.length > 1) {
+    slipRow.style.display = 'block';
+    slipSelect.innerHTML = slips.map((s, i) => {
+      const num = s.slipIndex != null ? s.slipIndex : (i + 1);
+      return `<option value="${i}">#${escapeHtml(String(orderId))}-${num}</option>`;
+    }).join('');
+    slipSelect.value = '0';
+  } else if (slipRow) {
+    slipRow.style.display = 'none';
+  }
   modal.classList.add('admin-modal-visible');
   modal.setAttribute('aria-hidden', 'false');
 }
@@ -2867,19 +2910,24 @@ async function submitDeliveryCompleteDirect() {
   if (!orderId) return;
   const token = getToken();
   if (!token) return;
+  const slipSelect = document.getElementById('adminDeliverySlipSelect');
+  const useSlipSelect = slipSelect && slipSelect.options && slipSelect.options.length > 1;
+  const slipIndex = useSlipSelect ? parseInt(slipSelect.value, 10) || 0 : 0;
   try {
+    const body = { orderId, code: orderId };
+    const order = findAdminPaymentOrderById(orderId);
+    const slips = order && (order.order_slips || order.orderSlips);
+    if (Array.isArray(slips) && slips.length > 1) body.slipIndex = slipIndex;
     const res = await fetch(`${API_BASE}/api/admin/delivery-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ orderId, code: orderId }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
-    const order = findAdminPaymentOrderById(orderId);
-    if (order) order.status = 'delivery_completed';
     alert('직접 배송 완료 처리되었습니다.');
     closeDeliveryCompleteModal();
-    renderPaymentList();
+    await refetchPaymentOrdersAndRender();
   } catch (e) {
     alert(e.message || '처리에 실패했습니다.');
   }
@@ -2898,23 +2946,24 @@ async function submitDeliveryCompleteParcel() {
   }
   const token = getToken();
   if (!token) return;
+  const slipSelect = document.getElementById('adminDeliverySlipSelect');
+  const useSlipSelect = slipSelect && slipSelect.options && slipSelect.options.length > 1;
+  const slipIndex = useSlipSelect ? parseInt(slipSelect.value, 10) || 0 : 0;
   try {
+    const body = { orderId, courierCompany, trackingNumber };
+    const order = findAdminPaymentOrderById(orderId);
+    const slips = order && (order.order_slips || order.orderSlips);
+    if (Array.isArray(slips) && slips.length > 1) body.slipIndex = slipIndex;
     const res = await fetch(`${API_BASE}/api/admin/delivery-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ orderId, courierCompany, trackingNumber }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
-    const order = findAdminPaymentOrderById(orderId);
-    if (order) {
-      order.status = 'delivery_completed';
-      order.courier_company = courierCompany || null;
-      order.tracking_number = (trackingNumber || '').replace(/\D/g, '') || null;
-    }
     alert('저장되었습니다.');
     closeDeliveryCompleteModal();
-    renderPaymentList();
+    await refetchPaymentOrdersAndRender();
   } catch (e) {
     alert(e.message || '저장에 실패했습니다.');
   }
