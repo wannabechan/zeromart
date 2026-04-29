@@ -1148,20 +1148,11 @@ function openDeliveryInfoModal(order) {
   const modal = document.getElementById('deliveryInfoModal');
   const msgEl = document.getElementById('deliveryInfoModalMsg');
   if (!modal || !msgEl) return;
-  const slips = order.orderSlips;
   let text;
-  if (Array.isArray(slips) && slips.length > 0) {
+  const slipModal = typeof OrderSlipsDisplay !== 'undefined' && OrderSlipsDisplay.formatDeliveryModalLines(order);
+  if (slipModal) {
     msgEl.style.whiteSpace = 'pre-line';
-    const oid = String(order.id || '');
-    text = slips.map((s) => {
-      const num = s.slipIndex != null ? s.slipIndex : 1;
-      if (s.deliveryStatus !== 'delivery_completed') return `*배송정보 : #${oid}-${num}: 미입력`;
-      if (s.deliveryType === 'direct') return `*배송정보 : #${oid}-${num}: 직접 배송 완료`;
-      const cc = (s.courierCompany || '').trim();
-      const tn = (s.trackingNumber || '').trim();
-      if (cc || tn) return `*배송정보 : #${oid}-${num}: ${cc || '—'} / ${tn}`;
-      return `*배송정보 : #${oid}-${num}: 미입력`;
-    }).join('\n');
+    text = slipModal;
   } else {
     msgEl.style.whiteSpace = '';
     const hasParcel = !!(order.courierCompany && order.courierCompany.trim()) || !!(order.trackingNumber && order.trackingNumber.trim());

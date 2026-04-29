@@ -82,40 +82,9 @@ function escapeHtml(s) {
   return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function formatOneSlipLineClient(slip, orderId) {
-  const id = String(orderId || '');
-  const num = slip.slipIndex != null ? slip.slipIndex : 1;
-  const st = slip.delivery_status || slip.deliveryStatus;
-  if (st !== 'delivery_completed') return `#${id}-${num}: 미입력`;
-  const dt = slip.delivery_type || slip.deliveryType;
-  if (dt === 'direct') return `#${id}-${num}: 직접 배송 완료`;
-  const cc = (slip.courier_company || slip.courierCompany || '').trim();
-  const tn = (slip.tracking_number || slip.trackingNumber || '').trim();
-  if (cc || tn) return `#${id}-${num}: ${cc || '—'} / ${tn}`;
-  return `#${id}-${num}: 미입력`;
-}
-
 function formatOrderSlipLinesHtml(order) {
-  const id = String(order.id || '');
-  const slips = order.order_slips || order.orderSlips;
-  if (Array.isArray(slips) && slips.length > 0) {
-    return slips.map((s) =>
-      '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' +
-      escapeHtml(formatOneSlipLineClient(s, id)) +
-      '</span></div>'
-    ).join('');
-  }
-  if (order.status === 'delivery_completed') {
-    const cc = (order.courier_company || '').trim();
-    const tn = (order.tracking_number || '').trim();
-    const hasParcel = !!cc || !!tn;
-    let text;
-    if (order.delivery_type === 'direct') text = '직접 배송 완료';
-    else if (hasParcel) text = `${cc || '—'} / ${tn}`;
-    else text = '배송 정보 없음';
-    return '<div class="admin-payment-delivery-slip-line"><span class="admin-payment-delivery-info">*배송정보 : ' + escapeHtml(text) + '</span></div>';
-  }
-  return '';
+  if (typeof OrderSlipsDisplay === 'undefined') return '';
+  return OrderSlipsDisplay.formatOrderSlipLinesHtml(order, escapeHtml);
 }
 
 function getOrderItemStoreKey(itemId) {

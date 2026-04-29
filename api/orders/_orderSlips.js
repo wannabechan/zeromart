@@ -208,30 +208,11 @@ async function applySlipDeliveryComplete(orderId, stores, slipIndex, payload) {
   return { ok: true, order };
 }
 
-/** 슬립별 배송 표시 줄 (접두사 없이 내용만) */
-function slipDeliveryBodyLine(slip, orderId) {
-  const id = String(orderId || '');
-  const num = slip.slipIndex || 1;
-  if (slip.delivery_status !== SLIP_DONE) return `#${id}-${num}: 미입력`;
-  if (slip.delivery_type === 'direct') return `#${id}-${num}: 직접 배송 완료`;
-  const cc = (slip.courier_company || '').trim();
-  const tn = (slip.tracking_number || '').trim();
-  if (cc || tn) return `#${id}-${num}: ${cc || '—'} / ${tn}`;
-  return `#${id}-${num}: 미입력`;
-}
-
-function slipDeliveryLinesForDisplay(order, stores) {
-  const o = withHydratedSlips(order, stores);
-  const slips = o.order_slips || [];
-  return slips.map((s) => slipDeliveryBodyLine(s, o.id));
-}
-
 module.exports = {
   PAYMENT_CANCEL_WINDOW_MS,
   SLIP_PENDING,
   SLIP_DONE,
   isWithinPaymentCancelWindow,
-  buildSlipsFromOrderLegacy,
   allSlipsDelivered,
   anySlipDelivered,
   withHydratedSlips,
@@ -239,6 +220,4 @@ module.exports = {
   persistSlipsIfMissing,
   findManagerSlipIndex,
   applySlipDeliveryComplete,
-  slipDeliveryLinesForDisplay,
-  syncRootDeliveryFromSlips,
 };
