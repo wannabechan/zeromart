@@ -1392,11 +1392,6 @@ async function loadPaymentManagement() {
       }
     } catch (_) {}
 
-    if (adminPaymentOrders.length === 0 && adminPaymentTotal === 0) {
-      content.innerHTML = '<div class="admin-loading">주문 내역이 없습니다</div>';
-      return;
-    }
-
     renderPaymentList();
   } catch (e) {
     content.innerHTML = `<div class="admin-loading admin-error"><p>${escapeHtml(e.message || '오류가 발생했습니다.')}</p></div>`;
@@ -1415,10 +1410,6 @@ async function refetchPaymentOrdersAndRender() {
     const { orders, total } = await res.json();
     adminPaymentOrders = orders || [];
     adminPaymentTotal = typeof total === 'number' ? total : adminPaymentOrders.length;
-    if (adminPaymentOrders.length === 0 && adminPaymentTotal === 0) {
-      content.innerHTML = '<div class="admin-loading">주문 내역이 없습니다</div>';
-      return;
-    }
     renderPaymentList();
   } catch (_) {}
 }
