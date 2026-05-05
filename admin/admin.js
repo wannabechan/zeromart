@@ -741,6 +741,93 @@ async function loadResendLogsView() {
   }
 }
 
+async function loadAdminZeroPointsView() {
+  const container = document.getElementById('adminPointsContent');
+  if (!container) return;
+  container.innerHTML = getAdminLoadingHtml();
+  const token = getToken();
+  if (!token) {
+    container.innerHTML = '<p class="admin-error">로그인이 필요합니다.</p>';
+    return;
+  }
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/zero-points-users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      container.innerHTML = '<p class="admin-error">' + escapeHtml(data.error || '목록을 불러올 수 없습니다.') + '</p>';
+      return;
+    }
+    const rows = data.rows || [];
+    let html = '<h4 class="admin-points-title">제로포인트</h4>';
+    html +=
+      '<p class="admin-points-hint">인증으로 등록된 계정입니다. 사용 포인트 내역은 추후 연동 예정입니다.</p>';
+    html += '<div class="admin-points-wrap"><table class="admin-points-table"><thead><tr>';
+    html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">사용 포인트</th>';
+    html += '</tr></thead><tbody>';
+    if (rows.length === 0) {
+      html += '<tr><td colspan="4">표시할 계정이 없습니다.</td></tr>';
+    } else {
+      rows.forEach((row) => {
+        const emailRaw = row.email || '';
+        const emEsc = escapeHtml(emailRaw);
+        const emAttr = escapeHtml(emailRaw);
+        const cur = Number(row.zero_point) || 0;
+        const tot = Number(row.total_earned) || 0;
+        const used = Number(row.used_points) || 0;
+        const curStr = escapeHtml(String(cur.toLocaleString('ko-KR')));
+        const totStr = escapeHtml(String(tot.toLocaleString('ko-KR')));
+        const usedStr = escapeHtml(String(used.toLocaleString('ko-KR')));
+        html +=
+          '<tr><td>' +
+          emEsc +
+          '</td><td class="num">' +
+          curStr +
+          '</td><td class="num">' +
+          totStr +
+          '</td><td class="num"><button type="button" class="admin-points-used-btn" data-admin-zero-used-email="' +
+          emAttr +
+          '">' +
+          usedStr +
+          '</button></td></tr>';
+      });
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
+  }
+}
+
+function setupAdminZeroPointUsageModal() {
+  const overlay = document.getElementById('adminZeroPointUsageModal');
+  const closeBtn = document.getElementById('adminZeroPointUsageClose');
+  const tbody = document.getElementById('adminZeroPointUsageTbody');
+  const emailEl = document.getElementById('adminZeroPointUsageEmail');
+  const pointsContent = document.getElementById('adminPointsContent');
+  if (!overlay || !closeBtn || !tbody || !emailEl || !pointsContent) return;
+  function closeZeroPointUsageModal() {
+    overlay.classList.remove('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+  function openZeroPointUsageModal(email) {
+    emailEl.textContent = '계정: ' + (email || '—');
+    tbody.innerHTML = '';
+    overlay.classList.add('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+  closeBtn.addEventListener('click', closeZeroPointUsageModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeZeroPointUsageModal();
+  });
+  pointsContent.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-admin-zero-used-email]');
+    if (!btn) return;
+    openZeroPointUsageModal(btn.getAttribute('data-admin-zero-used-email') || '');
+  });
+}
+
 async function uploadImage(file) {
   const token = getToken();
   const formData = new FormData();
@@ -1037,6 +1124,10 @@ function setupTabs() {
       } else if (targetTab === 'resend') {
         document.getElementById('resendView').classList.add('active');
         loadResendLogsView();
+      } else if (targetTab === 'points') {
+        document.getElementById('pointsView').classList.add('active');
+        clearPaymentIdleTimer();
+        loadAdminZeroPointsView();
       }
   }
 
@@ -1054,7 +1145,7 @@ function setupTabs() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
     ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend'].includes(saved) ? saved : 'stores');
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend', 'points'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
@@ -2352,6 +2443,7 @@ async function init() {
   
   setupTabs();
   loadPaymentManagement();
+  setupAdminZeroPointUsageModal();
 
   document.getElementById('adminOrderDetailClose')?.addEventListener('click', closeAdminOrderDetail);
   document.getElementById('adminOrderDetailOverlay')?.addEventListener('click', (e) => {

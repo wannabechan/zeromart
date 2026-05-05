@@ -358,17 +358,33 @@
     .admin-resend-ok { color: #16a34a; font-weight: 500; }
     .admin-resend-fail { color: #c5221f; font-weight: 500; }
     .admin-resend-id { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--color-text-secondary); }
+    .admin-points-title { font-size: 0.9375rem; font-weight: 600; margin: 0 0 8px; color: var(--color-text); }
+    .admin-points-hint { font-size: 0.8125rem; color: var(--color-text-secondary); margin: 0 0 16px; }
+    .admin-points-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .admin-points-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; min-width: 520px; }
+    .admin-points-table th, .admin-points-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+    .admin-points-table th { font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+    .admin-points-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .admin-points-used-btn { background: none; border: none; padding: 0; font: inherit; color: var(--color-primary); cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
+    .admin-points-used-btn:hover { color: var(--color-text); }
+    .admin-points-usage-email { font-size: 0.875rem; color: var(--color-text-secondary); margin: 0 0 12px; word-break: break-all; }
+    .admin-points-usage-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .admin-points-usage-table th, .admin-points-usage-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
+    .admin-points-usage-table th { font-weight: 600; color: var(--color-text-secondary); }
+    .admin-modal--points-usage { max-width: 560px; }
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
       .admin-tab[data-tab="permissions"] { display: none; }
       .admin-tab[data-tab="logs"] { display: none; }
       .admin-tab[data-tab="resend"] { display: none; }
+      .admin-tab[data-tab="points"] { display: none; }
       #storesView { display: none !important; }
       #settlementView { display: none !important; }
       #permissionsView { display: none !important; }
       #logsView { display: none !important; }
       #resendView { display: none !important; }
+      #pointsView { display: none !important; }
       .admin-tabs { display: flex; gap: 0; }
       .admin-tabs .admin-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
       .admin-payment-subfilter-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -401,6 +417,7 @@
       <button class="admin-tab" data-tab="permissions">권한관리</button>
       <button class="admin-tab" data-tab="logs">로그관리</button>
       <button class="admin-tab" data-tab="resend">Resend관리</button>
+      <button class="admin-tab" data-tab="points">포인트관리</button>
     </div>
 
     <div id="adminError" class="admin-error" style="display: none;"></div>
@@ -443,6 +460,30 @@
     <div id="resendView" class="admin-view">
       <div id="adminResendContent">
         <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>
+      </div>
+    </div>
+
+    <div id="pointsView" class="admin-view">
+      <div id="adminPointsContent">
+        <div class="admin-loading" role="status" aria-label="로딩 중"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminZeroPointUsageModal" aria-hidden="true">
+      <div class="admin-modal admin-modal--points-usage">
+        <div class="admin-modal-header">
+          <h3>제로포인트 사용 내역</h3>
+          <button type="button" class="admin-modal-close" id="adminZeroPointUsageClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-points-usage-email" id="adminZeroPointUsageEmail"></p>
+          <table class="admin-points-usage-table">
+            <thead>
+              <tr><th>일시</th><th>내용</th><th>포인트</th></tr>
+            </thead>
+            <tbody id="adminZeroPointUsageTbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 

@@ -1,7 +1,7 @@
 /**
  * Redis (Upstash) 데이터 레이어
  * Key 구조:
- * - user:{email} = JSON 사용자 정보
+ * - user:{email} = JSON 사용자 정보 (zero_point: 제로포인트 잔액, 정수)
  * - auth:code:{email} = 6자리 코드 (TTL 10분)
  * - orders:count:{yymmdd} = 해당일 주문 건수 (INCR)
  * - order:{id} = JSON 주문 정보 (id = yymmdd000 형식)
@@ -161,6 +161,29 @@ async function updateUserLevel(email, level) {
   user.level = level;
   await redis.set(`user:${email}`, JSON.stringify(user));
   return user;
+}
+
+/** 로그인 사용자 Redis 문서에 제로포인트(정수)를 더함. user 없으면 null. */
+async function addUserZeroPoints(email, pointsDelta) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return null;
+  const delta = Math.floor(Number(pointsDelta));
+  if (!Number.isFinite(delta) || delta < 1) return null;
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) {
+    console.warn('addUserZeroPoints: user not found', e);
+    return null;
+  }
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const prev = Number(user.zero_point) || 0;
+  if (!Number.isFinite(prev) || prev < 0) {
+    user.zero_point = delta;
+  } else {
+    user.zero_point = prev + delta;
+  }
+  await redis.set(`user:${e}`, JSON.stringify(user));
+  return user.zero_point;
 }
 
 function getYymmddKST() {
@@ -377,6 +400,55 @@ async function getAllOrders() {
 }
 
 /**
+ * 어드민 포인트관리: 인증으로 생성된 user:* 계정, 이메일 오름차순.
+ * 총 누적 = 주문에 기록된 zero_point_earned 합(결제 적립분만). 사용 = max(0, 총누적 − 현재 잔액).
+ */
+async function getAdminZeroPointUserRows() {
+  const redis = getRedis();
+  const keys = await redis.keys('user:*');
+  if (!keys || keys.length === 0) return [];
+  const emails = keys
+    .map((k) => String(k).replace(/^user:/i, ''))
+    .filter((e) => e.includes('@'));
+  emails.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  const userKeys = emails.map((e) => `user:${e}`);
+  const raws = await redis.mget(...userKeys);
+  const orders = await getAllOrders();
+  const earnedByEmail = {};
+  for (const o of orders) {
+    const em = String(o.user_email || '').trim().toLowerCase();
+    if (!em) continue;
+    const z = Number(o.zero_point_earned);
+    if (Number.isFinite(z) && z > 0) {
+      earnedByEmail[em] = (earnedByEmail[em] || 0) + z;
+    }
+  }
+  const rows = [];
+  for (let i = 0; i < emails.length; i++) {
+    const email = emails[i];
+    const raw = raws[i];
+    if (!raw) continue;
+    let u;
+    try {
+      u = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {
+      continue;
+    }
+    const current = Number(u.zero_point) || 0;
+    const safeCurrent = Number.isFinite(current) && current >= 0 ? Math.floor(current) : 0;
+    const totalEarned = earnedByEmail[email] || 0;
+    const usedPoints = Math.max(0, totalEarned - safeCurrent);
+    rows.push({
+      email,
+      zero_point: safeCurrent,
+      total_earned: totalEarned,
+      used_points: usedPoints,
+    });
+  }
+  return rows;
+}
+
+/**
  * 환경변수 ADMIN_USE_SAMPLE_ORDERS === 'true' 이면 샘플 주문 반환, 아니면 실제 DB 주문.
  * 어드민·매장담당자·브랜드매니저 API에서 공통 사용 (동일 샘플 데이터로 테스트 가능).
  */
@@ -585,6 +657,7 @@ module.exports = {
   createUser,
   updateUserLogin,
   updateUserLevel,
+  addUserZeroPoints,
   createOrder,
   getOrdersByUser,
   getOrderById,
@@ -602,6 +675,7 @@ module.exports = {
   updateOrderTossPaymentKey,
   updateOrderUserAsOrderSent,
   getAllOrders,
+  getAdminZeroPointUserRows,
   getOrdersForAdmin,
   getStores,
   getMenus,

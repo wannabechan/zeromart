@@ -4,9 +4,18 @@
  */
 
 const crypto = require('crypto');
-const { getOrderById, getStores, updateOrderStatus, updateOrderTossPaymentKey, updateOrderAcceptToken } = require('../_redis');
+const {
+  getOrderById,
+  getStores,
+  updateOrderStatus,
+  updateOrderTossPaymentKey,
+  updateOrderAcceptToken,
+  addUserZeroPoints,
+  saveOrder,
+} = require('../_redis');
 const { persistSlipsIfMissing } = require('../orders/_orderSlips');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
+const { isTossPureCreditOrCheckCard } = require('./_tossPaymentMethod');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -75,6 +84,14 @@ module.exports = async (req, res) => {
       return res.redirect(302, `${redirectBase}?payment=error`);
     }
 
+    let payment;
+    try {
+      payment = await confirmRes.json();
+    } catch (parseErr) {
+      console.error('Payment success: confirm JSON parse', parseErr);
+      return res.redirect(302, `${redirectBase}?payment=error`);
+    }
+
     await updateOrderTossPaymentKey(orderIdStr, String(paymentKey).trim());
     await updateOrderStatus(orderIdStr, 'payment_completed');
 
@@ -94,6 +111,31 @@ module.exports = async (req, res) => {
       await persistSlipsIfMissing(orderIdStr, stores);
     } catch (e) {
       console.error('Payment success: persist slips', e.message);
+    }
+
+    try {
+      let orderAfter = await getOrderById(orderIdStr);
+      const already = orderAfter && Number(orderAfter.zero_point_earned) > 0;
+      if (orderAfter && !already) {
+        const rate = Number(process.env.PAYMENT_REWARDRATE);
+        if (Number.isFinite(rate) && rate > 0 && isTossPureCreditOrCheckCard(payment)) {
+          const totalPaid = Number(payment.totalAmount);
+          const base =
+            Number.isFinite(totalPaid) && totalPaid > 0 ? totalPaid : Number(orderAfter.total_amount);
+          const pts = Number.isFinite(base) && base > 0 ? Math.floor(base * (rate / 100)) : 0;
+          if (pts > 0 && orderAfter.user_email) {
+            const bal = await addUserZeroPoints(String(orderAfter.user_email).trim().toLowerCase(), pts);
+            if (bal != null) {
+              orderAfter = await getOrderById(orderIdStr) || orderAfter;
+              orderAfter.zero_point_earned = pts;
+              orderAfter.zero_point_awarded_at = new Date().toISOString();
+              await saveOrder(orderAfter);
+            }
+          }
+        }
+      }
+    } catch (zpErr) {
+      console.error('Payment success: zero point reward', zpErr.message);
     }
 
     return res.redirect(302, `${redirectBase}?payment=success`);
