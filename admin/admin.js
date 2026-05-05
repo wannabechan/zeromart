@@ -760,9 +760,9 @@ async function loadAdminZeroPointsView() {
       return;
     }
     const rows = data.rows || [];
-    let html = '<h4 class="admin-points-title">제로포인트</h4>';
+    let html = '<h4 class="admin-points-title">*Zero Point</h4>';
     html +=
-      '<p class="admin-points-hint">인증으로 등록된 계정입니다. 사용 포인트 내역은 추후 연동 예정입니다.</p>';
+      '<p class="admin-points-hint">적립 발생한 시점으로부터 50일이 지난 포인트는 자동 소멸됩니다.</p>';
     html += '<div class="admin-points-wrap"><table class="admin-points-table"><thead><tr>';
     html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">사용 포인트</th>';
     html += '</tr></thead><tbody>';
