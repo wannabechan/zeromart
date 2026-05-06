@@ -91,6 +91,7 @@ const checkoutModal = document.getElementById('checkoutModal');
 const checkoutClose = document.getElementById('checkoutClose');
 const checkoutAmount = document.getElementById('checkoutAmount');
 const checkoutOrderTime = document.getElementById('checkoutOrderTime');
+const checkoutZeroPoint = document.getElementById('checkoutZeroPoint');
 const inputDepositor = document.getElementById('inputDepositor');
 const inputContact = document.getElementById('inputContact');
 const checkoutForm = document.getElementById('checkoutForm');
@@ -202,6 +203,11 @@ function getOrderSlipLabelForCategory(order, categorySlug) {
 
 function formatPrice(price) {
   return price.toLocaleString() + '원';
+}
+
+function formatPoint(point) {
+  const n = Number(point || 0);
+  return n.toLocaleString() + 'P';
 }
 
 // 유틸: HTML 이스케이프 (XSS 방지)
@@ -756,6 +762,8 @@ async function openCheckoutModal(profileSettings) {
   inputDetailAddress.value = '';
 
   const data = profileSettings || await fetchProfileSettings() || {};
+  const currentZeroPoint = Number(data.zeroPoint) || 0;
+  if (checkoutZeroPoint) checkoutZeroPoint.textContent = formatPoint(currentZeroPoint);
   if (data.name) inputDepositor.value = data.name;
   if (data.contact) inputContact.value = data.contact;
   if ((data.address || '').trim()) {

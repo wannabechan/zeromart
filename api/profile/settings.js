@@ -5,7 +5,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getProfileSettings, setProfileSettings } = require('../_redis');
+const { getProfileSettings, setProfileSettings, getUser } = require('../_redis');
 
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
@@ -34,8 +34,17 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'GET') {
-      const data = await getProfileSettings(email);
-      return apiResponse(res, 200, { settings: data || {} });
+      const [data, userData] = await Promise.all([
+        getProfileSettings(email),
+        getUser(email),
+      ]);
+      const zeroPoint = Number(userData && userData.zero_point) || 0;
+      return apiResponse(res, 200, {
+        settings: {
+          ...(data || {}),
+          zeroPoint,
+        },
+      });
     }
 
     if (req.method === 'PUT') {
