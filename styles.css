@@ -2414,6 +2414,10 @@ body {
   font-size: 0.9375rem;
 }
 
+.amount-row .amount.checkout-zero-point {
+  font-weight: 400;
+}
+
 .amount-row-meta {
   display: flex;
   align-items: center;
