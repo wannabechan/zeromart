@@ -92,6 +92,7 @@ const checkoutClose = document.getElementById('checkoutClose');
 const checkoutAmount = document.getElementById('checkoutAmount');
 const checkoutOrderTime = document.getElementById('checkoutOrderTime');
 const checkoutZeroPoint = document.getElementById('checkoutZeroPoint');
+const btnUseAllPoints = document.getElementById('btnUseAllPoints');
 const inputDepositor = document.getElementById('inputDepositor');
 const inputContact = document.getElementById('inputContact');
 const checkoutForm = document.getElementById('checkoutForm');
@@ -125,6 +126,13 @@ let profileAllOrders = [];
 let profileVisibleCount = 10;
 let profileIncludeCancelled = false;
 const PROFILE_PAGE_SIZE = 10;
+
+const MIN_PAYABLE_AMOUNT = 10000;
+let checkoutBaseTotalAmount = 0;
+let checkoutCurrentPayableAmount = 0;
+let checkoutAvailableZeroPoint = 0;
+let checkoutAppliedZeroPoint = 0;
+let checkoutUseAllPoints = false;
 
 // 180초 무활동 시 API 재호출 + 주문 목록 영역만 다시 그리기
 const PROFILE_IDLE_MS = 180000;
@@ -208,6 +216,40 @@ function formatPrice(price) {
 function formatPoint(point) {
   const n = Number(point || 0);
   return n.toLocaleString() + 'P';
+}
+
+function getMaxUsableZeroPoint(baseTotal, availablePoint) {
+  const total = Math.max(0, Number(baseTotal) || 0);
+  const available = Math.max(0, Math.floor(Number(availablePoint) || 0));
+  if (total <= MIN_PAYABLE_AMOUNT || available <= 0) return 0;
+  return Math.min(available, Math.max(0, total - MIN_PAYABLE_AMOUNT));
+}
+
+function renderCheckoutZeroPointState() {
+  const maxUsable = getMaxUsableZeroPoint(checkoutBaseTotalAmount, checkoutAvailableZeroPoint);
+  if (checkoutUseAllPoints && maxUsable <= 0) checkoutUseAllPoints = false;
+  checkoutAppliedZeroPoint = checkoutUseAllPoints ? maxUsable : 0;
+  checkoutCurrentPayableAmount = checkoutBaseTotalAmount - checkoutAppliedZeroPoint;
+
+  if (checkoutAmount) checkoutAmount.textContent = formatPrice(checkoutCurrentPayableAmount);
+  if (checkoutZeroPoint) {
+    if (checkoutAppliedZeroPoint > 0) {
+      const remain = Math.max(0, checkoutAvailableZeroPoint - checkoutAppliedZeroPoint);
+      checkoutZeroPoint.textContent = `${formatPoint(remain)} (${formatPoint(checkoutAppliedZeroPoint)} 사용예정)`;
+    } else {
+      checkoutZeroPoint.textContent = formatPoint(checkoutAvailableZeroPoint);
+    }
+  }
+
+  if (btnUseAllPoints) {
+    if (checkoutAvailableZeroPoint <= 0) {
+      btnUseAllPoints.style.display = 'none';
+      return;
+    }
+    btnUseAllPoints.style.display = '';
+    btnUseAllPoints.textContent = checkoutUseAllPoints ? '포인트사용취소' : '전체포인트사용';
+    btnUseAllPoints.classList.toggle('is-disabled', maxUsable <= 0);
+  }
 }
 
 // 유틸: HTML 이스케이프 (XSS 방지)
@@ -746,6 +788,10 @@ async function openCheckoutModal(profileSettings) {
   const orderTime = new Date();
 
   checkoutOrderTime.textContent = formatOrderTime(orderTime);
+  checkoutBaseTotalAmount = total;
+  checkoutCurrentPayableAmount = total;
+  checkoutAppliedZeroPoint = 0;
+  checkoutUseAllPoints = false;
   checkoutAmount.textContent = formatPrice(total);
 
   orderDetailContent.innerHTML = `<div class="order-detail-list order-detail-cart-style">${renderOrderSummaryList(entries)}</div>`;
@@ -762,8 +808,9 @@ async function openCheckoutModal(profileSettings) {
   inputDetailAddress.value = '';
 
   const data = profileSettings || await fetchProfileSettings() || {};
-  const currentZeroPoint = Number(data.zeroPoint) || 0;
-  if (checkoutZeroPoint) checkoutZeroPoint.textContent = formatPoint(currentZeroPoint);
+  const currentZeroPoint = Math.max(0, Math.floor(Number(data.zeroPoint) || 0));
+  checkoutAvailableZeroPoint = currentZeroPoint;
+  renderCheckoutZeroPointState();
   if (data.name) inputDepositor.value = data.name;
   if (data.contact) inputContact.value = data.contact;
   if ((data.address || '').trim()) {
@@ -1131,6 +1178,26 @@ function showUnsupportedRegionModal() {
   if (!modal) return;
   const confirmBtn = document.getElementById('unsupportedRegionModalConfirm');
   const closeBtn = document.getElementById('unsupportedRegionModalClose');
+  const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
+  const doClose = () => {
+    modal.classList.remove('visible');
+    modal.setAttribute('aria-hidden', 'true');
+    if (confirmBtn) confirmBtn.onclick = null;
+    if (closeBtn) closeBtn.onclick = null;
+    if (backdrop) backdrop.onclick = null;
+  };
+  if (confirmBtn) confirmBtn.onclick = doClose;
+  if (closeBtn) closeBtn.onclick = doClose;
+  if (backdrop) backdrop.onclick = doClose;
+  modal.classList.add('visible');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function showPointUnavailableModal() {
+  const modal = document.getElementById('pointUnavailableModal');
+  if (!modal) return;
+  const confirmBtn = document.getElementById('pointUnavailableModalConfirm');
+  const closeBtn = document.getElementById('pointUnavailableModalClose');
   const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
   const doClose = () => {
     modal.classList.remove('visible');
@@ -1774,6 +1841,17 @@ function init() {
   inputDetailAddress.addEventListener('change', updateOrderSubmitButton);
 
   btnOrderDetail.addEventListener('click', openOrderDetailOverlay);
+  if (btnUseAllPoints) {
+    btnUseAllPoints.addEventListener('click', () => {
+      const maxUsable = getMaxUsableZeroPoint(checkoutBaseTotalAmount, checkoutAvailableZeroPoint);
+      if (maxUsable <= 0) {
+        showPointUnavailableModal();
+        return;
+      }
+      checkoutUseAllPoints = !checkoutUseAllPoints;
+      renderCheckoutZeroPointState();
+    });
+  }
   orderDetailClose.addEventListener('click', closeOrderDetailOverlay);
   orderDetailOverlay.addEventListener('click', (e) => {
     if (e.target === orderDetailOverlay) closeOrderDetailOverlay();
@@ -1813,7 +1891,7 @@ function init() {
         deliveryAddress: inputDeliveryAddress.value.trim(),
         detailAddress: inputDetailAddress.value.trim() || null,
         orderItems: orderItems,
-        totalAmount: calculateTotal(),
+        totalAmount: checkoutCurrentPayableAmount,
         categoryTotals,
       };
 

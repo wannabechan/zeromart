@@ -292,7 +292,12 @@
                   </span>
                 </dd>
                 <dt>내 제로포인트</dt>
-                <dd id="checkoutZeroPoint">0P</dd>
+                <dd class="amount-row">
+                  <span class="amount" id="checkoutZeroPoint">0P</span>
+                  <span class="amount-row-meta">
+                    <button type="button" class="btn-order-detail" id="btnUseAllPoints">전체포인트사용</button>
+                  </span>
+                </dd>
               </dl>
             </div>
             <div class="bank-notice">
@@ -389,6 +394,21 @@
           배송이 가능합니다. 불편드려 죄송합니다.
         </p>
         <button type="button" class="unsupported-region-modal-btn" id="unsupportedRegionModalConfirm">확인</button>
+      </div>
+    </div>
+    <!-- 포인트 사용 불가 안내 모달 -->
+    <div class="unsupported-region-modal" id="pointUnavailableModal" aria-hidden="true">
+      <div class="unsupported-region-modal-backdrop"></div>
+      <div class="unsupported-region-modal-panel">
+        <button type="button" class="unsupported-region-modal-close" id="pointUnavailableModalClose" aria-label="닫기">&times;</button>
+        <div class="unsupported-region-modal-symbol-wrap">
+          <img src="/img/zeromart_symbol.png" alt="" class="unsupported-region-modal-symbol">
+        </div>
+        <p class="unsupported-region-modal-msg">
+          결제 금액이 1만원 이하일 경우<br>
+          제로포인트를 사용하실 수 없습니다.
+        </p>
+        <button type="button" class="unsupported-region-modal-btn" id="pointUnavailableModalConfirm">확인</button>
       </div>
     </div>
     <!-- 주문 취소 확인 모달 (결제 전) -->
