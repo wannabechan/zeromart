@@ -2411,7 +2411,7 @@ body {
 .amount-row .amount {
   font-weight: 600;
   color: var(--color-primary);
-  font-size: 1.125rem;
+  font-size: 0.9375rem;
 }
 
 .amount-row-meta {
