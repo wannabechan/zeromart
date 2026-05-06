@@ -10,7 +10,6 @@ const {
   updateOrderStatus,
   updateOrderTossPaymentKey,
   updateOrderAcceptToken,
-  addUserZeroPoints,
   saveOrder,
 } = require('../_redis');
 const { persistSlipsIfMissing } = require('../orders/_orderSlips');
@@ -19,6 +18,7 @@ const { isTossPureCreditOrCheckCard } = require('./_tossPaymentMethod');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
+const ZERO_POINT_REWARD_DELAY_MS = 50 * 60 * 1000;
 
 function pickQuery(req, key) {
   const v = req.query[key] ?? req.query[key.toLowerCase()];
@@ -114,28 +114,20 @@ module.exports = async (req, res) => {
     }
 
     try {
-      let orderAfter = await getOrderById(orderIdStr);
-      const already = orderAfter && Number(orderAfter.zero_point_earned) > 0;
-      if (orderAfter && !already) {
-        const rate = Number(process.env.PAYMENT_REWARDRATE);
-        if (Number.isFinite(rate) && rate > 0 && isTossPureCreditOrCheckCard(payment)) {
-          const totalPaid = Number(payment.totalAmount);
-          const base =
-            Number.isFinite(totalPaid) && totalPaid > 0 ? totalPaid : Number(orderAfter.total_amount);
-          const pts = Number.isFinite(base) && base > 0 ? Math.floor(base * (rate / 100)) : 0;
-          if (pts > 0 && orderAfter.user_email) {
-            const bal = await addUserZeroPoints(String(orderAfter.user_email).trim().toLowerCase(), pts);
-            if (bal != null) {
-              orderAfter = await getOrderById(orderIdStr) || orderAfter;
-              orderAfter.zero_point_earned = pts;
-              orderAfter.zero_point_awarded_at = new Date().toISOString();
-              await saveOrder(orderAfter);
-            }
-          }
+      const orderAfter = await getOrderById(orderIdStr);
+      if (orderAfter) {
+        const totalPaid = Number(payment.totalAmount);
+        const paidAmount =
+          Number.isFinite(totalPaid) && totalPaid > 0 ? totalPaid : Number(orderAfter.total_amount);
+        orderAfter.zero_point_reward_eligible = !!isTossPureCreditOrCheckCard(payment);
+        orderAfter.zero_point_reward_ready_at = new Date(Date.now() + ZERO_POINT_REWARD_DELAY_MS).toISOString();
+        if (Number.isFinite(paidAmount) && paidAmount > 0) {
+          orderAfter.payment_confirmed_amount = Math.floor(paidAmount);
         }
+        await saveOrder(orderAfter);
       }
-    } catch (zpErr) {
-      console.error('Payment success: zero point reward', zpErr.message);
+    } catch (zpMetaErr) {
+      console.error('Payment success: zero point reward schedule', zpMetaErr.message);
     }
 
     return res.redirect(302, `${redirectBase}?payment=success`);
