@@ -2,6 +2,8 @@
  * GET /api/cron/send-order-notifications
  * 결제 완료 45분이 지난 주문에 대해 매장 담당자에게 주문서 메일 발송 (한 번만).
  * 결제 완료 50분이 지난 주문에 대해 제로포인트 적립 처리.
+ * - 일반 카드(신용·체크): PAYMENT_REWARDRATE_CREDIT (%)
+ * - 간편결제(easyPay): PAYMENT_REWARDRATE_EASYPAY (%)
  * CRON_SECRET 필요 (Authorization: Bearer <CRON_SECRET>).
  */
 
@@ -25,6 +27,14 @@ const {
 const PAYMENT_CANCEL_WINDOW_MS = 45 * 60 * 1000;
 const ZERO_POINT_REWARD_DELAY_MS = 50 * 60 * 1000;
 
+/** @returns {'credit'|'easypay'|null} */
+function getZeroPointRewardKindFromOrder(order) {
+  const k = order.zero_point_reward_kind;
+  if (k === 'credit' || k === 'easypay') return k;
+  if (order.zero_point_reward_eligible === true) return 'credit';
+  return null;
+}
+
 function isEligibleForNotification(order) {
   if ((order.status || '') !== 'payment_completed') return false;
   if (order.order_notification_sent) return false;
@@ -38,7 +48,7 @@ function isEligibleForNotification(order) {
 function isEligibleForZeroPointReward(order) {
   if ((order.status || '') !== 'payment_completed') return false;
   if (Number(order.zero_point_earned) > 0) return false;
-  if (!order.zero_point_reward_eligible) return false;
+  if (!getZeroPointRewardKindFromOrder(order)) return false;
   const at = order.zero_point_reward_ready_at || order.payment_completed_at;
   if (!at) return false;
   const ts = new Date(at).getTime();
@@ -66,7 +76,11 @@ module.exports = async (req, res) => {
     let rewarded = 0;
     for (const order of orders) {
       if (!isEligibleForZeroPointReward(order)) continue;
-      const rate = Number(process.env.PAYMENT_REWARDRATE);
+      const kind = getZeroPointRewardKindFromOrder(order);
+      const rateRaw = kind === 'easypay'
+        ? process.env.PAYMENT_REWARDRATE_EASYPAY
+        : process.env.PAYMENT_REWARDRATE_CREDIT;
+      const rate = Number(rateRaw);
       if (!Number.isFinite(rate) || rate <= 0) continue;
       const paidBase = Number(order.payment_confirmed_amount);
       const fallbackBase = Number(order.total_amount);

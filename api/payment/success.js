@@ -14,7 +14,7 @@ const {
 } = require('../_redis');
 const { persistSlipsIfMissing } = require('../orders/_orderSlips');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
-const { isTossPureCreditOrCheckCard } = require('./_tossPaymentMethod');
+const { isTossPureCreditOrCheckCard, hasMeaningfulEasyPay } = require('./_tossPaymentMethod');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -119,10 +119,20 @@ module.exports = async (req, res) => {
         const totalPaid = Number(payment.totalAmount);
         const paidAmount =
           Number.isFinite(totalPaid) && totalPaid > 0 ? totalPaid : Number(orderAfter.total_amount);
-        orderAfter.zero_point_reward_eligible = !!isTossPureCreditOrCheckCard(payment);
-        orderAfter.zero_point_reward_ready_at = new Date(Date.now() + ZERO_POINT_REWARD_DELAY_MS).toISOString();
-        if (Number.isFinite(paidAmount) && paidAmount > 0) {
-          orderAfter.payment_confirmed_amount = Math.floor(paidAmount);
+        let rewardKind = null;
+        if (isTossPureCreditOrCheckCard(payment)) {
+          rewardKind = 'credit';
+        } else if (hasMeaningfulEasyPay(payment.easyPay)) {
+          rewardKind = 'easypay';
+        }
+        orderAfter.zero_point_reward_kind = rewardKind;
+        if (rewardKind) {
+          orderAfter.zero_point_reward_ready_at = new Date(Date.now() + ZERO_POINT_REWARD_DELAY_MS).toISOString();
+          if (Number.isFinite(paidAmount) && paidAmount > 0) {
+            orderAfter.payment_confirmed_amount = Math.floor(paidAmount);
+          }
+        } else {
+          orderAfter.zero_point_reward_ready_at = null;
         }
         await saveOrder(orderAfter);
       }
