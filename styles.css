@@ -2416,6 +2416,7 @@ body {
 
 .amount-row .amount.checkout-zero-point {
   font-weight: 400;
+  font-size: 0.8125rem;
 }
 
 .amount-row-meta {
@@ -3417,6 +3418,10 @@ body {
 
 .bank-details dd {
   font-size: 0.9375rem;
+}
+
+.bank-details #checkoutOrderTime {
+  font-size: 0.8125rem;
 }
 
 .account-number {
