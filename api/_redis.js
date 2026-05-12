@@ -163,12 +163,203 @@ async function updateUserLevel(email, level) {
   return user;
 }
 
-/** 로그인 사용자 Redis 문서에 제로포인트(정수)를 더함. user 없으면 null. */
-async function addUserZeroPoints(email, pointsDelta) {
+function recomputeZeroPointBalanceFromGrants(user) {
+  const arr = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  let s = 0;
+  for (const g of arr) {
+    s += Math.max(0, Math.floor(Number(g.remaining)) || 0);
+  }
+  user.zero_point = s;
+}
+
+function consumeGrantsFifoMutate(user, amountToConsume) {
+  const amt = Math.floor(Number(amountToConsume));
+  if (!Number.isFinite(amt) || amt < 1) return;
+  const grants = Array.isArray(user.zero_point_grants) ? [...user.zero_point_grants] : [];
+  grants.sort((a, b) => new Date(a.awardedAt).getTime() - new Date(b.awardedAt).getTime());
+  let left = amt;
+  for (const g of grants) {
+    if (left <= 0) break;
+    const r = Math.max(0, Math.floor(Number(g.remaining)) || 0);
+    if (r <= 0) continue;
+    const take = Math.min(r, left);
+    g.remaining = r - take;
+    left -= take;
+  }
+  user.zero_point_grants = grants;
+  recomputeZeroPointBalanceFromGrants(user);
+}
+
+const MAX_ZERO_POINT_HISTORY = 400;
+
+/** @param {object} user - mutated in memory */
+function appendZeroPointHistoryOnUser(user, entry) {
+  const code = String(entry.code || '').trim();
+  const delta = Math.floor(Number(entry.delta));
+  if (!code || !Number.isFinite(delta) || delta === 0) return;
+  const arr = Array.isArray(user.zero_point_history) ? user.zero_point_history : [];
+  arr.unshift({
+    ts: entry.ts || new Date().toISOString(),
+    code,
+    delta,
+    orderId: entry.orderId != null && entry.orderId !== '' ? String(entry.orderId) : null,
+  });
+  user.zero_point_history = arr.slice(0, MAX_ZERO_POINT_HISTORY);
+}
+
+async function appendZeroPointHistory(email, entry) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return;
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return;
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  appendZeroPointHistoryOnUser(user, entry);
+  await redis.set(`user:${e}`, JSON.stringify(user));
+}
+
+/** @returns {Promise<Array<{ ts: string|null, code: string, delta: number, orderId: string|null }>>} */
+async function getZeroPointHistoryByEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return [];
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return [];
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const arr = Array.isArray(user.zero_point_history) ? user.zero_point_history : [];
+  return arr.map((ev) => ({
+    ts: ev.ts != null ? String(ev.ts) : null,
+    code: String(ev.code || '').trim(),
+    delta: Number.isFinite(Number(ev.delta)) ? Math.floor(Number(ev.delta)) : 0,
+    orderId: ev.orderId != null && ev.orderId !== '' ? String(ev.orderId) : null,
+  }));
+}
+
+/**
+ * 주문 적립 이력으로 zero_point_grants 복구 (잔액과 FIFO 사용분 일치).
+ * @param {object} [opts]
+ * @param {string} [opts.excludeOrderId] 적립 직전 addUserZeroPoints 호출 시 해당 주문은 합계에서 제외(이중 계산 방지)
+ */
+async function migrateZeroPointGrantsFromOrdersIfNeeded(email, opts = {}) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return;
+  const excludeOrderId = opts.excludeOrderId != null ? String(opts.excludeOrderId).trim() : '';
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return;
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const bal = Math.max(0, Math.floor(Number(user.zero_point)) || 0);
+  const existing = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  const sumRem = existing.reduce((s, g) => s + Math.max(0, Math.floor(Number(g.remaining)) || 0), 0);
+  if (existing.length > 0 && sumRem === bal) return;
+
+  const orders = await getOrdersByUser(e);
+  const grants = [];
+  for (const o of orders) {
+    if (excludeOrderId && String(o.id) === excludeOrderId) continue;
+    const earned = Math.floor(Number(o.zero_point_earned)) || 0;
+    if (earned <= 0) continue;
+    const awardedAt = o.zero_point_awarded_at || o.payment_completed_at;
+    if (!awardedAt) continue;
+    grants.push({
+      sourceOrderId: String(o.id),
+      amount: earned,
+      awardedAt: String(awardedAt),
+      remaining: earned,
+    });
+  }
+  grants.sort((a, b) => new Date(a.awardedAt).getTime() - new Date(b.awardedAt).getTime());
+  const sumEarned = grants.reduce((s, g) => s + g.remaining, 0);
+  let used = Math.max(0, sumEarned - bal);
+  for (const g of grants) {
+    if (used <= 0) break;
+    const r = g.remaining;
+    if (r <= 0) continue;
+    const take = Math.min(r, used);
+    g.remaining = r - take;
+    used -= take;
+  }
+  if (grants.length === 0 && bal > 0) {
+    grants.push({
+      sourceOrderId: '_legacy',
+      amount: bal,
+      awardedAt: new Date().toISOString(),
+      remaining: bal,
+    });
+  }
+  user.zero_point_grants = grants;
+  await redis.set(`user:${e}`, JSON.stringify(user));
+}
+
+/**
+ * 적립 발생일(zero_point_awarded_at) 기준 PAYMENT_REWARD_EXPIREDAYS 경과분 소멸.
+ * @returns {number} 해당 사용자에서 소멸된 포인트 합
+ */
+async function expireUserZeroPointsByPolicy(email, expireDays) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return 0;
+  const days = Math.floor(Number(expireDays));
+  if (!Number.isFinite(days) || days < 1) return 0;
+  await migrateZeroPointGrantsFromOrdersIfNeeded(e);
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return 0;
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const expireMs = days * 86400000;
+  const now = Date.now();
+  let expired = 0;
+  const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  for (const g of grants) {
+    const rem = Math.max(0, Math.floor(Number(g.remaining)) || 0);
+    if (rem <= 0) continue;
+    const t = new Date(g.awardedAt).getTime();
+    if (Number.isNaN(t) || now - t < expireMs) continue;
+    g.remaining = 0;
+    expired += rem;
+  }
+  if (expired <= 0) return 0;
+  appendZeroPointHistoryOnUser(user, {
+    code: 'expire',
+    delta: -expired,
+    ts: new Date().toISOString(),
+    orderId: null,
+  });
+  recomputeZeroPointBalanceFromGrants(user);
+  await redis.set(`user:${e}`, JSON.stringify(user));
+  return expired;
+}
+
+async function listUserEmailsFromRedis() {
+  const redis = getRedis();
+  const keys = await redis.keys('user:*');
+  if (!keys || keys.length === 0) return [];
+  return keys
+    .map((k) => String(k).replace(/^user:/i, ''))
+    .filter((em) => em.includes('@'));
+}
+
+async function expireAllUsersZeroPointsByPolicy(expireDays) {
+  const emails = await listUserEmailsFromRedis();
+  let pointsExpired = 0;
+  let usersTouched = 0;
+  for (const email of emails) {
+    const n = await expireUserZeroPointsByPolicy(email, expireDays);
+    if (n > 0) {
+      pointsExpired += n;
+      usersTouched += 1;
+    }
+  }
+  return { checked: emails.length, pointsExpired, usersTouched };
+}
+
+/** 로그인 사용자 Redis 문서에 제로포인트(정수)를 더함. user 없으면 null. meta: { sourceOrderId?, awardedAt?, historyCode?: 'earn_credit'|'earn_easypay' } */
+async function addUserZeroPoints(email, pointsDelta, meta = {}) {
   const e = String(email || '').trim().toLowerCase();
   if (!e) return null;
   const delta = Math.floor(Number(pointsDelta));
   if (!Number.isFinite(delta) || delta < 1) return null;
+  const m = meta && typeof meta === 'object' ? meta : {};
+  await migrateZeroPointGrantsFromOrdersIfNeeded(e, { excludeOrderId: m.sourceOrderId });
   const redis = getRedis();
   const raw = await redis.get(`user:${e}`);
   if (!raw) {
@@ -176,11 +367,22 @@ async function addUserZeroPoints(email, pointsDelta) {
     return null;
   }
   const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  const prev = Number(user.zero_point) || 0;
-  if (!Number.isFinite(prev) || prev < 0) {
-    user.zero_point = delta;
-  } else {
-    user.zero_point = prev + delta;
+  const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  grants.push({
+    sourceOrderId: m.sourceOrderId != null ? String(m.sourceOrderId) : null,
+    amount: delta,
+    awardedAt: m.awardedAt || new Date().toISOString(),
+    remaining: delta,
+  });
+  user.zero_point_grants = grants;
+  recomputeZeroPointBalanceFromGrants(user);
+  if (m.historyCode === 'earn_credit' || m.historyCode === 'earn_easypay') {
+    appendZeroPointHistoryOnUser(user, {
+      ts: m.awardedAt || new Date().toISOString(),
+      code: m.historyCode,
+      delta,
+      orderId: m.sourceOrderId != null ? String(m.sourceOrderId) : null,
+    });
   }
   await redis.set(`user:${e}`, JSON.stringify(user));
   return user.zero_point;
@@ -194,13 +396,17 @@ async function deductUserZeroPoints(email, amount) {
   const e = String(email || '').trim().toLowerCase();
   const amt = Math.floor(Number(amount));
   if (!e || !Number.isFinite(amt) || amt < 1) return { ok: false, error: 'invalid_amount' };
+  await migrateZeroPointGrantsFromOrdersIfNeeded(e);
   const redis = getRedis();
   const raw = await redis.get(`user:${e}`);
   if (!raw) return { ok: false, error: 'user_not_found' };
   const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  const prev = Math.floor(Number(user.zero_point) || 0);
-  if (!Number.isFinite(prev) || prev < amt) return { ok: false, error: 'insufficient_balance' };
-  user.zero_point = prev - amt;
+  const sumRem = (Array.isArray(user.zero_point_grants) ? user.zero_point_grants : []).reduce(
+    (s, g) => s + Math.max(0, Math.floor(Number(g.remaining)) || 0),
+    0,
+  );
+  if (!Number.isFinite(sumRem) || sumRem < amt) return { ok: false, error: 'insufficient_balance' };
+  consumeGrantsFifoMutate(user, amt);
   await redis.set(`user:${e}`, JSON.stringify(user));
   return { ok: true, balance: user.zero_point };
 }
@@ -209,17 +415,32 @@ async function deductUserZeroPoints(email, amount) {
  * 주문 취소 등으로 사용했던 제로포인트 환불 (정수, 양수만).
  * @returns {{ ok: true, balance: number } | { ok: false, error: string }}
  */
-async function refundUserZeroPoints(email, amount) {
+async function refundUserZeroPoints(email, amount, meta = {}) {
   const e = String(email || '').trim().toLowerCase();
   const amt = Math.floor(Number(amount));
   if (!e || !Number.isFinite(amt) || amt < 1) return { ok: true, balance: null };
+  await migrateZeroPointGrantsFromOrdersIfNeeded(e);
   const redis = getRedis();
   const raw = await redis.get(`user:${e}`);
   if (!raw) return { ok: false, error: 'user_not_found' };
   const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  const prev = Math.floor(Number(user.zero_point) || 0);
-  const base = Number.isFinite(prev) && prev >= 0 ? prev : 0;
-  user.zero_point = base + amt;
+  const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  const awardedAt = new Date().toISOString();
+  grants.push({
+    sourceOrderId: '_refund',
+    amount: amt,
+    awardedAt,
+    remaining: amt,
+  });
+  user.zero_point_grants = grants;
+  recomputeZeroPointBalanceFromGrants(user);
+  const m = meta && typeof meta === 'object' ? meta : {};
+  appendZeroPointHistoryOnUser(user, {
+    code: 'refund_cancel',
+    delta: amt,
+    ts: awardedAt,
+    orderId: m.orderId != null && m.orderId !== '' ? String(m.orderId) : null,
+  });
   await redis.set(`user:${e}`, JSON.stringify(user));
   return { ok: true, balance: user.zero_point };
 }
@@ -698,6 +919,11 @@ module.exports = {
   addUserZeroPoints,
   deductUserZeroPoints,
   refundUserZeroPoints,
+  appendZeroPointHistory,
+  getZeroPointHistoryByEmail,
+  migrateZeroPointGrantsFromOrdersIfNeeded,
+  expireUserZeroPointsByPolicy,
+  expireAllUsersZeroPointsByPolicy,
   createOrder,
   getOrdersByUser,
   getOrderById,

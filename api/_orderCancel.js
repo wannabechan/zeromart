@@ -44,7 +44,7 @@ async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
   if (used > 0 && !order.zero_point_refunded) {
     const email = String(order.user_email || '').trim().toLowerCase();
     if (email) {
-      const r = await refundUserZeroPoints(email, used);
+      const r = await refundUserZeroPoints(email, used, { orderId: String(orderId) });
       if (!r.ok) {
         console.error('cancelOrderAndRegeneratePdf: refundUserZeroPoints failed', orderId, r.error);
       }

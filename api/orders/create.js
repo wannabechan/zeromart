@@ -13,6 +13,7 @@ const {
   getUser,
   deductUserZeroPoints,
   refundUserZeroPoints,
+  appendZeroPointHistory,
 } = require('../_redis');
 const { persistSlipsIfMissing } = require('./_orderSlips');
 const { generateOrderPdf } = require('../_pdf');
@@ -179,12 +180,25 @@ module.exports = async (req, res) => {
     } catch (createErr) {
       if (deductedPoints > 0) {
         try {
-          await refundUserZeroPoints(emailNorm, deductedPoints);
+          await refundUserZeroPoints(emailNorm, deductedPoints, { orderId: null });
         } catch (refundErr) {
           console.error('Create order: zero point refund after create failure', refundErr);
         }
       }
       throw createErr;
+    }
+
+    if (pointsToUse > 0) {
+      try {
+        await appendZeroPointHistory(emailNorm, {
+          code: 'use_order',
+          delta: -pointsToUse,
+          orderId: String(order.id),
+          ts: new Date().toISOString(),
+        });
+      } catch (histErr) {
+        console.error('Create order: appendZeroPointHistory', histErr);
+      }
     }
 
     // 주문서 PDF 생성 및 Vercel Blob 저장

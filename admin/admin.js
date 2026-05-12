@@ -8,6 +8,13 @@ const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
 const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
+const STORAGE_LEVEL_LABEL = {
+  safe: '안전',
+  concern: '부족우려',
+  risk: '부족위험',
+  unknown: '확인불가',
+};
+
 let adminPaymentOrders = [];
 let adminPaymentTotal = 0;
 let adminPaymentSortBy = 'created_at';
@@ -759,7 +766,7 @@ async function loadAdminZeroPointsView() {
     ]);
     const configData = await configRes.json().catch(() => ({}));
     const expireDaysRaw = Math.floor(Number(configData.paymentRewardExpireDays));
-    const expireDays = Number.isFinite(expireDaysRaw) && expireDaysRaw >= 1 ? expireDaysRaw : 50;
+    const expireDays = Number.isFinite(expireDaysRaw) && expireDaysRaw >= 1 ? expireDaysRaw : 60;
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       container.innerHTML = '<p class="admin-error">' + escapeHtml(data.error || '목록을 불러올 수 없습니다.') + '</p>';
@@ -808,6 +815,70 @@ async function loadAdminZeroPointsView() {
   }
 }
 
+async function loadAdminStorageView() {
+  const tbody = document.getElementById('adminStorageTbody');
+  const checkedAtEl = document.getElementById('adminStorageCheckedAt');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="3" class="admin-muted">불러오는 중…</td></tr>';
+  if (checkedAtEl) checkedAtEl.textContent = '';
+  const token = getToken();
+  if (!token) {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-error-cell">로그인이 필요합니다.</td></tr>';
+    return;
+  }
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/admin/storage-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '상태를 불러오지 못했습니다.');
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (checkedAtEl && data.checkedAt) {
+      const d = new Date(data.checkedAt);
+      checkedAtEl.textContent = Number.isNaN(d.getTime())
+        ? ''
+        : '조회 시각: ' + d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'medium' });
+    }
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="admin-muted">항목이 없습니다.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items
+      .map((row) => {
+        const lv =
+          row.level === 'concern'
+            ? 'concern'
+            : row.level === 'risk'
+              ? 'risk'
+              : row.level === 'unknown'
+                ? 'unknown'
+                : 'safe';
+        const badgeLabel = STORAGE_LEVEL_LABEL[lv] || lv;
+        const hint = row.hint
+          ? '<span class="admin-storage-hint">' + escapeHtml(row.hint) + '</span>'
+          : '';
+        return (
+          '<tr><td>' +
+          escapeHtml(row.name || row.id || '') +
+          '</td><td><span class="admin-storage-badge admin-storage-badge--' +
+          escapeHtml(lv) +
+          '">' +
+          escapeHtml(badgeLabel) +
+          '</span></td><td class="admin-storage-summary">' +
+          escapeHtml(row.detail || '—') +
+          hint +
+          '</td></tr>'
+        );
+      })
+      .join('');
+  } catch (e) {
+    tbody.innerHTML =
+      '<tr><td colspan="3" class="admin-error-cell">' +
+      escapeHtml(e.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : e.message || '오류') +
+      '</td></tr>';
+  }
+}
+
 function setupAdminZeroPointUsageModal() {
   const overlay = document.getElementById('adminZeroPointUsageModal');
   const closeBtn = document.getElementById('adminZeroPointUsageClose');
@@ -815,16 +886,83 @@ function setupAdminZeroPointUsageModal() {
   const emailEl = document.getElementById('adminZeroPointUsageEmail');
   const pointsContent = document.getElementById('adminPointsContent');
   if (!overlay || !closeBtn || !tbody || !emailEl || !pointsContent) return;
+
+  const ZERO_POINT_HIST_LABEL = {
+    earn_credit: '결제 적립 (카드)',
+    earn_easypay: '결제 적립 (간편결제)',
+    use_order: '주문 시 포인트 사용',
+    refund_cancel: '주문/결제 취소 환불',
+    expire: '기간 만료 자동 소멸',
+  };
+
+  function formatZeroPointHistTs(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return escapeHtml(String(ts));
+    return escapeHtml(d.toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'medium' }));
+  }
+
   function closeZeroPointUsageModal() {
     overlay.classList.remove('admin-modal-visible');
     overlay.setAttribute('aria-hidden', 'true');
   }
-  function openZeroPointUsageModal(email) {
+
+  async function openZeroPointUsageModal(email) {
     emailEl.textContent = '계정: ' + (email || '—');
-    tbody.innerHTML = '';
+    tbody.innerHTML =
+      '<tr><td colspan="4" class="admin-muted">불러오는 중…</td></tr>';
     overlay.classList.add('admin-modal-visible');
     overlay.setAttribute('aria-hidden', 'false');
+    const token = getToken();
+    if (!token || !email) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="admin-error-cell">로그인이 필요하거나 이메일이 없습니다.</td></tr>';
+      return;
+    }
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE}/api/admin/zero-point-history?email=${encodeURIComponent(email)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '내역을 불러오지 못했습니다.');
+      const events = Array.isArray(data.events) ? data.events : [];
+      if (events.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="4" class="admin-muted">표시할 내역이 없습니다.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = events
+        .map((ev) => {
+          const code = String(ev.code || '').trim();
+          const label = ZERO_POINT_HIST_LABEL[code] || code || '—';
+          const ord =
+            ev.orderId != null && ev.orderId !== ''
+              ? escapeHtml(String(ev.orderId))
+              : '—';
+          const d = Number(ev.delta) || 0;
+          const ptStr = (d > 0 ? '+' : '') + d.toLocaleString('ko-KR');
+          return (
+            '<tr><td>' +
+            formatZeroPointHistTs(ev.ts) +
+            '</td><td>' +
+            escapeHtml(label) +
+            '</td><td>' +
+            ord +
+            '</td><td class="num">' +
+            escapeHtml(ptStr) +
+            '</td></tr>'
+          );
+        })
+        .join('');
+    } catch (e) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="admin-error-cell">' +
+        escapeHtml(e.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : e.message || '로딩에 실패했습니다.') +
+        '</td></tr>';
+    }
   }
+
   closeBtn.addEventListener('click', closeZeroPointUsageModal);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeZeroPointUsageModal();
@@ -1136,6 +1274,10 @@ function setupTabs() {
         document.getElementById('pointsView').classList.add('active');
         clearPaymentIdleTimer();
         loadAdminZeroPointsView();
+      } else if (targetTab === 'storage') {
+        document.getElementById('storageView').classList.add('active');
+        clearPaymentIdleTimer();
+        loadAdminStorageView();
       }
   }
 
@@ -1153,7 +1295,7 @@ function setupTabs() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
     ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend', 'points'].includes(saved) ? saved : 'stores');
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend', 'points', 'storage'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
@@ -2452,6 +2594,9 @@ async function init() {
   setupTabs();
   loadPaymentManagement();
   setupAdminZeroPointUsageModal();
+  document.getElementById('adminStorageRefreshBtn')?.addEventListener('click', () => {
+    loadAdminStorageView();
+  });
 
   document.getElementById('adminOrderDetailClose')?.addEventListener('click', closeAdminOrderDetail);
   document.getElementById('adminOrderDetailOverlay')?.addEventListener('click', (e) => {

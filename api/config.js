@@ -2,7 +2,7 @@
  * GET /api/config
  * 공개 설정 값 (프론트에서 사용, 인증 불필요)
  * emailAdmin: 문의용 이메일 (환경변수 EMAIL_ADMIN)
- * paymentRewardExpireDays: 제로포인트 소멸 안내용 일수 (환경변수 PAYMENT_REWARD_EXPIREDAYS, 표시 전용)
+ * paymentRewardExpireDays: 제로포인트 소멸 일수 (환경변수 PAYMENT_REWARD_EXPIREDAYS, 크론 소멸 및 안내 표시)
  */
 
 const { apiResponse, getNormalizedAdminEmail } = require('./_utils');
@@ -10,7 +10,7 @@ const { apiResponse, getNormalizedAdminEmail } = require('./_utils');
 function getPaymentRewardExpireDaysForDisplay() {
   const raw = String(process.env.PAYMENT_REWARD_EXPIREDAYS || '').trim();
   const n = Math.floor(Number(raw));
-  if (!Number.isFinite(n) || n < 1) return 50;
+  if (!Number.isFinite(n) || n < 1) return 60;
   return n;
 }
 
@@ -29,6 +29,6 @@ module.exports = async (req, res) => {
     return apiResponse(res, 200, { emailAdmin, paymentRewardExpireDays });
   } catch (error) {
     console.error('Config error:', error);
-    return apiResponse(res, 500, { emailAdmin: '', paymentRewardExpireDays: 50 });
+    return apiResponse(res, 500, { emailAdmin: '', paymentRewardExpireDays: 60 });
   }
 };

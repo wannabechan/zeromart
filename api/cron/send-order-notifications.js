@@ -87,11 +87,17 @@ module.exports = async (req, res) => {
       const base = Number.isFinite(paidBase) && paidBase > 0 ? paidBase : fallbackBase;
       const pts = Number.isFinite(base) && base > 0 ? Math.floor(base * (rate / 100)) : 0;
       if (pts <= 0 || !order.user_email) continue;
-      const bal = await addUserZeroPoints(String(order.user_email).trim().toLowerCase(), pts);
-      if (bal == null) continue;
+      const awardedAt = new Date().toISOString();
       order.zero_point_earned = pts;
-      order.zero_point_awarded_at = new Date().toISOString();
+      order.zero_point_awarded_at = awardedAt;
       await saveOrder(order);
+      const email = String(order.user_email).trim().toLowerCase();
+      const bal = await addUserZeroPoints(email, pts, {
+        sourceOrderId: String(order.id),
+        awardedAt,
+        historyCode: kind === 'easypay' ? 'earn_easypay' : 'earn_credit',
+      });
+      if (bal == null) continue;
       rewarded += 1;
     }
 
