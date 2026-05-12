@@ -779,7 +779,7 @@ async function loadAdminZeroPointsView() {
       escapeHtml(String(expireDays)) +
       '일이 지난 포인트는 자동 소멸됩니다.</p>';
     html += '<div class="admin-points-wrap"><table class="admin-points-table"><thead><tr>';
-    html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">소진 포인트</th>';
+    html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">포인트 이력</th>';
     html += '</tr></thead><tbody>';
     if (rows.length === 0) {
       html += '<tr><td colspan="4">표시할 계정이 없습니다.</td></tr>';
@@ -793,7 +793,7 @@ async function loadAdminZeroPointsView() {
         const used = Number(row.used_points) || 0;
         const curStr = escapeHtml(String(cur.toLocaleString('ko-KR')));
         const totStr = escapeHtml(String(tot.toLocaleString('ko-KR')));
-        const usedStr = escapeHtml(String(used.toLocaleString('ko-KR')));
+        const ariaHist = '내 제로포인트 이력 조회 (소진 ' + String(used.toLocaleString('ko-KR')) + 'P 기준)';
         html +=
           '<tr><td>' +
           emEsc +
@@ -803,8 +803,10 @@ async function loadAdminZeroPointsView() {
           totStr +
           '</td><td class="num"><button type="button" class="admin-points-used-btn" data-admin-zero-used-email="' +
           emAttr +
+          '" aria-label="' +
+          escapeHtml(ariaHist) +
           '">' +
-          usedStr +
+          escapeHtml('[확인]') +
           '</button></td></tr>';
       });
     }
