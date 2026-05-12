@@ -1892,6 +1892,7 @@ function init() {
         detailAddress: inputDetailAddress.value.trim() || null,
         orderItems: orderItems,
         totalAmount: checkoutCurrentPayableAmount,
+        zeroPointsUsed: checkoutAppliedZeroPoint,
         categoryTotals,
       };
 

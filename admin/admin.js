@@ -751,9 +751,15 @@ async function loadAdminZeroPointsView() {
     return;
   }
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/api/admin/zero-points-users`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const [configRes, res] = await Promise.all([
+      fetchWithTimeout(`${API_BASE}/api/config`),
+      fetchWithTimeout(`${API_BASE}/api/admin/zero-points-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+    const configData = await configRes.json().catch(() => ({}));
+    const expireDaysRaw = Math.floor(Number(configData.paymentRewardExpireDays));
+    const expireDays = Number.isFinite(expireDaysRaw) && expireDaysRaw >= 1 ? expireDaysRaw : 50;
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       container.innerHTML = '<p class="admin-error">' + escapeHtml(data.error || '목록을 불러올 수 없습니다.') + '</p>';
@@ -762,7 +768,9 @@ async function loadAdminZeroPointsView() {
     const rows = data.rows || [];
     let html = '<h4 class="admin-points-title">*Zero Point</h4>';
     html +=
-      '<p class="admin-points-hint">적립 발생한 시점으로부터 50일이 지난 포인트는 자동 소멸됩니다.</p>';
+      '<p class="admin-points-hint">적립 발생한 시점으로부터 ' +
+      escapeHtml(String(expireDays)) +
+      '일이 지난 포인트는 자동 소멸됩니다.</p>';
     html += '<div class="admin-points-wrap"><table class="admin-points-table"><thead><tr>';
     html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">사용 포인트</th>';
     html += '</tr></thead><tbody>';

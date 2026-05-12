@@ -186,6 +186,44 @@ async function addUserZeroPoints(email, pointsDelta) {
   return user.zero_point;
 }
 
+/**
+ * 주문 결제에 사용할 제로포인트 차감 (정수, 양수만).
+ * @returns {{ ok: true, balance: number } | { ok: false, error: string }}
+ */
+async function deductUserZeroPoints(email, amount) {
+  const e = String(email || '').trim().toLowerCase();
+  const amt = Math.floor(Number(amount));
+  if (!e || !Number.isFinite(amt) || amt < 1) return { ok: false, error: 'invalid_amount' };
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return { ok: false, error: 'user_not_found' };
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const prev = Math.floor(Number(user.zero_point) || 0);
+  if (!Number.isFinite(prev) || prev < amt) return { ok: false, error: 'insufficient_balance' };
+  user.zero_point = prev - amt;
+  await redis.set(`user:${e}`, JSON.stringify(user));
+  return { ok: true, balance: user.zero_point };
+}
+
+/**
+ * 주문 취소 등으로 사용했던 제로포인트 환불 (정수, 양수만).
+ * @returns {{ ok: true, balance: number } | { ok: false, error: string }}
+ */
+async function refundUserZeroPoints(email, amount) {
+  const e = String(email || '').trim().toLowerCase();
+  const amt = Math.floor(Number(amount));
+  if (!e || !Number.isFinite(amt) || amt < 1) return { ok: true, balance: null };
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return { ok: false, error: 'user_not_found' };
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const prev = Math.floor(Number(user.zero_point) || 0);
+  const base = Number.isFinite(prev) && prev >= 0 ? prev : 0;
+  user.zero_point = base + amt;
+  await redis.set(`user:${e}`, JSON.stringify(user));
+  return { ok: true, balance: user.zero_point };
+}
+
 function getYymmddKST() {
   const d = new Date();
   const formatter = new Intl.DateTimeFormat('ko-KR', {
@@ -658,6 +696,8 @@ module.exports = {
   updateUserLogin,
   updateUserLevel,
   addUserZeroPoints,
+  deductUserZeroPoints,
+  refundUserZeroPoints,
   createOrder,
   getOrdersByUser,
   getOrderById,

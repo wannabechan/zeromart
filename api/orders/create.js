@@ -5,10 +5,39 @@
 
 const { put } = require('@vercel/blob');
 const { verifyToken, apiResponse } = require('../_utils');
-const { createOrder, updateOrderPdfUrl, getStores, checkRateLimitIncr } = require('../_redis');
+const {
+  createOrder,
+  updateOrderPdfUrl,
+  getStores,
+  checkRateLimitIncr,
+  getUser,
+  deductUserZeroPoints,
+  refundUserZeroPoints,
+} = require('../_redis');
 const { persistSlipsIfMissing } = require('./_orderSlips');
 const { generateOrderPdf } = require('../_pdf');
 const { appendOrderRawLog } = require('../_orderRawLog');
+
+const MIN_PAYABLE_KRW = 10000;
+
+function sumOrderItemsKrw(orderItems) {
+  let sum = 0;
+  for (const it of orderItems) {
+    const qty = Math.floor(Number(it.quantity));
+    const price = Math.floor(Number(it.price));
+    if (!Number.isFinite(qty) || !Number.isFinite(price)) continue;
+    sum += qty * price;
+  }
+  return sum;
+}
+
+/** 앱 주문 요약과 동일: 장바구니 총액(원)과 잔액(포인트) 기준 최대 사용 가능 포인트 */
+function maxUsableZeroPointsForOrder(grossKrw, userBalancePoints) {
+  const g = Math.max(0, Math.floor(Number(grossKrw) || 0));
+  const bal = Math.max(0, Math.floor(Number(userBalancePoints) || 0));
+  if (g <= MIN_PAYABLE_KRW || bal <= 0) return 0;
+  return Math.min(bal, g - MIN_PAYABLE_KRW);
+}
 
 /** 계정·IP 단위 주문 생성 남용 방지 (1시간 윈도) */
 const ORDER_CREATE_LIMIT_PER_EMAIL = 40;
@@ -62,6 +91,7 @@ module.exports = async (req, res) => {
       orderItems,
       totalAmount,
       categoryTotals,
+      zeroPointsUsed: zeroPointsUsedRaw,
     } = req.body;
 
     // 필수 필드 검증
@@ -100,18 +130,62 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 주문 생성 (Redis) — zeromart: 배송희망일/시간 없음, 주문 시 매장에 배송 목록 전달
-    const order = await createOrder({
-      user_email: user.email,
-      depositor,
-      contact,
-      expense_type: expenseType || 'none',
-      expense_doc: expenseDoc || null,
-      delivery_address: deliveryAddress,
-      detail_address: detailAddress || null,
-      order_items: orderItems,
-      total_amount: totalNum,
-    });
+    const grossKrw = sumOrderItemsKrw(orderItems);
+    const ptsRequested = Math.floor(Number(zeroPointsUsedRaw));
+    const pointsToUse = Number.isFinite(ptsRequested) && ptsRequested > 0 ? ptsRequested : 0;
+
+    if (zeroPointsUsedRaw != null && zeroPointsUsedRaw !== '' && (!Number.isFinite(ptsRequested) || ptsRequested < 0)) {
+      return apiResponse(res, 400, { error: '제로포인트 사용 수량이 올바르지 않습니다.' });
+    }
+
+    const userRow = await getUser(emailNorm);
+    const balancePts = Math.max(0, Math.floor(Number(userRow && userRow.zero_point) || 0));
+    const maxUsable = maxUsableZeroPointsForOrder(grossKrw, balancePts);
+
+    if (pointsToUse > maxUsable) {
+      return apiResponse(res, 400, { error: '제로포인트 사용이 허용되지 않거나 잔액이 부족합니다.' });
+    }
+
+    if (totalNum !== grossKrw - pointsToUse) {
+      return apiResponse(res, 400, { error: '결제 금액과 제로포인트 사용 내역이 일치하지 않습니다.' });
+    }
+
+    let deductedPoints = 0;
+    if (pointsToUse > 0) {
+      const dr = await deductUserZeroPoints(emailNorm, pointsToUse);
+      if (!dr.ok) {
+        if (dr.error === 'insufficient_balance') {
+          return apiResponse(res, 400, { error: '제로포인트 잔액이 부족합니다.' });
+        }
+        return apiResponse(res, 400, { error: '제로포인트 차감에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+      }
+      deductedPoints = pointsToUse;
+    }
+
+    let order;
+    try {
+      order = await createOrder({
+        user_email: user.email,
+        depositor,
+        contact,
+        expense_type: expenseType || 'none',
+        expense_doc: expenseDoc || null,
+        delivery_address: deliveryAddress,
+        detail_address: detailAddress || null,
+        order_items: orderItems,
+        total_amount: totalNum,
+        zero_point_used: pointsToUse,
+      });
+    } catch (createErr) {
+      if (deductedPoints > 0) {
+        try {
+          await refundUserZeroPoints(emailNorm, deductedPoints);
+        } catch (refundErr) {
+          console.error('Create order: zero point refund after create failure', refundErr);
+        }
+      }
+      throw createErr;
+    }
 
     // 주문서 PDF 생성 및 Vercel Blob 저장
     let stores = [];

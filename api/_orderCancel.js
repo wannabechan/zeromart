@@ -3,7 +3,15 @@
  */
 
 const { put } = require('@vercel/blob');
-const { getOrderById, updateOrderStatus, updateOrderCancelReason, updateOrderPdfUrl, getStores } = require('./_redis');
+const {
+  getOrderById,
+  updateOrderStatus,
+  updateOrderCancelReason,
+  updateOrderPdfUrl,
+  getStores,
+  saveOrder,
+  refundUserZeroPoints,
+} = require('./_redis');
 const { generateOrderPdf } = require('./_pdf');
 const { appendOrderRawLog } = require('./_orderRawLog');
 
@@ -26,8 +34,28 @@ function cancelReasonToActor(reason) {
 
 /** 주문 취소 처리 + 취소 주문서 PDF 재생성 및 URL 갱신. cancelReason: 고객취소 | 관리자취소 | 결제기한만료 | 결제실패 */
 async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
-  const order = await getOrderById(orderId);
+  let order = await getOrderById(orderId);
   if (!order) return null;
+  if ((order.status || '') === 'cancelled') {
+    return order;
+  }
+
+  const used = Math.floor(Number(order.zero_point_used)) || 0;
+  if (used > 0 && !order.zero_point_refunded) {
+    const email = String(order.user_email || '').trim().toLowerCase();
+    if (email) {
+      const r = await refundUserZeroPoints(email, used);
+      if (!r.ok) {
+        console.error('cancelOrderAndRegeneratePdf: refundUserZeroPoints failed', orderId, r.error);
+      }
+    } else {
+      console.error('cancelOrderAndRegeneratePdf: missing user_email for point refund', orderId);
+    }
+    order.zero_point_refunded = true;
+    await saveOrder(order);
+    order = (await getOrderById(orderId)) || order;
+  }
+
   await updateOrderStatus(orderId, 'cancelled');
   await updateOrderCancelReason(orderId, cancelReason || null);
   order.status = 'cancelled';
