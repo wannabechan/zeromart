@@ -378,7 +378,6 @@
     .admin-storage-page { max-width: 720px; margin: 0 auto; }
     .admin-storage-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
     .admin-storage-meta { font-size: 0.8125rem; color: var(--color-text-secondary); }
-    .admin-storage-intro { font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.5; margin: 0 0 16px; }
     .admin-storage-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .admin-storage-table th, .admin-storage-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); vertical-align: top; }
     .admin-storage-table th { font-weight: 600; color: var(--color-text-secondary); }
@@ -496,9 +495,6 @@
           <button type="button" class="admin-btn admin-btn-secondary" id="adminStorageRefreshBtn">다시 조회</button>
           <span class="admin-storage-meta" id="adminStorageCheckedAt" aria-live="polite"></span>
         </div>
-        <p class="admin-storage-intro">
-          <strong>Redis</strong>: 데이터 메모리(used_memory)와 <code>STORAGE_REDIS_PLAN_MAX_GB</code>(예: 100) 또는 <code>STORAGE_REDIS_PLAN_MAX_BYTES</code>로 Upstash 콘솔 Storage와 같은 플랜 용량 기준을 맞춥니다. <strong>Resend</strong>: API 키 설정 여부만 표시합니다. Vercel Blob 사용량은 대시보드에서 확인하세요.
-        </p>
         <table class="admin-storage-table">
           <thead>
             <tr><th>저장소</th><th>단계</th><th>요약</th></tr>
