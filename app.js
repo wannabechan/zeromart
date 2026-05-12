@@ -31,16 +31,16 @@ async function loadMenuData() {
   return false;
 }
 
-/** 프로필 하단 문의 이메일: 서버 `EMAIL_ADMIN`과 동일 (`/api/config`) */
-async function loadProfileFooterContactEmail() {
+/** 프로필 하단 문의 이메일 + 제로포인트 공개 플래그 (`/api/config`) */
+async function loadPublicAppConfig() {
   const el = document.getElementById('profileFooterContactEmail');
-  if (!el) return;
   try {
     const res = await fetch('/api/config');
     if (!res.ok) return;
     const data = await res.json().catch(() => ({}));
+    appConfigZeroPointPublicOpen = data.zeroPointPublicOpen === true;
     const em = data && typeof data.emailAdmin === 'string' ? data.emailAdmin.trim() : '';
-    if (em) el.textContent = '✉️ ' + em;
+    if (el && em) el.textContent = '✉️ ' + em;
   } catch (_) {}
 }
 
@@ -126,6 +126,9 @@ let profileAllOrders = [];
 let profileVisibleCount = 10;
 let profileIncludeCancelled = false;
 const PROFILE_PAGE_SIZE = 10;
+
+/** 서버 ZEROPOINT_PUBLICOPEN (GET /api/config) — 비관리자 제로포인트 UI 노출 여부 */
+let appConfigZeroPointPublicOpen = false;
 
 const MIN_PAYABLE_AMOUNT = 10000;
 let checkoutBaseTotalAmount = 0;
@@ -807,7 +810,29 @@ async function openCheckoutModal(profileSettings) {
   detailAddressRow.style.display = 'none';
   inputDetailAddress.value = '';
 
-  const data = profileSettings || await fetchProfileSettings() || {};
+  await loadPublicAppConfig();
+  let showCheckoutZeroPoint = appConfigZeroPointPublicOpen;
+  if (!showCheckoutZeroPoint) {
+    const sessionTok = window.BzCatAuth?.getToken?.();
+    if (sessionTok) {
+      try {
+        const sr = await fetch('/api/auth/session', {
+          headers: { Authorization: `Bearer ${sessionTok}` },
+        });
+        if (sr.ok) {
+          const sj = await sr.json().catch(() => ({}));
+          if (sj.user && sj.user.level === 'admin') showCheckoutZeroPoint = true;
+        }
+      } catch (_) {}
+    }
+  }
+  if (checkoutModal) {
+    checkoutModal.querySelectorAll('.checkout-zero-point-part').forEach((el) => {
+      el.style.display = showCheckoutZeroPoint ? '' : 'none';
+    });
+  }
+
+  const data = profileSettings || (await fetchProfileSettings()) || {};
   const currentZeroPoint = Math.max(0, Math.floor(Number(data.zeroPoint) || 0));
   checkoutAvailableZeroPoint = currentZeroPoint;
   renderCheckoutZeroPointState();
@@ -1408,7 +1433,7 @@ function handleMenuGridClick(e) {
 
 // 이벤트 바인딩
 function init() {
-  loadProfileFooterContactEmail();
+  loadPublicAppConfig();
   window.BzCatAppOpenProfile = openProfile;
   categoryTabs.addEventListener('click', handleCategoryClick);
   searchToggle?.addEventListener('click', openSearchMode);
