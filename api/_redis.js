@@ -207,6 +207,80 @@ function appendZeroPointHistoryOnUser(user, entry) {
   user.zero_point_history = arr.slice(0, MAX_ZERO_POINT_HISTORY);
 }
 
+/** 주문·코드·증감 단위로 중복 제거(백필 파생 이력 vs Redis 저장분) */
+function zeroPointHistoryDedupeKey(ev) {
+  const oid = ev.orderId != null && ev.orderId !== '' ? String(ev.orderId) : '-';
+  const code = String(ev.code || '').trim();
+  const delta = Number.isFinite(Number(ev.delta)) ? Math.floor(Number(ev.delta)) : 0;
+  return `${code}|${oid}|${delta}`;
+}
+
+function normalizeZeroPointHistoryEvent(ev) {
+  return {
+    ts: ev.ts != null ? String(ev.ts) : null,
+    code: String(ev.code || '').trim(),
+    delta: Number.isFinite(Number(ev.delta)) ? Math.floor(Number(ev.delta)) : 0,
+    orderId: ev.orderId != null && ev.orderId !== '' ? String(ev.orderId) : null,
+  };
+}
+
+/** send-order-notifications 의 적립 종류와 동일 규칙 */
+function deriveEarnCodeFromOrder(order) {
+  const k = order.zero_point_reward_kind;
+  if (k === 'easypay') return 'earn_easypay';
+  if (k === 'credit') return 'earn_credit';
+  if (order.zero_point_reward_eligible === true) return 'earn_credit';
+  return 'earn_credit';
+}
+
+/**
+ * 주문 JSON만으로 과거 이벤트 복원(배포 전 이력 보강). 실시간 append 와 중복 시 저장분 우선.
+ * @param {object[]} orders - getOrdersByUser 결과
+ */
+function buildDerivedZeroPointHistoryFromOrders(orders) {
+  const out = [];
+  if (!Array.isArray(orders)) return out;
+  for (const o of orders) {
+    if (!o || o.id == null) continue;
+    const orderId = String(o.id);
+    const used = Math.floor(Number(o.zero_point_used)) || 0;
+    if (used > 0) {
+      const tsUse = o.created_at ? String(o.created_at) : new Date().toISOString();
+      out.push(normalizeZeroPointHistoryEvent({ ts: tsUse, code: 'use_order', delta: -used, orderId }));
+    }
+    const earned = Math.floor(Number(o.zero_point_earned)) || 0;
+    if (earned > 0) {
+      const tsEarn = o.zero_point_awarded_at || o.payment_completed_at || o.created_at;
+      if (tsEarn) {
+        out.push(
+          normalizeZeroPointHistoryEvent({
+            ts: String(tsEarn),
+            code: deriveEarnCodeFromOrder(o),
+            delta: earned,
+            orderId,
+          }),
+        );
+      }
+    }
+    if ((o.status || '') === 'cancelled' && o.zero_point_refunded && used > 0) {
+      const tPay = o.payment_completed_at ? new Date(o.payment_completed_at).getTime() : NaN;
+      const tAward = o.zero_point_awarded_at ? new Date(o.zero_point_awarded_at).getTime() : NaN;
+      const tCreate = o.created_at ? new Date(o.created_at).getTime() : 0;
+      const nums = [tPay, tAward, tCreate].filter((x) => Number.isFinite(x) && x > 0);
+      const tMs = nums.length ? Math.max(...nums) : Date.now();
+      out.push(
+        normalizeZeroPointHistoryEvent({
+          ts: new Date(tMs).toISOString(),
+          code: 'refund_cancel',
+          delta: used,
+          orderId,
+        }),
+      );
+    }
+  }
+  return out;
+}
+
 async function appendZeroPointHistory(email, entry) {
   const e = String(email || '').trim().toLowerCase();
   if (!e || !e.includes('@')) return;
@@ -222,17 +296,36 @@ async function appendZeroPointHistory(email, entry) {
 async function getZeroPointHistoryByEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   if (!e || !e.includes('@')) return [];
+
+  const orders = await getOrdersByUser(e);
+  const derived = buildDerivedZeroPointHistoryFromOrders(orders);
+
   const redis = getRedis();
   const raw = await redis.get(`user:${e}`);
-  if (!raw) return [];
-  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  const arr = Array.isArray(user.zero_point_history) ? user.zero_point_history : [];
-  return arr.map((ev) => ({
-    ts: ev.ts != null ? String(ev.ts) : null,
-    code: String(ev.code || '').trim(),
-    delta: Number.isFinite(Number(ev.delta)) ? Math.floor(Number(ev.delta)) : 0,
-    orderId: ev.orderId != null && ev.orderId !== '' ? String(ev.orderId) : null,
-  }));
+  let stored = [];
+  if (raw) {
+    const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const arr = Array.isArray(user.zero_point_history) ? user.zero_point_history : [];
+    stored = arr.map((ev) => normalizeZeroPointHistoryEvent(ev));
+  }
+
+  const byKey = new Map();
+  for (const ev of stored) {
+    if (!ev.code || ev.delta === 0) continue;
+    byKey.set(zeroPointHistoryDedupeKey(ev), ev);
+  }
+  for (const ev of derived) {
+    if (!ev.code || ev.delta === 0) continue;
+    const k = zeroPointHistoryDedupeKey(ev);
+    if (!byKey.has(k)) byKey.set(k, ev);
+  }
+
+  const merged = Array.from(byKey.values()).sort((a, b) => {
+    const ta = a.ts ? new Date(a.ts).getTime() : 0;
+    const tb = b.ts ? new Date(b.ts).getTime() : 0;
+    return tb - ta;
+  });
+  return merged.slice(0, MAX_ZERO_POINT_HISTORY);
 }
 
 /**
