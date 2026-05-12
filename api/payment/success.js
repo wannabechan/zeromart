@@ -102,7 +102,7 @@ module.exports = async (req, res) => {
       note: '결제 완료',
     }).catch((e) => console.error('[orderRawLog]', e.message));
 
-    // 주문서 PDF 링크용 토큰만 설정. 매장 담당자 메일은 결제 완료 45분 후 cron에서 발송
+    // 주문서 PDF 링크용 토큰만 설정. 매장 담당자 메일은 /api/cron/send-order-notifications, 제로포인트 적립은 /api/cron/zero-point-reward
     const pdfToken = crypto.randomBytes(24).toString('hex');
     await updateOrderAcceptToken(orderIdStr, pdfToken);
 
