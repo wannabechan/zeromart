@@ -3197,6 +3197,10 @@ body {
   line-height: 1.6;
 }
 
+.zero-point-rate-modal-detail-muted {
+  color: var(--color-text-secondary);
+}
+
 .unsupported-region-modal-btn {
   display: block;
   width: 100%;
