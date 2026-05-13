@@ -3197,12 +3197,6 @@ body {
   line-height: 1.6;
 }
 
-.zero-point-rate-modal-divider {
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  margin: 0 0 16px;
-}
-
 .zero-point-rate-modal-extra {
   margin-bottom: 0;
   font-size: 0.9375rem;
