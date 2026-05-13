@@ -238,7 +238,7 @@ function renderCheckoutZeroPointState() {
   if (checkoutZeroPoint) {
     if (checkoutAppliedZeroPoint > 0) {
       const remain = Math.max(0, checkoutAvailableZeroPoint - checkoutAppliedZeroPoint);
-      checkoutZeroPoint.textContent = `${formatPoint(remain)} (${formatPoint(checkoutAppliedZeroPoint)} 사용예정)`;
+      checkoutZeroPoint.textContent = `${formatPoint(remain)} (${formatPoint(checkoutAppliedZeroPoint)} 사용)`;
     } else {
       checkoutZeroPoint.textContent = formatPoint(checkoutAvailableZeroPoint);
     }
