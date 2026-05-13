@@ -1263,7 +1263,7 @@ function formatRewardRatePercent(rate) {
   return String(n).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
 
-function buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays) {
+function buildZeroPointRateModalContentHtml(creditRate, easypayRate, expireDays) {
   const credit = escapeHtml(formatRewardRatePercent(creditRate));
   const easypay = escapeHtml(formatRewardRatePercent(easypayRate));
   const expire = escapeHtml(String(Math.max(1, Math.floor(Number(expireDays) || 60))));
@@ -1274,21 +1274,14 @@ function buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays) {
     '*신용/체크카드 결제시 결제금액의 ' + credit + '%가 적립됩니다.<br><br>' +
     '*간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 적립됩니다.<br><br>' +
     '*결제 창에서 간편결제(네이버페이, 카카오페이, 토스페이) 선택 후 신용/체크카드 결제 진행하는 경우에는, 간편결제로 분류되어 간편결제 적립률이 적용됩니다.<br><br>' +
-    '*적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.' +
-    '</span></p>'
-  );
-}
-
-function buildZeroPointRateModalExtraHtml() {
-  return (
-    '<p class="zero-point-rate-modal-extra-msg">' +
+    '*적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.<br><br>' +
     '*제로포인트는 당사 플랫폼 내에서 회원 혜택 및 프로모션 운영을 위해 무상 제공되는 서비스 이용 혜택으로서, 현금, 전자화폐, 선불전자지급수단 또는 금융자산에 해당하지 않습니다.<br><br>' +
     '*제로포인트는 당사 플랫폼 내에서 상품 구매 또는 서비스 이용 시에만 사용할 수 있으며, 현금으로 환급·출금·교환할 수 없습니다. 또한 제3자에게 양도, 상속, 매매 또는 담보 제공할 수 없습니다.<br><br>' +
     '*제로포인트의 적립 및 사용 기준은 당사의 운영 정책에 따라 달라질 수 있으며, 일부 상품 또는 서비스에는 사용이 제한될 수 있습니다.<br><br>' +
     '*회원 탈퇴, 이용계약 종료, 휴면 계정 전환, 부정 이용, 운영 정책 위반 등의 경우 제로포인트는 별도의 보상 없이 소멸될 수 있습니다.<br><br>' +
     '*당사는 서비스 운영상 필요에 따라 제로포인트의 적립률, 사용 조건, 유효기간, 소멸 정책 및 운영 방식을 변경할 수 있으며, 관련 내용은 플랫폼 내 공지사항 또는 운영정책을 통해 안내합니다.<br><br>' +
     '*제로포인트는 법정화폐와 교환가치를 가지지 않으며, 금융상품, 투자수단 또는 지급결제수단으로 간주되지 않습니다.' +
-    '</p>'
+    '</span></p>'
   );
 }
 
@@ -1299,7 +1292,6 @@ async function showZeroPointRateModal() {
   const closeBtn = document.getElementById('zeroPointRateModalClose');
   const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
   const body = document.getElementById('zeroPointRateModalBody');
-  const extra = document.getElementById('zeroPointRateModalExtra');
   const scroll = document.getElementById('zeroPointRateModalScroll');
   let creditRate = appConfigPaymentRewardRateCredit;
   let easypayRate = appConfigPaymentRewardRateEasypay;
@@ -1323,8 +1315,7 @@ async function showZeroPointRateModal() {
       }
     }
   } catch (_) {}
-  if (body) body.innerHTML = buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays);
-  if (extra) extra.innerHTML = buildZeroPointRateModalExtraHtml();
+  if (body) body.innerHTML = buildZeroPointRateModalContentHtml(creditRate, easypayRate, expireDays);
   if (scroll) scroll.scrollTop = 0;
   const doClose = () => {
     modal.classList.remove('visible');

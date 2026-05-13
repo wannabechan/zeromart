@@ -3197,19 +3197,6 @@ body {
   line-height: 1.6;
 }
 
-.zero-point-rate-modal-extra {
-  margin-bottom: 0;
-  font-size: 0.9375rem;
-}
-
-.zero-point-rate-modal-extra-msg {
-  margin: 0;
-  font-size: 0.85em;
-  line-height: 1.6;
-  color: var(--color-text);
-  text-align: left;
-}
-
 .unsupported-region-modal-btn {
   display: block;
   width: 100%;
