@@ -3198,7 +3198,7 @@ body {
 }
 
 .zero-point-rate-modal-detail-muted {
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
 }
 
 .unsupported-region-modal-btn {
