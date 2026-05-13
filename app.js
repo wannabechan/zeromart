@@ -1269,7 +1269,7 @@ function buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays) {
   const expire = escapeHtml(String(Math.max(1, Math.floor(Number(expireDays) || 60))));
   return (
     '<p class="unsupported-region-modal-msg zero-point-rate-modal-msg">' +
-    '제로포인트 적립 안내<br><br>' +
+    '<strong class="zero-point-rate-modal-title">제로포인트 적립 안내</strong><br><br>' +
     '- 신용/체크카드 결제시 결제금액의 ' + credit + '%가 적립됩니다.<br><br>' +
     '- 간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 적립됩니다.<br><br>' +
     '- 결제 창에서 간편결제(네이버페이, 카카오페이, 토스페이) 선택 후 신용/체크카드 결제 진행하는 경우에는, 간편결제로 분류되어 간편결제 적립률이 적용됩니다.<br><br>' +
@@ -1293,11 +1293,15 @@ function buildZeroPointRateModalExtraHtml() {
 
 function resetZeroPointRateModalExpandedState() {
   const moreBtn = document.getElementById('zeroPointRateModalMore');
+  const moreWrap = document.getElementById('zeroPointRateModalMoreWrap');
+  const divider = document.getElementById('zeroPointRateModalDivider');
   const extra = document.getElementById('zeroPointRateModalExtra');
+  if (moreWrap) moreWrap.hidden = false;
   if (moreBtn) {
     moreBtn.hidden = false;
     moreBtn.onclick = null;
   }
+  if (divider) divider.hidden = true;
   if (extra) {
     extra.hidden = true;
     extra.innerHTML = '';
@@ -1312,6 +1316,8 @@ async function showZeroPointRateModal() {
   const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
   const body = document.getElementById('zeroPointRateModalBody');
   const moreBtn = document.getElementById('zeroPointRateModalMore');
+  const moreWrap = document.getElementById('zeroPointRateModalMoreWrap');
+  const divider = document.getElementById('zeroPointRateModalDivider');
   const extra = document.getElementById('zeroPointRateModalExtra');
   let creditRate = appConfigPaymentRewardRateCredit;
   let easypayRate = appConfigPaymentRewardRateEasypay;
@@ -1341,8 +1347,9 @@ async function showZeroPointRateModal() {
   if (moreBtn) {
     moreBtn.hidden = false;
     moreBtn.onclick = () => {
+      if (moreWrap) moreWrap.hidden = true;
+      if (divider) divider.hidden = false;
       if (extra) extra.hidden = false;
-      moreBtn.hidden = true;
     };
   }
   const doClose = () => {

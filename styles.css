@@ -3159,10 +3159,26 @@ body {
 
 .zero-point-rate-modal-panel {
   max-width: 360px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.zero-point-rate-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.zero-point-rate-modal-footer {
+  flex-shrink: 0;
+  padding-top: 16px;
 }
 
 .zero-point-rate-modal-body {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .zero-point-rate-modal-msg {
@@ -3170,13 +3186,22 @@ body {
   margin: 0;
 }
 
+.zero-point-rate-modal-title {
+  font-weight: 700;
+}
+
+.zero-point-rate-modal-more-wrap {
+  margin: 0;
+}
+
 .zero-point-rate-modal-more-btn {
   display: block;
   width: 100%;
-  margin: 0 0 16px;
-  padding: 0;
-  border: none;
-  background: none;
+  margin: 0;
+  padding: 10px 20px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-accent-light);
   color: var(--color-primary);
   font-size: 0.9375rem;
   font-weight: 500;
@@ -3187,11 +3212,18 @@ body {
 }
 
 .zero-point-rate-modal-more-btn:active {
-  opacity: 0.75;
+  background: var(--color-accent);
+  color: var(--color-surface);
+}
+
+.zero-point-rate-modal-divider {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 0 0 16px;
 }
 
 .zero-point-rate-modal-extra {
-  margin-bottom: 16px;
+  margin-bottom: 0;
   font-size: 0.9375rem;
 }
 

@@ -419,10 +419,19 @@
       <div class="unsupported-region-modal-backdrop"></div>
       <div class="unsupported-region-modal-panel zero-point-rate-modal-panel">
         <button type="button" class="unsupported-region-modal-close" id="zeroPointRateModalClose" aria-label="닫기">&times;</button>
-        <div class="zero-point-rate-modal-body" id="zeroPointRateModalBody"></div>
-        <button type="button" class="zero-point-rate-modal-more-btn" id="zeroPointRateModalMore" hidden>더 보기</button>
-        <div class="zero-point-rate-modal-extra" id="zeroPointRateModalExtra" hidden></div>
-        <button type="button" class="unsupported-region-modal-btn" id="zeroPointRateModalConfirm">확인</button>
+        <div class="zero-point-rate-modal-scroll" id="zeroPointRateModalScroll">
+          <div class="zero-point-rate-modal-body" id="zeroPointRateModalBody"></div>
+          <div class="zero-point-rate-modal-more-wrap" id="zeroPointRateModalMoreWrap">
+            <br>
+            <button type="button" class="zero-point-rate-modal-more-btn" id="zeroPointRateModalMore" hidden>더 보기</button>
+            <br>
+          </div>
+          <hr class="zero-point-rate-modal-divider" id="zeroPointRateModalDivider" hidden>
+          <div class="zero-point-rate-modal-extra" id="zeroPointRateModalExtra" hidden></div>
+        </div>
+        <div class="zero-point-rate-modal-footer">
+          <button type="button" class="unsupported-region-modal-btn" id="zeroPointRateModalConfirm">확인</button>
+        </div>
       </div>
     </div>
     <!-- 주문 취소 확인 모달 (결제 전) -->
