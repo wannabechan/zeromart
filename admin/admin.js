@@ -2078,7 +2078,6 @@ function renderSettlementStatementContent(data) {
 
   html += '<div class="admin-settlement-statement-footer">';
   html += formatSettlementFeeFootnoteHtml();
-  html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
   html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p>';
   html += '</div>';
   html += '<br><br>';
