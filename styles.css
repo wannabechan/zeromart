@@ -3408,6 +3408,8 @@ body {
   display: grid;
   grid-template-columns: 80px 1fr;
   gap: 8px 16px;
+  align-items: center;
+  grid-auto-rows: minmax(28px, auto);
 }
 
 .bank-details dt {
