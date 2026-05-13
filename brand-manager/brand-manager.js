@@ -16,6 +16,9 @@ let brandManagerStoreOrder = [];
 let brandManagerSubFilter = 'delivery_wait';
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months' */
 let brandManagerPeriod = 'this_month';
+/** GET /api/config settlementFeeRate (SETTLEMENT_FEE_RATE, %) */
+let brandManagerSettlementFeeRatePercent = 4.8;
+const BRAND_MANAGER_SETTLEMENT_FEE_VAT_RATE_PERCENT = 10;
 
 function getBrandManagerLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
@@ -223,6 +226,34 @@ function getSettlementPeriodFromBaseDate(baseDateStr) {
   return { startDate: `${y}-${pad(m)}-11`, endDate: `${y}-${pad(m)}-20` };
 }
 
+async function refreshBrandManagerSettlementFeeRate() {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/config`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    const n = Number(data.settlementFeeRate);
+    if (Number.isFinite(n) && n >= 0) brandManagerSettlementFeeRatePercent = n;
+  } catch (_) {}
+}
+
+function calculateBrandManagerSettlementFeeAmount(sales) {
+  const supply = Math.round((Number(sales) || 0) * (brandManagerSettlementFeeRatePercent / 100));
+  const vat = Math.round(supply * (BRAND_MANAGER_SETTLEMENT_FEE_VAT_RATE_PERCENT / 100));
+  return supply + vat;
+}
+
+function formatBrandManagerSettlementFeeRatePercentText() {
+  return Number.isFinite(brandManagerSettlementFeeRatePercent) ? String(brandManagerSettlementFeeRatePercent) : '4.8';
+}
+
+function formatBrandManagerSettlementFeeFootnoteHtml() {
+  return (
+    '<p>* 수수료는 상품 판매가액(부가세 포함)의 ' +
+    escapeHtml(formatBrandManagerSettlementFeeRatePercentText()) +
+    '% + 부가세 별도이며, 정산금액 = 판매금액 − 수수료입니다.</p>'
+  );
+}
+
 function renderSettlementTable(byBrand) {
   const heading = '<br><h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
   if (!byBrand || byBrand.length === 0) {
@@ -235,7 +266,7 @@ function renderSettlementTable(byBrand) {
   let html = heading + '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
   byBrand.forEach((b) => {
     const sales = Number(b.totalAmount) || 0;
-    const fee = Math.round(sales * 0.048);
+    const fee = calculateBrandManagerSettlementFeeAmount(sales);
     const settlement = sales - fee;
     totalSales += sales;
     totalFee += fee;
@@ -299,7 +330,7 @@ function renderSettlementStatementContent(data) {
   html += '</tbody></table>';
   html += '<br><hr class="admin-settlement-statement-hr admin-settlement-statement-hr--footer"><br>';
   html += '<div class="admin-settlement-statement-footer">';
-  html += '<p>* 수수료는 상품 판매가액(부가세 포함)의 4.8%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
+  html += formatBrandManagerSettlementFeeFootnoteHtml();
   html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
   html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p><br><br><br>';
   html += '<div class="admin-settlement-statement-issuer">';
@@ -780,6 +811,7 @@ async function loadSettlementView() {
     return;
   }
   try {
+    await refreshBrandManagerSettlementFeeRate();
     const storesRes = await fetchWithTimeout(`${API_BASE}/api/brand-manager/stores`, { headers: { Authorization: `Bearer ${token}` } });
     if (!storesRes.ok) {
       const err = await storesRes.json().catch(() => ({}));

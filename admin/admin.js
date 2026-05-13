@@ -35,6 +35,9 @@ let adminDeliveryModalOrderId = null;
 let adminEmailFromServer = '';
 /** 매장관리 그룹명(suburl) 목록 - 콤보박스 옵션 및 새 그룹 추가 시 갱신 */
 let adminGroupNames = [];
+/** GET /api/config settlementFeeRate (SETTLEMENT_FEE_RATE, %) */
+let adminSettlementFeeRatePercent = 4.8;
+const ADMIN_SETTLEMENT_FEE_VAT_RATE_PERCENT = 10;
 
 function getAdminLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
@@ -1820,6 +1823,34 @@ function formatSettlementClock() {
   return `${get('year')}/${get('month')}/${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
 
+async function refreshAdminSettlementFeeRate() {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/api/config`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    const n = Number(data.settlementFeeRate);
+    if (Number.isFinite(n) && n >= 0) adminSettlementFeeRatePercent = n;
+  } catch (_) {}
+}
+
+function calculateSettlementFeeAmount(sales) {
+  const supply = Math.round((Number(sales) || 0) * (adminSettlementFeeRatePercent / 100));
+  const vat = Math.round(supply * (ADMIN_SETTLEMENT_FEE_VAT_RATE_PERCENT / 100));
+  return supply + vat;
+}
+
+function formatSettlementFeeRatePercentText() {
+  return Number.isFinite(adminSettlementFeeRatePercent) ? String(adminSettlementFeeRatePercent) : '4.8';
+}
+
+function formatSettlementFeeFootnoteHtml() {
+  return (
+    '<p>* 수수료는 상품 판매가액(부가세 포함)의 ' +
+    escapeHtml(formatSettlementFeeRatePercentText()) +
+    '% + 부가세 별도이며, 정산금액 = 판매금액 − 수수료입니다.</p>'
+  );
+}
+
 function renderSettlementTable(byBrand) {
   const heading = '<br><h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
   if (!byBrand || byBrand.length === 0) {
@@ -1832,7 +1863,7 @@ function renderSettlementTable(byBrand) {
   let html = heading + '<table class="admin-stats-table admin-settlement-table-cols5"><thead><tr><th>브랜드</th><th>주문 수</th><th>판매금액</th><th>수수료</th><th>정산금액</th></tr></thead><tbody>';
   byBrand.forEach((b) => {
     const sales = Number(b.totalAmount) || 0;
-    const fee = Math.round(sales * 0.048);
+    const fee = calculateSettlementFeeAmount(sales);
     const settlement = sales - fee;
     totalSales += sales;
     totalFee += fee;
@@ -1959,7 +1990,7 @@ function getStatementDefaultRange() {
   return { start: toDateKeyKST(startD.getTime()), end };
 }
 
-/** 정산서 출력용 샘플 데이터 (SETTLEMENT_SAMPLE_DATA 시 사용). 기간 내 월요일 제외 일별 1건, 50_000원·수수료 4.8%. */
+/** 정산서 출력용 샘플 데이터 (SETTLEMENT_SAMPLE_DATA 시 사용). 기간 내 월요일 제외 일별 1건, 50_000원·수수료는 SETTLEMENT_FEE_RATE 기준. */
 function getSettlementStatementSampleData(startDate, endDate, stores, slugFilter) {
   const list = (stores || []).filter((s) => (s.slug || s.id || '').toString().trim());
   const pad = (n) => String(n).padStart(2, '0');
@@ -1979,12 +2010,14 @@ function getSettlementStatementSampleData(startDate, endDate, stores, slugFilter
       const y = d.getFullYear();
       const m = d.getMonth() + 1;
       const day = d.getDate();
+      const amount = 50000;
+      const fee = calculateSettlementFeeAmount(amount);
       days.push({
         date: `${y}-${pad(m)}-${pad(day)}`,
         orderCount: 1,
-        totalAmount: 50000,
-        fee: 2400,
-        settlement: 47600,
+        totalAmount: amount,
+        fee,
+        settlement: amount - fee,
       });
     }
     if (days.length > 0 || !slugFilter) {
@@ -1999,8 +2032,8 @@ function getSettlementStatementSampleData(startDate, endDate, stores, slugFilter
         days,
         totalOrderCount: days.length,
         totalSales: days.length * 50000,
-        totalFee: days.length * 2400,
-        totalSettlement: days.length * 47600,
+        totalFee: days.length * 2640,
+        totalSettlement: days.length * 47360,
       });
     }
   });
@@ -2044,7 +2077,7 @@ function renderSettlementStatementContent(data) {
   html += '</div>';
 
   html += '<div class="admin-settlement-statement-footer">';
-  html += '<p>* 수수료는 상품 판매가액(부가세 포함)의 4.8%이며, 정산금액 = 판매금액 − 수수료입니다.</p>';
+  html += formatSettlementFeeFootnoteHtml();
   html += '<p>* 정산서 확인 후, 본사의 지정된 이메일 주소로 전자세금계산서 발행 부탁드립니다.</p>';
   html += '<p>* 정산금액은 귀사의 지정된 입금 계좌로 현금 지급됩니다.</p>';
   html += '</div>';
@@ -2081,7 +2114,9 @@ async function runSettlementStatementSearch() {
     const days = [];
     const d = new Date(startDate + 'T12:00:00+09:00');
     const endMs = new Date(endDate + 'T12:00:00+09:00').getTime();
-    const row = { orderCount: 1, totalAmount: 500000, fee: 24000, settlement: 476000 };
+    const rowAmount = 500000;
+    const rowFee = calculateSettlementFeeAmount(rowAmount);
+    const row = { orderCount: 1, totalAmount: rowAmount, fee: rowFee, settlement: rowAmount - rowFee };
     for (let t = d.getTime(); t <= endMs; t += 86400000) {
       days.push({ date: toDateKeyKST(t), ...row });
     }
@@ -2095,9 +2130,9 @@ async function runSettlementStatementSearch() {
       endDate,
       days,
       totalOrderCount: n,
-      totalSales: 500000 * n,
-      totalFee: 24000 * n,
-      totalSettlement: 476000 * n,
+      totalSales: rowAmount * n,
+      totalFee: rowFee * n,
+      totalSettlement: (rowAmount - rowFee) * n,
     };
     resultBox.innerHTML = renderSettlementStatementContent(mockStatementData);
     return;
@@ -2176,6 +2211,8 @@ function printSettlementStatement() {
 async function loadSettlement() {
   const container = document.getElementById('adminSettlementContent');
   if (!container) return;
+
+  await refreshAdminSettlementFeeRate();
 
   const settlementDates = getSettlementDateOptions();
   const defaultDate = settlementDates[0] || getTodayKST();

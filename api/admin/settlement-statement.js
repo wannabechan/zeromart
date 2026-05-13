@@ -1,9 +1,10 @@
 /**
  * GET /api/admin/settlement-statement?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&slug=xxx
- * 기간·브랜드별 정산서 데이터 (일별 집계, 수수료 4.8%·상품 판매가액 부가세 포함, 수수료에 대한 부가세 포함, admin 전용)
+ * 기간·브랜드별 정산서 데이터 (일별 집계, 수수료 SETTLEMENT_FEE_RATE%·상품 판매가액 부가세 포함, admin 전용)
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
+const { calculateSettlementFee, calculateSettlementAmountAfterFee } = require('../_settlementFee');
 const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
@@ -70,8 +71,8 @@ module.exports = async (req, res) => {
       .map((d) => {
         const row = byDate[d];
         const sales = row.totalAmount;
-        const fee = Math.round(sales * 0.048);
-        const settlement = sales - fee;
+        const fee = calculateSettlementFee(sales);
+        const settlement = calculateSettlementAmountAfterFee(sales);
         return { date: d, orderCount: row.orderCount, totalAmount: sales, fee, settlement };
       });
 

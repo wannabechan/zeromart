@@ -4,6 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
+const { calculateSettlementFee, calculateSettlementAmountAfterFee } = require('../_settlementFee');
 const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
 const { toKSTDateKey } = require('../_kst');
@@ -80,8 +81,8 @@ module.exports = async (req, res) => {
       .map((d) => {
         const row = byDate[d];
         const sales = row.totalAmount;
-        const fee = Math.round(sales * 0.048);
-        const settlement = sales - fee;
+        const fee = calculateSettlementFee(sales);
+        const settlement = calculateSettlementAmountAfterFee(sales);
         return { date: d, orderCount: row.orderCount, totalAmount: sales, fee, settlement };
       });
 
