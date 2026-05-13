@@ -1243,6 +1243,26 @@ function showPointUnavailableModal() {
   modal.setAttribute('aria-hidden', 'false');
 }
 
+function showZeroPointRateModal() {
+  const modal = document.getElementById('zeroPointRateModal');
+  if (!modal) return;
+  const confirmBtn = document.getElementById('zeroPointRateModalConfirm');
+  const closeBtn = document.getElementById('zeroPointRateModalClose');
+  const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
+  const doClose = () => {
+    modal.classList.remove('visible');
+    modal.setAttribute('aria-hidden', 'true');
+    if (confirmBtn) confirmBtn.onclick = null;
+    if (closeBtn) closeBtn.onclick = null;
+    if (backdrop) backdrop.onclick = null;
+  };
+  if (confirmBtn) confirmBtn.onclick = doClose;
+  if (closeBtn) closeBtn.onclick = doClose;
+  if (backdrop) backdrop.onclick = doClose;
+  modal.classList.add('visible');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
 function profileOrderHasAnySlipDelivered(o) {
   const slips = o.orderSlips;
   if (!Array.isArray(slips)) return false;
@@ -1884,7 +1904,7 @@ function init() {
   }
   if (btnCheckoutZeroPointHelp) {
     btnCheckoutZeroPointHelp.addEventListener('click', () => {
-      showPointUnavailableModal();
+      showZeroPointRateModal();
     });
   }
   orderDetailClose.addEventListener('click', closeOrderDetailOverlay);

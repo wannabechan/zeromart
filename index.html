@@ -295,7 +295,7 @@
                 <dd class="checkout-zero-point-part amount-row">
                   <span class="checkout-zero-point-value">
                     <span class="amount checkout-zero-point" id="checkoutZeroPoint">0P</span>
-                    <button type="button" class="btn-checkout-zero-point-help" id="btnCheckoutZeroPointHelp" aria-label="제로포인트 사용 안내">?</button>
+                    <button type="button" class="btn-checkout-zero-point-help" id="btnCheckoutZeroPointHelp" aria-label="제로포인트 적립률 안내">?</button>
                   </span>
                   <span class="amount-row-meta">
                     <button type="button" class="btn-order-detail" id="btnUseAllPoints">전체포인트사용</button>
@@ -412,6 +412,21 @@
           제로포인트를 사용하실 수 없습니다.
         </p>
         <button type="button" class="unsupported-region-modal-btn" id="pointUnavailableModalConfirm">확인</button>
+      </div>
+    </div>
+    <!-- 제로포인트 적립률 안내 모달 -->
+    <div class="unsupported-region-modal" id="zeroPointRateModal" aria-hidden="true">
+      <div class="unsupported-region-modal-backdrop"></div>
+      <div class="unsupported-region-modal-panel zero-point-rate-modal-panel">
+        <button type="button" class="unsupported-region-modal-close" id="zeroPointRateModalClose" aria-label="닫기">&times;</button>
+        <p class="unsupported-region-modal-msg zero-point-rate-modal-msg">
+          제로포인트 적립률<br><br>
+          신용/체크카드 결제시 결제금액의 0.5%<br>
+          간편결제 사용시 결제금액의 0.1%<br><br>
+          *간편결제 : 네이버페이, 카카오페이, 토스페이<br>
+          *간편결제 선택 후 신용/체크로 결제하는 경우, 간편결제 적립률이 적용됩니다.
+        </p>
+        <button type="button" class="unsupported-region-modal-btn" id="zeroPointRateModalConfirm">확인</button>
       </div>
     </div>
     <!-- 주문 취소 확인 모달 (결제 전) -->

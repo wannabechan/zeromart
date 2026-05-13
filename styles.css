@@ -2422,7 +2422,7 @@ body {
 .checkout-zero-point-value {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   min-width: 0;
 }
 
@@ -3155,6 +3155,14 @@ body {
   line-height: 1.6;
   color: var(--color-text);
   text-align: center;
+}
+
+.zero-point-rate-modal-panel {
+  max-width: 360px;
+}
+
+.zero-point-rate-modal-msg {
+  text-align: left;
 }
 
 .unsupported-region-modal-btn {
