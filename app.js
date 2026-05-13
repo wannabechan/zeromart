@@ -1273,7 +1273,7 @@ function buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays) {
     '- 신용/체크카드 결제시 결제금액의 ' + credit + '%가 적립됩니다.<br><br>' +
     '- 간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 적립됩니다.<br><br>' +
     '- 결제 창에서 간편결제(네이버페이, 카카오페이, 토스페이) 선택 후 신용/체크카드 결제 진행하는 경우에는, 간편결제로 분류되어 간편결제 적립률이 적용됩니다.<br><br>' +
-    '*적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.' +
+    '- 적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.' +
     '</p>'
   );
 }
@@ -1295,12 +1295,14 @@ function resetZeroPointRateModalExpandedState() {
   const moreBtn = document.getElementById('zeroPointRateModalMore');
   const moreWrap = document.getElementById('zeroPointRateModalMoreWrap');
   const divider = document.getElementById('zeroPointRateModalDivider');
+  const dividerBr = document.getElementById('zeroPointRateModalDividerBr');
   const extra = document.getElementById('zeroPointRateModalExtra');
   if (moreWrap) moreWrap.hidden = false;
   if (moreBtn) {
     moreBtn.hidden = false;
     moreBtn.onclick = null;
   }
+  if (dividerBr) dividerBr.hidden = true;
   if (divider) divider.hidden = true;
   if (extra) {
     extra.hidden = true;
@@ -1318,6 +1320,7 @@ async function showZeroPointRateModal() {
   const moreBtn = document.getElementById('zeroPointRateModalMore');
   const moreWrap = document.getElementById('zeroPointRateModalMoreWrap');
   const divider = document.getElementById('zeroPointRateModalDivider');
+  const dividerBr = document.getElementById('zeroPointRateModalDividerBr');
   const extra = document.getElementById('zeroPointRateModalExtra');
   let creditRate = appConfigPaymentRewardRateCredit;
   let easypayRate = appConfigPaymentRewardRateEasypay;
@@ -1348,6 +1351,7 @@ async function showZeroPointRateModal() {
     moreBtn.hidden = false;
     moreBtn.onclick = () => {
       if (moreWrap) moreWrap.hidden = true;
+      if (dividerBr) dividerBr.hidden = false;
       if (divider) divider.hidden = false;
       if (extra) extra.hidden = false;
     };
