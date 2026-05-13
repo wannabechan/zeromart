@@ -92,6 +92,7 @@ const checkoutClose = document.getElementById('checkoutClose');
 const checkoutAmount = document.getElementById('checkoutAmount');
 const checkoutOrderTime = document.getElementById('checkoutOrderTime');
 const checkoutZeroPoint = document.getElementById('checkoutZeroPoint');
+const btnCheckoutZeroPointHelp = document.getElementById('btnCheckoutZeroPointHelp');
 const btnUseAllPoints = document.getElementById('btnUseAllPoints');
 const inputDepositor = document.getElementById('inputDepositor');
 const inputContact = document.getElementById('inputContact');
@@ -247,11 +248,15 @@ function renderCheckoutZeroPointState() {
   if (btnUseAllPoints) {
     if (checkoutAvailableZeroPoint <= 0) {
       btnUseAllPoints.style.display = 'none';
+      if (btnCheckoutZeroPointHelp) btnCheckoutZeroPointHelp.style.display = 'none';
       return;
     }
     btnUseAllPoints.style.display = '';
     btnUseAllPoints.textContent = checkoutUseAllPoints ? '포인트사용취소' : '전체포인트사용';
     btnUseAllPoints.classList.toggle('is-disabled', maxUsable <= 0);
+  }
+  if (btnCheckoutZeroPointHelp) {
+    btnCheckoutZeroPointHelp.style.display = checkoutUseAllPoints ? 'none' : '';
   }
 }
 
@@ -1875,6 +1880,11 @@ function init() {
       }
       checkoutUseAllPoints = !checkoutUseAllPoints;
       renderCheckoutZeroPointState();
+    });
+  }
+  if (btnCheckoutZeroPointHelp) {
+    btnCheckoutZeroPointHelp.addEventListener('click', () => {
+      showPointUnavailableModal();
     });
   }
   orderDetailClose.addEventListener('click', closeOrderDetailOverlay);
