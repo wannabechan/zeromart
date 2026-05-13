@@ -39,6 +39,16 @@ async function loadPublicAppConfig() {
     if (!res.ok) return;
     const data = await res.json().catch(() => ({}));
     appConfigZeroPointPublicOpen = data.zeroPointPublicOpen === true;
+    if (Number.isFinite(Number(data.paymentRewardRateCredit))) {
+      appConfigPaymentRewardRateCredit = Number(data.paymentRewardRateCredit);
+    }
+    if (Number.isFinite(Number(data.paymentRewardRateEasypay))) {
+      appConfigPaymentRewardRateEasypay = Number(data.paymentRewardRateEasypay);
+    }
+    const expireDays = Math.floor(Number(data.paymentRewardExpireDays));
+    if (Number.isFinite(expireDays) && expireDays >= 1) {
+      appConfigPaymentRewardExpireDays = expireDays;
+    }
     const em = data && typeof data.emailAdmin === 'string' ? data.emailAdmin.trim() : '';
     if (el && em) el.textContent = '✉️ ' + em;
   } catch (_) {}
@@ -130,6 +140,9 @@ const PROFILE_PAGE_SIZE = 10;
 
 /** 서버 ZEROPOINT_PUBLICOPEN (GET /api/config) — 비관리자 제로포인트 UI 노출 여부 */
 let appConfigZeroPointPublicOpen = false;
+let appConfigPaymentRewardRateCredit = 0.5;
+let appConfigPaymentRewardRateEasypay = 0.1;
+let appConfigPaymentRewardExpireDays = 60;
 
 const MIN_PAYABLE_AMOUNT = 10000;
 let checkoutBaseTotalAmount = 0;
@@ -1243,18 +1256,102 @@ function showPointUnavailableModal() {
   modal.setAttribute('aria-hidden', 'false');
 }
 
-function showZeroPointRateModal() {
+function formatRewardRatePercent(rate) {
+  const n = Number(rate);
+  if (!Number.isFinite(n)) return '0';
+  if (Number.isInteger(n)) return String(n);
+  return String(n).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+}
+
+function buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays) {
+  const credit = escapeHtml(formatRewardRatePercent(creditRate));
+  const easypay = escapeHtml(formatRewardRatePercent(easypayRate));
+  const expire = escapeHtml(String(Math.max(1, Math.floor(Number(expireDays) || 60))));
+  return (
+    '<p class="unsupported-region-modal-msg zero-point-rate-modal-msg">' +
+    '제로포인트 적립 안내<br><br>' +
+    '- 신용/체크카드 결제시 결제금액의 ' + credit + '%가 적립됩니다.<br><br>' +
+    '- 간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 적립됩니다.<br><br>' +
+    '- 결제 창에서 간편결제(네이버페이, 카카오페이, 토스페이) 선택 후 신용/체크카드 결제 진행하는 경우에는, 간편결제로 분류되어 간편결제 적립률이 적용됩니다.<br><br>' +
+    '*적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.' +
+    '</p>'
+  );
+}
+
+function buildZeroPointRateModalExtraHtml() {
+  return (
+    '<p class="zero-point-rate-modal-extra-msg">' +
+    '*제로포인트는 당사 플랫폼 내에서 회원 혜택 및 프로모션 운영을 위해 무상 제공되는 서비스 이용 혜택으로서, 현금, 전자화폐, 선불전자지급수단 또는 금융자산에 해당하지 않습니다.<br><br>' +
+    '*제로포인트는 당사 플랫폼 내에서 상품 구매 또는 서비스 이용 시에만 사용할 수 있으며, 현금으로 환급·출금·교환할 수 없습니다. 또한 제3자에게 양도, 상속, 매매 또는 담보 제공할 수 없습니다.<br><br>' +
+    '*제로포인트의 적립 및 사용 기준은 당사의 운영 정책에 따라 달라질 수 있으며, 일부 상품 또는 서비스에는 사용이 제한될 수 있습니다.<br><br>' +
+    '*회원 탈퇴, 이용계약 종료, 휴면 계정 전환, 부정 이용, 운영 정책 위반 등의 경우 제로포인트는 별도의 보상 없이 소멸될 수 있습니다.<br><br>' +
+    '*당사는 서비스 운영상 필요에 따라 제로포인트의 적립률, 사용 조건, 유효기간, 소멸 정책 및 운영 방식을 변경할 수 있으며, 관련 내용은 플랫폼 내 공지사항 또는 운영정책을 통해 안내합니다.<br><br>' +
+    '*제로포인트는 법정화폐와 교환가치를 가지지 않으며, 금융상품, 투자수단 또는 지급결제수단으로 간주되지 않습니다.' +
+    '</p>'
+  );
+}
+
+function resetZeroPointRateModalExpandedState() {
+  const moreBtn = document.getElementById('zeroPointRateModalMore');
+  const extra = document.getElementById('zeroPointRateModalExtra');
+  if (moreBtn) {
+    moreBtn.hidden = false;
+    moreBtn.onclick = null;
+  }
+  if (extra) {
+    extra.hidden = true;
+    extra.innerHTML = '';
+  }
+}
+
+async function showZeroPointRateModal() {
   const modal = document.getElementById('zeroPointRateModal');
   if (!modal) return;
   const confirmBtn = document.getElementById('zeroPointRateModalConfirm');
   const closeBtn = document.getElementById('zeroPointRateModalClose');
   const backdrop = modal.querySelector('.unsupported-region-modal-backdrop');
+  const body = document.getElementById('zeroPointRateModalBody');
+  const moreBtn = document.getElementById('zeroPointRateModalMore');
+  const extra = document.getElementById('zeroPointRateModalExtra');
+  let creditRate = appConfigPaymentRewardRateCredit;
+  let easypayRate = appConfigPaymentRewardRateEasypay;
+  let expireDays = appConfigPaymentRewardExpireDays;
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (Number.isFinite(Number(data.paymentRewardRateCredit))) {
+        creditRate = Number(data.paymentRewardRateCredit);
+        appConfigPaymentRewardRateCredit = creditRate;
+      }
+      if (Number.isFinite(Number(data.paymentRewardRateEasypay))) {
+        easypayRate = Number(data.paymentRewardRateEasypay);
+        appConfigPaymentRewardRateEasypay = easypayRate;
+      }
+      const nextExpireDays = Math.floor(Number(data.paymentRewardExpireDays));
+      if (Number.isFinite(nextExpireDays) && nextExpireDays >= 1) {
+        expireDays = nextExpireDays;
+        appConfigPaymentRewardExpireDays = nextExpireDays;
+      }
+    }
+  } catch (_) {}
+  if (body) body.innerHTML = buildZeroPointRateModalMainHtml(creditRate, easypayRate, expireDays);
+  resetZeroPointRateModalExpandedState();
+  if (extra) extra.innerHTML = buildZeroPointRateModalExtraHtml();
+  if (moreBtn) {
+    moreBtn.hidden = false;
+    moreBtn.onclick = () => {
+      if (extra) extra.hidden = false;
+      moreBtn.hidden = true;
+    };
+  }
   const doClose = () => {
     modal.classList.remove('visible');
     modal.setAttribute('aria-hidden', 'true');
     if (confirmBtn) confirmBtn.onclick = null;
     if (closeBtn) closeBtn.onclick = null;
     if (backdrop) backdrop.onclick = null;
+    resetZeroPointRateModalExpandedState();
   };
   if (confirmBtn) confirmBtn.onclick = doClose;
   if (closeBtn) closeBtn.onclick = doClose;
@@ -1904,7 +2001,7 @@ function init() {
   }
   if (btnCheckoutZeroPointHelp) {
     btnCheckoutZeroPointHelp.addEventListener('click', () => {
-      showZeroPointRateModal();
+      void showZeroPointRateModal();
     });
   }
   orderDetailClose.addEventListener('click', closeOrderDetailOverlay);

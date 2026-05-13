@@ -3161,7 +3161,45 @@ body {
   max-width: 360px;
 }
 
+.zero-point-rate-modal-body {
+  margin-bottom: 12px;
+}
+
 .zero-point-rate-modal-msg {
+  text-align: left;
+  margin: 0;
+}
+
+.zero-point-rate-modal-more-btn {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.zero-point-rate-modal-more-btn:active {
+  opacity: 0.75;
+}
+
+.zero-point-rate-modal-extra {
+  margin-bottom: 16px;
+  font-size: 0.9375rem;
+}
+
+.zero-point-rate-modal-extra-msg {
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 1.6;
+  color: var(--color-text);
   text-align: left;
 }
 
