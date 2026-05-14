@@ -694,16 +694,11 @@ async function getAdminZeroPointUserRows() {
 
 const ZERO_POINT_RESET_ALL_LOCK_KEY = 'app:admin:zero-point-reset-all:lock';
 const ZERO_POINT_RESET_ALL_LOCK_TTL_SEC = 3600;
+const ZERO_POINT_RESET_ALL_PIPELINE_CHUNK = 50;
 
-async function resetUserZeroPointsBySystemReset(email, ts) {
-  const e = String(email || '').trim().toLowerCase();
-  if (!e || !e.includes('@')) return { skipped: true, pointsReset: 0 };
-  const redis = getRedis();
-  const raw = await redis.get(`user:${e}`);
-  if (!raw) return { skipped: true, pointsReset: 0 };
-  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+function applySystemResetToUserInMemory(user, ts) {
   const balance = Math.max(0, Math.floor(Number(user.zero_point)) || 0);
-  if (balance <= 0) return { skipped: true, pointsReset: 0 };
+  if (balance <= 0) return { changed: false, pointsReset: 0 };
   const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
   for (const g of grants) {
     g.remaining = 0;
@@ -715,10 +710,30 @@ async function resetUserZeroPointsBySystemReset(email, ts) {
     ts: ts || new Date().toISOString(),
     orderId: null,
   });
-  user.zero_point = 0;
   recomputeZeroPointBalanceFromGrants(user);
+  return { changed: true, pointsReset: balance };
+}
+
+function parseRedisUserDocument(raw) {
+  if (raw == null) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function resetUserZeroPointsBySystemReset(email, ts) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return { skipped: true, pointsReset: 0 };
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  const user = parseRedisUserDocument(raw);
+  if (!user) return { skipped: true, pointsReset: 0 };
+  const result = applySystemResetToUserInMemory(user, ts);
+  if (!result.changed) return { skipped: true, pointsReset: 0 };
   await redis.set(`user:${e}`, JSON.stringify(user));
-  return { skipped: false, pointsReset: balance };
+  return { skipped: false, pointsReset: result.pointsReset };
 }
 
 async function resetAllUsersZeroPointsBySystemReset() {
@@ -734,13 +749,32 @@ async function resetAllUsersZeroPointsBySystemReset() {
     const ts = new Date().toISOString();
     let usersReset = 0;
     let pointsReset = 0;
-    for (const email of emails) {
-      const result = await resetUserZeroPointsBySystemReset(email, ts);
-      if (!result.skipped) {
-        usersReset += 1;
-        pointsReset += result.pointsReset;
-      }
+    if (!emails.length) return { usersChecked: 0, usersReset, pointsReset };
+
+    const userKeys = emails.map((email) => `user:${String(email || '').trim().toLowerCase()}`);
+    const raws = await redis.mget(...userKeys);
+    let pipeline = redis.pipeline();
+    let pending = 0;
+
+    async function flushPipeline() {
+      if (pending <= 0) return;
+      await pipeline.exec();
+      pipeline = redis.pipeline();
+      pending = 0;
     }
+
+    for (let i = 0; i < emails.length; i++) {
+      const user = parseRedisUserDocument(raws[i]);
+      if (!user) continue;
+      const result = applySystemResetToUserInMemory(user, ts);
+      if (!result.changed) continue;
+      pipeline.set(userKeys[i], JSON.stringify(user));
+      pending += 1;
+      usersReset += 1;
+      pointsReset += result.pointsReset;
+      if (pending >= ZERO_POINT_RESET_ALL_PIPELINE_CHUNK) await flushPipeline();
+    }
+    await flushPipeline();
     return { usersChecked: emails.length, usersReset, pointsReset };
   } finally {
     await redis.del(ZERO_POINT_RESET_ALL_LOCK_KEY);

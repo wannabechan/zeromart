@@ -6,6 +6,7 @@ const TOKEN_KEY = 'bzcat_token_session';
 const LEGACY_TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
+const ZERO_POINTS_RESET_ALL_TIMEOUT_MS = 120000;
 const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
 const STORAGE_LEVEL_LABEL = {
@@ -806,7 +807,7 @@ async function loadAdminZeroPointsView() {
       });
     }
     html += '</tbody></table></div>';
-    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen">init ZP</button>';
+    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen" aria-label="전체 제로포인트 초기화">init ZP</button>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
@@ -1052,14 +1053,18 @@ function setupAdminZeroPointsResetAllModal() {
     confirmBtn.disabled = true;
     setError('');
     try {
-      const res = await fetchWithTimeout(`${API_BASE}/api/admin/zero-points-reset-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const res = await fetchWithTimeout(
+        `${API_BASE}/api/admin/zero-points-reset-all`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ adminEmailConfirm: entered }),
         },
-        body: JSON.stringify({ adminEmailConfirm: entered }),
-      });
+        ZERO_POINTS_RESET_ALL_TIMEOUT_MS
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || '전체포인트 초기화에 실패했습니다.');
       closeModal();
