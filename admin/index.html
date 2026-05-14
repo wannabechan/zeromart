@@ -524,6 +524,23 @@
       </div>
     </div>
 
+    <div class="admin-modal-overlay" id="adminZeroPointsResetAllModal" aria-hidden="true">
+      <div class="admin-modal">
+        <div class="admin-modal-header">
+          <h3>전체포인트 초기화</h3>
+          <button type="button" class="admin-modal-close" id="adminZeroPointsResetAllClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint">모든 사용자의 제로포인트가 초기화됩니다. 실행을 원하시면 아래에 관리자 계정 이메일을 입력하세요.</p>
+          <input type="email" id="adminZeroPointsResetAllEmail" class="admin-form-input" autocomplete="email" placeholder="관리자 계정 이메일">
+          <p class="admin-error" id="adminZeroPointsResetAllError" hidden></p>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-primary" id="adminZeroPointsResetAllConfirm">확인</button>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-modal-overlay" id="adminPermissionsAddModal" aria-hidden="true">
       <div class="admin-modal">
         <div class="admin-modal-header">

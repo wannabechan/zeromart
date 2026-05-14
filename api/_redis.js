@@ -660,7 +660,6 @@ async function getAllOrders() {
 
 /**
  * 어드민 포인트관리: 인증으로 생성된 user:* 계정, 이메일 오름차순.
- * 총 누적 = 주문에 기록된 zero_point_earned 합(결제 적립분만). 사용 = max(0, 총누적 − 현재 잔액).
  */
 async function getAdminZeroPointUserRows() {
   const redis = getRedis();
@@ -672,16 +671,6 @@ async function getAdminZeroPointUserRows() {
   emails.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
   const userKeys = emails.map((e) => `user:${e}`);
   const raws = await redis.mget(...userKeys);
-  const orders = await getAllOrders();
-  const earnedByEmail = {};
-  for (const o of orders) {
-    const em = String(o.user_email || '').trim().toLowerCase();
-    if (!em) continue;
-    const z = Number(o.zero_point_earned);
-    if (Number.isFinite(z) && z > 0) {
-      earnedByEmail[em] = (earnedByEmail[em] || 0) + z;
-    }
-  }
   const rows = [];
   for (let i = 0; i < emails.length; i++) {
     const email = emails[i];
@@ -695,16 +684,67 @@ async function getAdminZeroPointUserRows() {
     }
     const current = Number(u.zero_point) || 0;
     const safeCurrent = Number.isFinite(current) && current >= 0 ? Math.floor(current) : 0;
-    const totalEarned = earnedByEmail[email] || 0;
-    const usedPoints = Math.max(0, totalEarned - safeCurrent);
     rows.push({
       email,
       zero_point: safeCurrent,
-      total_earned: totalEarned,
-      used_points: usedPoints,
     });
   }
   return rows;
+}
+
+const ZERO_POINT_RESET_ALL_LOCK_KEY = 'app:admin:zero-point-reset-all:lock';
+const ZERO_POINT_RESET_ALL_LOCK_TTL_SEC = 3600;
+
+async function resetUserZeroPointsBySystemReset(email, ts) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !e.includes('@')) return { skipped: true, pointsReset: 0 };
+  const redis = getRedis();
+  const raw = await redis.get(`user:${e}`);
+  if (!raw) return { skipped: true, pointsReset: 0 };
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  const balance = Math.max(0, Math.floor(Number(user.zero_point)) || 0);
+  if (balance <= 0) return { skipped: true, pointsReset: 0 };
+  const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  for (const g of grants) {
+    g.remaining = 0;
+  }
+  user.zero_point_grants = grants;
+  appendZeroPointHistoryOnUser(user, {
+    code: 'system_reset',
+    delta: -balance,
+    ts: ts || new Date().toISOString(),
+    orderId: null,
+  });
+  user.zero_point = 0;
+  recomputeZeroPointBalanceFromGrants(user);
+  await redis.set(`user:${e}`, JSON.stringify(user));
+  return { skipped: false, pointsReset: balance };
+}
+
+async function resetAllUsersZeroPointsBySystemReset() {
+  const redis = getRedis();
+  const locked = await redis.set(ZERO_POINT_RESET_ALL_LOCK_KEY, String(Date.now()), { nx: true, ex: ZERO_POINT_RESET_ALL_LOCK_TTL_SEC });
+  if (locked !== 'OK') {
+    const err = new Error('Zero point reset already in progress');
+    err.code = 'RESET_IN_PROGRESS';
+    throw err;
+  }
+  try {
+    const emails = await listUserEmailsFromRedis();
+    const ts = new Date().toISOString();
+    let usersReset = 0;
+    let pointsReset = 0;
+    for (const email of emails) {
+      const result = await resetUserZeroPointsBySystemReset(email, ts);
+      if (!result.skipped) {
+        usersReset += 1;
+        pointsReset += result.pointsReset;
+      }
+    }
+    return { usersChecked: emails.length, usersReset, pointsReset };
+  } finally {
+    await redis.del(ZERO_POINT_RESET_ALL_LOCK_KEY);
+  }
 }
 
 /**
@@ -942,6 +982,7 @@ module.exports = {
   updateOrderUserAsOrderSent,
   getAllOrders,
   getAdminZeroPointUserRows,
+  resetAllUsersZeroPointsBySystemReset,
   getOrdersForAdmin,
   getStores,
   getMenus,

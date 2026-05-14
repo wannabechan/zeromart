@@ -782,38 +782,31 @@ async function loadAdminZeroPointsView() {
       escapeHtml(String(expireDays)) +
       '일이 지난 포인트는 자동 소멸됩니다.</p>';
     html += '<div class="admin-points-wrap"><table class="admin-points-table"><thead><tr>';
-    html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">총 누적 포인트</th><th class="num">포인트 이력</th>';
+    html += '<th>이메일</th><th class="num">현재 제로포인트</th><th class="num">포인트 이력</th>';
     html += '</tr></thead><tbody>';
     if (rows.length === 0) {
-      html += '<tr><td colspan="4">표시할 계정이 없습니다.</td></tr>';
+      html += '<tr><td colspan="3">표시할 계정이 없습니다.</td></tr>';
     } else {
       rows.forEach((row) => {
         const emailRaw = row.email || '';
         const emEsc = escapeHtml(emailRaw);
         const emAttr = escapeHtml(emailRaw);
         const cur = Number(row.zero_point) || 0;
-        const tot = Number(row.total_earned) || 0;
-        const used = Number(row.used_points) || 0;
         const curStr = escapeHtml(String(cur.toLocaleString('ko-KR')));
-        const totStr = escapeHtml(String(tot.toLocaleString('ko-KR')));
-        const ariaHist = '내 제로포인트 이력 조회 (소진 ' + String(used.toLocaleString('ko-KR')) + 'P 기준)';
         html +=
           '<tr><td>' +
           emEsc +
           '</td><td class="num">' +
           curStr +
-          '</td><td class="num">' +
-          totStr +
           '</td><td class="num"><button type="button" class="admin-points-used-btn" data-admin-zero-used-email="' +
           emAttr +
-          '" aria-label="' +
-          escapeHtml(ariaHist) +
-          '">' +
+          '" aria-label="내 제로포인트 이력 조회">' +
           escapeHtml('[확인]') +
           '</button></td></tr>';
       });
     }
     html += '</tbody></table></div>';
+    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary" id="adminZeroPointsResetAllOpen">전체포인트 초기화</button>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
@@ -898,6 +891,7 @@ function setupAdminZeroPointUsageModal() {
     use_order: '주문 시 포인트 사용',
     refund_cancel: '주문/결제 취소 환불',
     expire: '기간 만료 자동 소멸',
+    system_reset: '시스템 초기화',
   };
 
   function formatZeroPointHistTs(ts) {
@@ -976,6 +970,106 @@ function setupAdminZeroPointUsageModal() {
     const btn = e.target.closest('[data-admin-zero-used-email]');
     if (!btn) return;
     openZeroPointUsageModal(btn.getAttribute('data-admin-zero-used-email') || '');
+  });
+}
+
+function setupAdminZeroPointsResetAllModal() {
+  const pointsContent = document.getElementById('adminPointsContent');
+  const overlay = document.getElementById('adminZeroPointsResetAllModal');
+  const closeBtn = document.getElementById('adminZeroPointsResetAllClose');
+  const emailInput = document.getElementById('adminZeroPointsResetAllEmail');
+  const errorEl = document.getElementById('adminZeroPointsResetAllError');
+  const confirmBtn = document.getElementById('adminZeroPointsResetAllConfirm');
+  if (!pointsContent || !overlay || !closeBtn || !emailInput || !errorEl || !confirmBtn) return;
+
+  let adminSessionEmail = '';
+  let resetInFlight = false;
+
+  async function ensureAdminSessionEmail() {
+    if (adminSessionEmail) return adminSessionEmail;
+    const token = getToken();
+    if (!token) return '';
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return '';
+      const data = await res.json().catch(() => ({}));
+      adminSessionEmail = String(data.user?.email || '').trim().toLowerCase();
+    } catch (_) {}
+    return adminSessionEmail;
+  }
+
+  function setError(msg) {
+    if (!msg) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+      return;
+    }
+    errorEl.hidden = false;
+    errorEl.textContent = msg;
+  }
+
+  function closeModal() {
+    overlay.classList.remove('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    emailInput.value = '';
+    setError('');
+  }
+
+  async function openModal() {
+    await ensureAdminSessionEmail();
+    emailInput.value = '';
+    setError('');
+    overlay.classList.add('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    emailInput.focus();
+  }
+
+  pointsContent.addEventListener('click', (e) => {
+    if (e.target.closest('#adminZeroPointsResetAllOpen')) openModal();
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (resetInFlight) return;
+    const token = getToken();
+    const expected = await ensureAdminSessionEmail();
+    const entered = String(emailInput.value || '').trim().toLowerCase();
+    if (!token || !expected) {
+      setError('로그인 정보를 확인할 수 없습니다.');
+      return;
+    }
+    if (entered !== expected) {
+      setError('관리자 계정 이메일이 일치하지 않습니다.');
+      return;
+    }
+    resetInFlight = true;
+    confirmBtn.disabled = true;
+    setError('');
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/api/admin/zero-points-reset-all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminEmailConfirm: entered }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '전체포인트 초기화에 실패했습니다.');
+      closeModal();
+      await loadAdminZeroPointsView();
+    } catch (err) {
+      setError(err.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : err.message || '전체포인트 초기화에 실패했습니다.');
+    } finally {
+      resetInFlight = false;
+      confirmBtn.disabled = false;
+    }
   });
 }
 
@@ -2632,6 +2726,7 @@ async function init() {
   setupTabs();
   loadPaymentManagement();
   setupAdminZeroPointUsageModal();
+  setupAdminZeroPointsResetAllModal();
   document.getElementById('adminStorageRefreshBtn')?.addEventListener('click', () => {
     loadAdminStorageView();
   });
