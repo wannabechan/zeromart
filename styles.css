@@ -3201,6 +3201,12 @@ body {
   color: var(--color-text-muted);
 }
 
+.zero-point-rate-modal-divider {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+
 .unsupported-region-modal-btn {
   display: block;
   width: 100%;

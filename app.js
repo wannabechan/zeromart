@@ -1271,10 +1271,11 @@ function buildZeroPointRateModalContentHtml(creditRate, easypayRate, expireDays)
     '<p class="unsupported-region-modal-msg zero-point-rate-modal-msg">' +
     '<strong class="zero-point-rate-modal-title">제로포인트 적립 안내</strong><br><br>' +
     '<span class="zero-point-rate-modal-detail">' +
-    '*신용/체크카드 결제시 결제금액의 ' + credit + '%가 적립됩니다.<br><br>' +
-    '*간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 적립됩니다.<br><br>' +
+    '*신용/체크카드 결제시 결제금액의 ' + credit + '%가 제로포인트로 적립됩니다.<br><br>' +
+    '*간편결제(네이버페이, 카카오페이, 토스페이) 사용시 결제금액의 ' + easypay + '%가 제로포인트로 적립됩니다.<br><br>' +
     '*결제 창에서 간편결제(네이버페이, 카카오페이, 토스페이) 선택 후 신용/체크카드 결제 진행하는 경우에는, 간편결제로 분류되어 간편결제 적립률이 적용됩니다.<br><br>' +
     '*적립된 제로포인트는 적립 발생 시점으로부터 ' + expire + '일 후 자동 소멸됩니다.<br><br>' +
+    '<hr class="zero-point-rate-modal-divider"><br><br>' +
     '<span class="zero-point-rate-modal-detail-muted">' +
     '*제로포인트는 당사 플랫폼 내에서 회원 혜택 및 프로모션 운영을 위해 무상 제공되는 서비스 이용 혜택으로서, 현금, 전자화폐, 선불전자지급수단 또는 금융자산에 해당하지 않습니다.<br><br>' +
     '*제로포인트는 당사 플랫폼 내에서 상품 구매 또는 서비스 이용 시에만 사용할 수 있으며, 현금으로 환급·출금·교환할 수 없습니다. 또한 제3자에게 양도, 상속, 매매 또는 담보 제공할 수 없습니다.<br><br>' +
