@@ -806,7 +806,7 @@ async function loadAdminZeroPointsView() {
       });
     }
     html += '</tbody></table></div>';
-    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary" id="adminZeroPointsResetAllOpen">전체포인트 초기화</button>';
+    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen">init ZP</button>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
