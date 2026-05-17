@@ -808,6 +808,7 @@ async function loadAdminZeroPointsView() {
       });
     }
     html += '</tbody></table></div>';
+    html += '<br>';
     html +=
       '<div class="admin-zero-points-bulk-btns">' +
       '<button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen" aria-label="전체 제로포인트 초기화">init ZP</button>' +
