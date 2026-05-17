@@ -7,6 +7,7 @@ const LEGACY_TOKEN_KEY = 'bzcat_token';
 const API_BASE = '';
 const FETCH_TIMEOUT_MS = 15000;
 const ZERO_POINTS_RESET_ALL_TIMEOUT_MS = 120000;
+const ZERO_POINTS_BONUS_MAX = 50000;
 const ADMIN_TAB_KEY = 'bzcat_admin_tab';
 
 const STORAGE_LEVEL_LABEL = {
@@ -807,7 +808,11 @@ async function loadAdminZeroPointsView() {
       });
     }
     html += '</tbody></table></div>';
-    html += '<br><br><button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen" aria-label="전체 제로포인트 초기화">init ZP</button>';
+    html +=
+      '<div class="admin-zero-points-bulk-btns">' +
+      '<button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen" aria-label="전체 제로포인트 초기화">init ZP</button>' +
+      '<button type="button" class="admin-btn admin-btn-secondary admin-zero-points-bonus-btn" id="adminZeroPointsBonusAllOpen" aria-label="전체 보너스포인트 지급">Bonus ZP</button>' +
+      '</div>';
     container.innerHTML = html;
   } catch (e) {
     container.innerHTML = '<p class="admin-error">' + escapeHtml(e.message || '로딩에 실패했습니다.') + '</p>';
@@ -893,6 +898,7 @@ function setupAdminZeroPointUsageModal() {
     refund_cancel: '주문/결제 취소 환불',
     expire: '기간 만료 자동 소멸',
     system_reset: '시스템 초기화',
+    system_bonus: '시스템 보너스',
   };
 
   function formatZeroPointHistTs(ts) {
@@ -1073,6 +1079,169 @@ function setupAdminZeroPointsResetAllModal() {
       setError(err.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : err.message || '전체포인트 초기화에 실패했습니다.');
     } finally {
       resetInFlight = false;
+      confirmBtn.disabled = false;
+    }
+  });
+}
+
+function setupAdminZeroPointsBonusAllModal() {
+  const pointsContent = document.getElementById('adminPointsContent');
+  const overlay = document.getElementById('adminZeroPointsBonusAllModal');
+  const closeBtn = document.getElementById('adminZeroPointsBonusAllClose');
+  const pointsInput = document.getElementById('adminZeroPointsBonusAllPoints');
+  const emailInput = document.getElementById('adminZeroPointsBonusAllEmail');
+  const errorEl = document.getElementById('adminZeroPointsBonusAllError');
+  const confirmBtn = document.getElementById('adminZeroPointsBonusAllConfirm');
+  const rangeAlert = document.getElementById('adminZeroPointsBonusRangeAlert');
+  const rangeAlertOk = document.getElementById('adminZeroPointsBonusRangeAlertOk');
+  if (
+    !pointsContent ||
+    !overlay ||
+    !closeBtn ||
+    !pointsInput ||
+    !emailInput ||
+    !errorEl ||
+    !confirmBtn ||
+    !rangeAlert ||
+    !rangeAlertOk
+  ) {
+    return;
+  }
+
+  let adminSessionEmail = '';
+  let bonusInFlight = false;
+
+  async function ensureAdminSessionEmail() {
+    if (adminSessionEmail) return adminSessionEmail;
+    const token = getToken();
+    if (!token) return '';
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/api/auth/session`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return '';
+      const data = await res.json().catch(() => ({}));
+      adminSessionEmail = String(data.user?.email || '').trim().toLowerCase();
+    } catch (_) {}
+    return adminSessionEmail;
+  }
+
+  function setError(msg) {
+    if (!msg) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+      return;
+    }
+    errorEl.hidden = false;
+    errorEl.textContent = msg;
+  }
+
+  function clearInputs() {
+    pointsInput.value = '';
+    emailInput.value = '';
+    setError('');
+  }
+
+  function closeModal() {
+    overlay.classList.remove('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    clearInputs();
+  }
+
+  function showRangeExceededAlert() {
+    rangeAlert.classList.add('admin-modal-visible');
+    rangeAlert.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeRangeExceededAlert() {
+    rangeAlert.classList.remove('admin-modal-visible');
+    rangeAlert.setAttribute('aria-hidden', 'true');
+    clearInputs();
+  }
+
+  function parseBonusPointsInput() {
+    const raw = String(pointsInput.value || '').trim();
+    if (!raw) return { ok: false, error: '지급할 포인트를 입력해 주세요.' };
+    if (!/^\d+$/.test(raw)) return { ok: false, error: '지급할 포인트는 숫자만 입력할 수 있습니다.' };
+    const points = Math.floor(Number(raw));
+    if (!Number.isFinite(points) || points < 1) return { ok: false, error: '지급할 포인트를 입력해 주세요.' };
+    if (points > ZERO_POINTS_BONUS_MAX) return { ok: false, rangeExceeded: true };
+    return { ok: true, points };
+  }
+
+  async function openModal() {
+    await ensureAdminSessionEmail();
+    clearInputs();
+    overlay.classList.add('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    pointsInput.focus();
+  }
+
+  pointsContent.addEventListener('click', (e) => {
+    if (e.target.closest('#adminZeroPointsBonusAllOpen')) openModal();
+  });
+
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  rangeAlertOk.addEventListener('click', closeRangeExceededAlert);
+  rangeAlert.addEventListener('click', (e) => {
+    if (e.target === rangeAlert) closeRangeExceededAlert();
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (bonusInFlight) return;
+    const parsed = parseBonusPointsInput();
+    if (!parsed.ok) {
+      if (parsed.rangeExceeded) {
+        showRangeExceededAlert();
+        return;
+      }
+      setError(parsed.error || '지급할 포인트를 확인해 주세요.');
+      return;
+    }
+    const token = getToken();
+    const expected = await ensureAdminSessionEmail();
+    const entered = String(emailInput.value || '').trim().toLowerCase();
+    if (!token || !expected) {
+      setError('로그인 정보를 확인할 수 없습니다.');
+      return;
+    }
+    if (entered !== expected) {
+      setError('관리자 계정 이메일이 일치하지 않습니다.');
+      return;
+    }
+    bonusInFlight = true;
+    confirmBtn.disabled = true;
+    setError('');
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE}/api/admin/zero-points-bonus-all`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ points: parsed.points, adminEmailConfirm: entered }),
+        },
+        ZERO_POINTS_RESET_ALL_TIMEOUT_MS
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 400 && data.error === '지급 가능 범위를 초과합니다.') {
+          showRangeExceededAlert();
+          return;
+        }
+        throw new Error(data.error || '전체 보너스포인트 지급에 실패했습니다.');
+      }
+      closeModal();
+      await loadAdminZeroPointsView();
+    } catch (err) {
+      setError(err.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : err.message || '전체 보너스포인트 지급에 실패했습니다.');
+    } finally {
+      bonusInFlight = false;
       confirmBtn.disabled = false;
     }
   });
@@ -2732,6 +2901,7 @@ async function init() {
   loadPaymentManagement();
   setupAdminZeroPointUsageModal();
   setupAdminZeroPointsResetAllModal();
+  setupAdminZeroPointsBonusAllModal();
   document.getElementById('adminStorageRefreshBtn')?.addEventListener('click', () => {
     loadAdminStorageView();
   });

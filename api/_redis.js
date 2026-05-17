@@ -692,9 +692,27 @@ async function getAdminZeroPointUserRows() {
   return rows;
 }
 
-const ZERO_POINT_RESET_ALL_LOCK_KEY = 'app:admin:zero-point-reset-all:lock';
-const ZERO_POINT_RESET_ALL_LOCK_TTL_SEC = 3600;
-const ZERO_POINT_RESET_ALL_PIPELINE_CHUNK = 50;
+const ZERO_POINT_BULK_LOCK_KEY = 'app:admin:zero-point-bulk-op:lock';
+const ZERO_POINT_BULK_LOCK_TTL_SEC = 3600;
+const ZERO_POINT_BULK_PIPELINE_CHUNK = 50;
+const ZERO_POINT_SYSTEM_BONUS_MAX = 50000;
+
+async function acquireZeroPointBulkLock() {
+  const redis = getRedis();
+  const locked = await redis.set(ZERO_POINT_BULK_LOCK_KEY, String(Date.now()), {
+    nx: true,
+    ex: ZERO_POINT_BULK_LOCK_TTL_SEC,
+  });
+  if (locked !== 'OK') {
+    const err = new Error('Zero point bulk operation already in progress');
+    err.code = 'BULK_IN_PROGRESS';
+    throw err;
+  }
+}
+
+async function releaseZeroPointBulkLock() {
+  await getRedis().del(ZERO_POINT_BULK_LOCK_KEY);
+}
 
 function applySystemResetToUserInMemory(user, ts) {
   const balance = Math.max(0, Math.floor(Number(user.zero_point)) || 0);
@@ -736,14 +754,75 @@ async function resetUserZeroPointsBySystemReset(email, ts) {
   return { skipped: false, pointsReset: result.pointsReset };
 }
 
-async function resetAllUsersZeroPointsBySystemReset() {
-  const redis = getRedis();
-  const locked = await redis.set(ZERO_POINT_RESET_ALL_LOCK_KEY, String(Date.now()), { nx: true, ex: ZERO_POINT_RESET_ALL_LOCK_TTL_SEC });
-  if (locked !== 'OK') {
-    const err = new Error('Zero point reset already in progress');
-    err.code = 'RESET_IN_PROGRESS';
+function applySystemBonusToUserInMemory(user, points, ts) {
+  const delta = Math.floor(Number(points));
+  if (!Number.isFinite(delta) || delta < 1) return { changed: false, pointsGranted: 0 };
+  const grants = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
+  grants.push({
+    sourceOrderId: null,
+    amount: delta,
+    awardedAt: ts || new Date().toISOString(),
+    remaining: delta,
+  });
+  user.zero_point_grants = grants;
+  appendZeroPointHistoryOnUser(user, {
+    code: 'system_bonus',
+    delta,
+    ts: ts || new Date().toISOString(),
+    orderId: null,
+  });
+  recomputeZeroPointBalanceFromGrants(user);
+  return { changed: true, pointsGranted: delta };
+}
+
+async function grantAllUsersZeroPointsBySystemBonus(pointsPerUser) {
+  const pts = Math.floor(Number(pointsPerUser));
+  if (!Number.isFinite(pts) || pts < 1 || pts > ZERO_POINT_SYSTEM_BONUS_MAX) {
+    const err = new Error('Invalid bonus points amount');
+    err.code = 'INVALID_BONUS_POINTS';
     throw err;
   }
+  await acquireZeroPointBulkLock();
+  try {
+    const emails = await listUserEmailsFromRedis();
+    const ts = new Date().toISOString();
+    let usersGranted = 0;
+    let pointsGranted = 0;
+    if (!emails.length) return { usersChecked: 0, usersGranted, pointsGranted, pointsPerUser: pts };
+
+    const redis = getRedis();
+    const userKeys = emails.map((email) => `user:${String(email || '').trim().toLowerCase()}`);
+    const raws = await redis.mget(...userKeys);
+    let pipeline = redis.pipeline();
+    let pending = 0;
+
+    async function flushPipeline() {
+      if (pending <= 0) return;
+      await pipeline.exec();
+      pipeline = redis.pipeline();
+      pending = 0;
+    }
+
+    for (let i = 0; i < emails.length; i++) {
+      const user = parseRedisUserDocument(raws[i]);
+      if (!user) continue;
+      const result = applySystemBonusToUserInMemory(user, pts, ts);
+      if (!result.changed) continue;
+      pipeline.set(userKeys[i], JSON.stringify(user));
+      pending += 1;
+      usersGranted += 1;
+      pointsGranted += result.pointsGranted;
+      if (pending >= ZERO_POINT_BULK_PIPELINE_CHUNK) await flushPipeline();
+    }
+    await flushPipeline();
+    return { usersChecked: emails.length, usersGranted, pointsGranted, pointsPerUser: pts };
+  } finally {
+    await releaseZeroPointBulkLock();
+  }
+}
+
+async function resetAllUsersZeroPointsBySystemReset() {
+  await acquireZeroPointBulkLock();
   try {
     const emails = await listUserEmailsFromRedis();
     const ts = new Date().toISOString();
@@ -751,6 +830,7 @@ async function resetAllUsersZeroPointsBySystemReset() {
     let pointsReset = 0;
     if (!emails.length) return { usersChecked: 0, usersReset, pointsReset };
 
+    const redis = getRedis();
     const userKeys = emails.map((email) => `user:${String(email || '').trim().toLowerCase()}`);
     const raws = await redis.mget(...userKeys);
     let pipeline = redis.pipeline();
@@ -772,12 +852,12 @@ async function resetAllUsersZeroPointsBySystemReset() {
       pending += 1;
       usersReset += 1;
       pointsReset += result.pointsReset;
-      if (pending >= ZERO_POINT_RESET_ALL_PIPELINE_CHUNK) await flushPipeline();
+      if (pending >= ZERO_POINT_BULK_PIPELINE_CHUNK) await flushPipeline();
     }
     await flushPipeline();
     return { usersChecked: emails.length, usersReset, pointsReset };
   } finally {
-    await redis.del(ZERO_POINT_RESET_ALL_LOCK_KEY);
+    await releaseZeroPointBulkLock();
   }
 }
 
@@ -1017,6 +1097,8 @@ module.exports = {
   getAllOrders,
   getAdminZeroPointUserRows,
   resetAllUsersZeroPointsBySystemReset,
+  grantAllUsersZeroPointsBySystemBonus,
+  ZERO_POINT_SYSTEM_BONUS_MAX,
   getOrdersForAdmin,
   getStores,
   getMenus,

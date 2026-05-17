@@ -368,7 +368,10 @@
     .admin-points-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .admin-points-used-btn { background: none; border: none; padding: 0; font: inherit; color: var(--color-primary); cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
     .admin-points-used-btn:hover { color: var(--color-text); }
-    .admin-zero-points-reset-btn { font-size: 0.7rem; padding: 6.4px 12.8px; }
+    .admin-zero-points-bulk-btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .admin-zero-points-reset-btn,
+    .admin-zero-points-bonus-btn { font-size: 0.7rem; padding: 6.4px 12.8px; }
+    .admin-zero-points-bonus-form-gap { margin-top: 12px; }
     .admin-points-usage-email { font-size: 0.875rem; color: var(--color-text-secondary); margin: 0 0 12px; word-break: break-all; }
     .admin-points-usage-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .admin-points-usage-table th, .admin-points-usage-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
@@ -521,6 +524,37 @@
             </thead>
             <tbody id="adminZeroPointUsageTbody"></tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminZeroPointsBonusRangeAlert" aria-hidden="true">
+      <div class="admin-modal admin-modal--compact">
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint" style="margin:0;">지급 가능 범위를 초과합니다.</p>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-primary" id="adminZeroPointsBonusRangeAlertOk">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminZeroPointsBonusAllModal" aria-hidden="true">
+      <div class="admin-modal">
+        <div class="admin-modal-header">
+          <h3>전체 보너스포인트 지급</h3>
+          <button type="button" class="admin-modal-close" id="adminZeroPointsBonusAllClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint">모든 사용자에게 동일한 보너스 제로포인트를 지급합니다.<br>1회 최대 50,000P까지 지급할 수 있습니다.</p>
+          <label class="admin-form-label" for="adminZeroPointsBonusAllPoints">지급할 포인트</label>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" id="adminZeroPointsBonusAllPoints" class="admin-form-input" autocomplete="off" placeholder="숫자만 입력">
+          <label class="admin-form-label admin-zero-points-bonus-form-gap" for="adminZeroPointsBonusAllEmail">관리자 계정 이메일</label>
+          <input type="email" id="adminZeroPointsBonusAllEmail" class="admin-form-input" autocomplete="email" placeholder="관리자 계정 이메일">
+          <p class="admin-error" id="adminZeroPointsBonusAllError" hidden></p>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-primary" id="adminZeroPointsBonusAllConfirm">확인</button>
         </div>
       </div>
     </div>
