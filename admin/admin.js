@@ -813,6 +813,7 @@ async function loadAdminZeroPointsView() {
       '<div class="admin-zero-points-bulk-btns">' +
       '<button type="button" class="admin-btn admin-btn-secondary admin-zero-points-reset-btn" id="adminZeroPointsResetAllOpen" aria-label="전체 제로포인트 초기화">init ZP</button>' +
       '<button type="button" class="admin-btn admin-btn-secondary admin-zero-points-bonus-btn" id="adminZeroPointsBonusAllOpen" aria-label="전체 보너스포인트 지급">Bonus ZP</button>' +
+      '<span class="admin-zero-points-history-link-wrap"><button type="button" class="admin-zero-points-history-link" id="adminZpHistoryOpen" aria-label="ZP History 조회">ZP History</button></span>' +
       '</div>';
     container.innerHTML = html;
   } catch (e) {
@@ -1246,6 +1247,166 @@ function setupAdminZeroPointsBonusAllModal() {
       confirmBtn.disabled = false;
     }
   });
+}
+
+function setupAdminZpHistoryModal() {
+  const pointsContent = document.getElementById('adminPointsContent');
+  const overlay = document.getElementById('adminZpHistoryModal');
+  const closeBtn = document.getElementById('adminZpHistoryClose');
+  const groupSelect = document.getElementById('adminZpHistoryGroupSelect');
+  const dateSelect = document.getElementById('adminZpHistoryDateSelect');
+  const captionEl = document.getElementById('adminZpHistoryCaption');
+  const contentEl = document.getElementById('adminZpHistoryContent');
+  if (!pointsContent || !overlay || !closeBtn || !groupSelect || !dateSelect || !captionEl || !contentEl) {
+    return;
+  }
+
+  let storesCache = [];
+  let slugToSuburl = {};
+  let inflightRequest = 0;
+
+  function closeModal() {
+    overlay.classList.remove('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function populateGroupSelect(stores) {
+    while (groupSelect.options.length) groupSelect.remove(0);
+    groupSelect.appendChild(new Option('전체', ''));
+    const groups = [...new Set((stores || []).map((s) => (s.suburl || '').toString().trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'ko'));
+    groups.forEach((g) => groupSelect.appendChild(new Option(g, g)));
+    groupSelect.selectedIndex = 0;
+  }
+
+  function populateDateSelect() {
+    while (dateSelect.options.length) dateSelect.remove(0);
+    const dates = getSettlementDateOptions();
+    const fallback = getTodayKST();
+    const list = dates.length ? dates : [fallback];
+    list.forEach((d, i) => {
+      const opt = new Option(d, d);
+      if (i === 0) opt.selected = true;
+      dateSelect.appendChild(opt);
+    });
+  }
+
+  function formatMoney(n) {
+    return Number(n || 0).toLocaleString() + '원';
+  }
+  function formatPoint(n) {
+    return Number(n || 0).toLocaleString() + 'P';
+  }
+
+  function renderRows(rows) {
+    const heading = '<br><h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
+    if (!rows || rows.length === 0) {
+      contentEl.innerHTML = heading + '<p class="admin-zp-history-empty">해당 기간에 발송 완료된 주문이 없습니다.</p>';
+      return;
+    }
+    let totalGross = 0;
+    let totalPoints = 0;
+    let totalFinal = 0;
+    let html = heading + '<table class="admin-zp-history-table"><thead><tr>'
+      + '<th>일자</th><th>주문번호</th><th>브랜드</th><th>주문자 이메일</th>'
+      + '<th class="num">본래결제금액</th><th class="num">사용 포인트</th><th class="num">최종결제금액</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach((r) => {
+      const gross = Number(r.grossAmount) || 0;
+      const points = Number(r.pointsUsed) || 0;
+      const finalAmount = Number(r.finalAmount) || 0;
+      totalGross += gross;
+      totalPoints += points;
+      totalFinal += finalAmount;
+      html += '<tr>'
+        + '<td>' + escapeHtml(r.orderDate || '') + '</td>'
+        + '<td>' + escapeHtml(r.orderNumberDisplay || ('#' + (r.orderId || ''))) + '</td>'
+        + '<td>' + escapeHtml(r.brandTitle || r.slug || '') + '</td>'
+        + '<td>' + escapeHtml(r.userEmail || '—') + '</td>'
+        + '<td class="num">' + escapeHtml(formatMoney(gross)) + '</td>'
+        + '<td class="num">' + escapeHtml(formatPoint(points)) + '</td>'
+        + '<td class="num">' + escapeHtml(formatMoney(finalAmount)) + '</td>'
+        + '</tr>';
+    });
+    html += '<tr class="admin-zp-history-total-row">'
+      + '<td>합계</td><td></td><td></td><td></td>'
+      + '<td class="num">' + escapeHtml(formatMoney(totalGross)) + '</td>'
+      + '<td class="num">' + escapeHtml(formatPoint(totalPoints)) + '</td>'
+      + '<td class="num">' + escapeHtml(formatMoney(totalFinal)) + '</td>'
+      + '</tr>';
+    html += '</tbody></table>';
+    contentEl.innerHTML = html;
+  }
+
+  async function refresh() {
+    const baseDate = (dateSelect.value || '').trim();
+    if (!baseDate) {
+      contentEl.innerHTML = '<p class="admin-stats-error">기준 정산일을 선택해 주세요.</p>';
+      captionEl.textContent = '';
+      return;
+    }
+    const period = getSettlementPeriodFromBaseDate(baseDate);
+    captionEl.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
+    contentEl.innerHTML = getAdminLoadingHtml();
+
+    const token = getToken();
+    if (!token) {
+      contentEl.innerHTML = '<p class="admin-stats-error">로그인이 필요합니다.</p>';
+      return;
+    }
+    const requestId = ++inflightRequest;
+    try {
+      const url = `${API_BASE}/api/admin/zero-points-history-orders?startDate=${encodeURIComponent(period.startDate)}&endDate=${encodeURIComponent(period.endDate)}`;
+      const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (requestId !== inflightRequest) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        contentEl.innerHTML = '<p class="admin-stats-error">' + escapeHtml(data.error || '내역을 불러올 수 없습니다.') + '</p>';
+        return;
+      }
+      const selectedGroup = (groupSelect.value || '').trim();
+      let rows = Array.isArray(data.rows) ? data.rows : [];
+      if (selectedGroup) {
+        rows = rows.filter((r) => (r.suburl || slugToSuburl[r.slug] || '') === selectedGroup);
+      }
+      renderRows(rows);
+    } catch (e) {
+      if (requestId !== inflightRequest) return;
+      contentEl.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.name === 'AbortError' ? '요청 시간이 초과되었습니다.' : (e.message || '내역을 불러올 수 없습니다.')) + '</p>';
+    }
+  }
+
+  async function openModal() {
+    overlay.classList.add('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    contentEl.innerHTML = getAdminLoadingHtml();
+    captionEl.textContent = '';
+    try {
+      const storesData = await fetchStores();
+      storesCache = (storesData && storesData.stores) || [];
+      slugToSuburl = {};
+      storesCache.forEach((s) => {
+        const slug = (s.slug || s.id || '').toString().toLowerCase();
+        if (slug) slugToSuburl[slug] = (s.suburl || '').toString().trim();
+      });
+      populateGroupSelect(storesCache);
+      populateDateSelect();
+    } catch (e) {
+      contentEl.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '매장 정보를 불러올 수 없습니다.') + '</p>';
+      return;
+    }
+    await refresh();
+  }
+
+  pointsContent.addEventListener('click', (e) => {
+    if (e.target.closest('#adminZpHistoryOpen')) openModal();
+  });
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+  groupSelect.addEventListener('change', refresh);
+  dateSelect.addEventListener('change', refresh);
 }
 
 async function uploadImage(file) {
@@ -2903,6 +3064,7 @@ async function init() {
   setupAdminZeroPointUsageModal();
   setupAdminZeroPointsResetAllModal();
   setupAdminZeroPointsBonusAllModal();
+  setupAdminZpHistoryModal();
   document.getElementById('adminStorageRefreshBtn')?.addEventListener('click', () => {
     loadAdminStorageView();
   });

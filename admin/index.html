@@ -372,6 +372,20 @@
     .admin-zero-points-reset-btn,
     .admin-zero-points-bonus-btn { font-size: 0.7rem; padding: 6.4px 12.8px; }
     .admin-zero-points-bonus-form-gap { margin-top: 12px; }
+    .admin-zero-points-history-link-wrap { margin-left: auto; display: flex; align-items: center; }
+    .admin-zero-points-history-link { background: none; border: none; padding: 0; font: inherit; font-size: 0.8125rem; color: var(--color-primary); cursor: pointer; text-decoration: underline; -webkit-tap-highlight-color: transparent; }
+    .admin-zero-points-history-link:hover { color: var(--color-text); }
+    .admin-modal--zp-history { max-width: 960px; }
+    .admin-zp-history-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .admin-zp-history-caption { font-size: 0.8125rem; color: var(--color-text-secondary); margin: 0 0 12px; }
+    .admin-zp-history-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; table-layout: fixed; }
+    .admin-zp-history-table th,
+    .admin-zp-history-table td { padding: 8px 10px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: middle; word-break: break-word; }
+    .admin-zp-history-table th { font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+    .admin-zp-history-table th.num,
+    .admin-zp-history-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .admin-zp-history-total-row { font-weight: 600; background: var(--color-bg); }
+    .admin-zp-history-empty { margin: 0; font-size: 0.875rem; color: var(--color-text-secondary); }
     .admin-points-usage-email { font-size: 0.875rem; color: var(--color-text-secondary); margin: 0 0 12px; word-break: break-all; }
     .admin-points-usage-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .admin-points-usage-table th, .admin-points-usage-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--color-border); }
@@ -555,6 +569,26 @@
         </div>
         <div class="admin-modal-footer">
           <button type="button" class="admin-btn admin-btn-primary" id="adminZeroPointsBonusAllConfirm">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminZpHistoryModal" aria-hidden="true">
+      <div class="admin-modal admin-modal--zp-history">
+        <div class="admin-modal-header">
+          <h3>ZP History</h3>
+          <button type="button" class="admin-modal-close" id="adminZpHistoryClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <div class="admin-zp-history-toolbar">
+            <select id="adminZpHistoryGroupSelect" class="admin-settlement-brand-select" style="min-width:160px;"></select>
+          </div>
+          <div class="admin-zp-history-toolbar">
+            <label for="adminZpHistoryDateSelect" class="admin-settlement-date-label">기준 정산일</label>
+            <select id="adminZpHistoryDateSelect" class="admin-settlement-date-select"></select>
+          </div>
+          <p class="admin-zp-history-caption" id="adminZpHistoryCaption"></p>
+          <div id="adminZpHistoryContent"></div>
         </div>
       </div>
     </div>
