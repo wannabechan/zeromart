@@ -1530,7 +1530,7 @@ function renderStore(store, menus, groupNames) {
           </div>
           <div class="admin-menu-list-wrap is-collapsed">
             <div class="admin-menu-list" data-store-id="${storeIdEsc}">
-              ${items.map((item, i) => renderMenuItem(store.id, { ...item, registered: true }, i)).join('')}
+              ${items.map((item, i) => renderMenuItem(store.id, item, i)).join('')}
             </div>
             <button type="button" class="admin-btn admin-btn-secondary admin-btn-add" data-add-menu="${storeIdEsc}">+ 메뉴 추가</button>
           </div>
@@ -1544,14 +1544,13 @@ function renderStore(store, menus, groupNames) {
 }
 
 function renderMenuItem(storeId, item, index) {
-  const nameReadonly = item.registered === true;
   const isSoldOut = item.isSoldOut === true;
   return `
-    <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}"${nameReadonly ? ' data-menu-registered="1"' : ''}>
+    <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
       <div class="admin-menu-fields">
         <div class="admin-form-field">
           <label>메뉴명</label>
-          <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명"${nameReadonly ? ' readonly' : ''}>
+          <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명" required>
         </div>
         <div class="admin-form-row">
           <div class="admin-form-field">
@@ -1649,6 +1648,20 @@ function collectData() {
   });
 
   return { stores, menus };
+}
+
+/** 모든 매장 메뉴에 메뉴명이 입력되어 있는지 확인 */
+function validateMenuNamesRequired() {
+  const list = document.getElementById('adminStoresList');
+  const storeEls = list ? list.querySelectorAll('.admin-store') : document.querySelectorAll('.admin-store');
+  for (const storeEl of storeEls) {
+    const menuItems = storeEl.querySelectorAll('.admin-menu-item');
+    for (const itemEl of menuItems) {
+      const name = itemEl.querySelector('input[data-field="name"]')?.value?.trim();
+      if (!name) return false;
+    }
+  }
+  return true;
 }
 
 function showLoadingError(msg, showRetry = false) {
@@ -3286,7 +3299,6 @@ async function init() {
               description: '',
               imageUrl: imageInput?.value?.trim() || '',
               isSoldOut: soldOutInput?.checked === true,
-              registered: itemEl.dataset.menuRegistered === '1',
             });
           });
           items.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
@@ -3523,6 +3535,10 @@ function applyReorderAndSave() {
 
 async function handleSave() {
   hideError();
+  if (!validateMenuNamesRequired()) {
+    alert('메뉴명은 입력 필수입니다.');
+    return;
+  }
   try {
     const { stores, menus } = collectData();
     for (const store of stores) {
