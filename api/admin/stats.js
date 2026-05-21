@@ -26,6 +26,88 @@ const STATUS_LABELS = {
   cancelled: '취소',
 };
 
+function sumItemsGross(items) {
+  let s = 0;
+  for (const it of items || []) {
+    s += (Number(it.price) || 0) * Math.max(0, Number(it.quantity) || 0);
+  }
+  return s;
+}
+
+function grossBySlugFromItems(items) {
+  const bySlug = {};
+  for (const item of items || []) {
+    const slug = getOrderItemStoreKey(item.id);
+    if (!slug || slug === 'unknown') continue;
+    const amt = (Number(item.price) || 0) * Math.max(0, Number(item.quantity) || 0);
+    bySlug[slug] = (bySlug[slug] || 0) + amt;
+  }
+  return bySlug;
+}
+
+/** 주문 total_amount를 품목 정가 비율로 slug별 배분 (실 결제액 기준 브랜드별 매출) */
+function allocateOrderAmountByItemGross(order, amount) {
+  const items = order.order_items || order.orderItems || [];
+  const grossAll = sumItemsGross(items);
+  if (grossAll <= 0) return {};
+
+  const grossBySlug = grossBySlugFromItems(items);
+  const entries = Object.entries(grossBySlug).filter(([, gross]) => gross > 0);
+  if (entries.length === 0) return {};
+
+  const paid = Math.max(0, Math.floor(Number(amount) || 0));
+  const out = {};
+  let assigned = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const [slug, gross] = entries[i];
+    let share;
+    if (i === entries.length - 1) {
+      share = paid - assigned;
+    } else {
+      share = Math.floor((paid * gross) / grossAll);
+      assigned += share;
+    }
+    if (share > 0) out[slug] = (out[slug] || 0) + share;
+  }
+  return out;
+}
+
+/** 주문 total_amount를 품목(메뉴)별 정가 비율로 배분 — 메뉴 매출 실결제 기준 */
+function allocateOrderAmountByMenuLine(order, amount) {
+  const items = order.order_items || order.orderItems || [];
+  const grossAll = sumItemsGross(items);
+  if (grossAll <= 0) return { shares: {}, names: {} };
+
+  const entries = [];
+  for (const item of items) {
+    const slug = getOrderItemStoreKey(item.id);
+    const id = item.id || '';
+    const gross = (Number(item.price) || 0) * Math.max(0, Number(item.quantity) || 0);
+    if (!slug || slug === 'unknown' || gross <= 0) continue;
+    entries.push({ key: slug + ':' + id, name: item.name || id, gross });
+  }
+  if (!entries.length) return { shares: {}, names: {} };
+
+  const paid = Math.max(0, Math.floor(Number(amount) || 0));
+  const shares = {};
+  const names = {};
+  let assigned = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    let share;
+    if (i === entries.length - 1) share = paid - assigned;
+    else {
+      share = Math.floor((paid * e.gross) / grossAll);
+      assigned += share;
+    }
+    if (share > 0) {
+      shares[e.key] = (shares[e.key] || 0) + share;
+      names[e.key] = e.name;
+    }
+  }
+  return { shares, names };
+}
+
 /** 주문에 포함된 상품의 매장(slug) 목록 (중복 제거). 복수 카테고리 주문 시 한 주문이 여러 slug에 기여 */
 function getOrderStoreSlugs(order) {
   const items = order.order_items || order.orderItems || [];
@@ -131,23 +213,17 @@ module.exports = async (req, res) => {
 
       if (confirmedPaid) {
         revenueTotal += Number(o.total_amount) || 0;
-        const items = o.order_items || o.orderItems || [];
-        for (const item of items) {
-          const slug = getOrderItemStoreKey(item.id);
-          const price = Number(item.price) || 0;
-          const qty = Number(item.quantity) || 0;
-          revenueByStore[slug] = (revenueByStore[slug] || 0) + price * qty;
+        const paidShares = allocateOrderAmountByItemGross(o, o.total_amount);
+        for (const [slug, amt] of Object.entries(paidShares)) {
+          revenueByStore[slug] = (revenueByStore[slug] || 0) + amt;
         }
       }
       if (status === 'submitted' || status === 'order_accepted' || status === 'payment_link_issued') {
         const amt = Number(o.total_amount) || 0;
         revenueExpectedTotal += amt;
-        const items = o.order_items || o.orderItems || [];
-        for (const item of items) {
-          const slug = getOrderItemStoreKey(item.id);
-          const price = Number(item.price) || 0;
-          const qty = Number(item.quantity) || 0;
-          revenueExpectedByStore[slug] = (revenueExpectedByStore[slug] || 0) + price * qty;
+        const expectedShares = allocateOrderAmountByItemGross(o, o.total_amount);
+        for (const [slug, share] of Object.entries(expectedShares)) {
+          revenueExpectedByStore[slug] = (revenueExpectedByStore[slug] || 0) + share;
         }
       }
       if (status === 'submitted') submittedCount++;
@@ -163,17 +239,26 @@ module.exports = async (req, res) => {
       const items = o.order_items || o.orderItems || [];
       const isExpected = ['submitted', 'order_accepted', 'payment_link_issued'].includes(status);
       const isCancelled = status === 'cancelled';
+      if (!isCancelled && confirmedPaid) {
+        const menuPaid = allocateOrderAmountByMenuLine(o, o.total_amount);
+        for (const [key, share] of Object.entries(menuPaid.shares)) {
+          menuRevenue[key] = (menuRevenue[key] || 0) + share;
+          if (menuPaid.names[key] && !menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = menuPaid.names[key];
+        }
+      }
+      if (isExpected) {
+        const menuExpected = allocateOrderAmountByMenuLine(o, o.total_amount);
+        for (const [key, share] of Object.entries(menuExpected.shares)) {
+          menuExpectedRevenue[key] = (menuExpectedRevenue[key] || 0) + share;
+          if (menuExpected.names[key] && !menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = menuExpected.names[key];
+        }
+      }
       items.forEach((item) => {
         const id = item.id || '';
-        const name = item.name || id;
         const qty = Number(item.quantity) || 0;
-        const price = Number(item.price) || 0;
         const slugFromItem = getOrderItemStoreKey(id);
         const key = slugFromItem + ':' + id;
         if (!isCancelled && confirmedPaid) menuOrderCount[key] = (menuOrderCount[key] || 0) + qty;
-        if (confirmedPaid) menuRevenue[key] = (menuRevenue[key] || 0) + price * qty;
-        if (isExpected) menuExpectedRevenue[key] = (menuExpectedRevenue[key] || 0) + price * qty;
-        if (!menuOrderCount[key + ':name']) menuOrderCount[key + ':name'] = name;
       });
 
       const dateKey = toKSTDateKey(o.created_at);
