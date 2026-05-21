@@ -1525,7 +1525,7 @@ function renderStore(store, menus, groupNames) {
           <div class="admin-section-title-row admin-section-title-row--menu">
             <span class="admin-menu-title-with-toggle"><span class="admin-section-title">메뉴 (${items.length})</span>&nbsp;<button type="button" class="admin-btn admin-menu-toggle" data-menu-toggle="${storeIdEsc}" aria-label="메뉴 목록 펼치기" title="메뉴 목록 펼치기"><span class="admin-menu-toggle-icon" aria-hidden="true">▼</span></button></span>
             <div class="admin-menu-title-buttons">
-              <button type="button" class="admin-btn-upload-menu" data-upload-menu="${storeIdEsc}">upload menu</button>&nbsp;<button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
+              <button type="button" class="admin-btn-download-menu" data-download-menu="${storeIdEsc}">download menu</button>&nbsp;<button type="button" class="admin-btn-upload-menu" data-upload-menu="${storeIdEsc}">upload menu</button>&nbsp;<button type="button" class="admin-btn-sort-abc" data-sort-menu-abc="${storeIdEsc}">abc</button>
             </div>
           </div>
           <div class="admin-menu-list-wrap is-collapsed">
@@ -1658,6 +1658,46 @@ function collectData() {
 }
 
 /** 모든 매장 메뉴에 메뉴명이 입력되어 있는지 확인 */
+function csvEscapeMenuCell(value) {
+  const t = String(value ?? '');
+  if (/[",\n\r]/.test(t)) return '"' + t.replace(/"/g, '""') + '"';
+  return t;
+}
+
+/** 매장 메뉴 목록을 upload/download 공통 형식(메뉴명, 메뉴설명, 가격) CSV로 다운로드 */
+function downloadStoreMenuCsv(storeId) {
+  const content = document.getElementById('adminContent');
+  const list = content?.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
+  if (!list) {
+    alert('메뉴 목록을 찾을 수 없습니다.');
+    return;
+  }
+  const rows = [['메뉴명', '메뉴설명', '가격']];
+  list.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
+    const name = itemEl.querySelector('input[data-field="name"]')?.value?.trim() || '';
+    if (!name) return;
+    const description = itemEl.querySelector('input[data-field="description"]')?.value?.trim() || '';
+    const price = parseInt(itemEl.querySelector('input[data-field="price"]')?.value || '0', 10) || 0;
+    rows.push([name, description, String(price)]);
+  });
+  if (rows.length <= 1) {
+    alert('다운로드할 메뉴가 없습니다.');
+    return;
+  }
+  const csv = rows.map((r) => r.map(csvEscapeMenuCell).join(',')).join('\n') + '\n';
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeId = String(storeId || 'store').replace(/[^\w.-]+/g, '_');
+  a.href = url;
+  a.download = `menu-${safeId}.csv`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function validateMenuNamesRequired() {
   const list = document.getElementById('adminStoresList');
   const storeEls = list ? list.querySelectorAll('.admin-store') : document.querySelectorAll('.admin-store');
@@ -3316,6 +3356,10 @@ async function init() {
           });
         }
       }
+      if (e.target.closest('[data-download-menu]')) {
+        const storeId = e.target.closest('[data-download-menu]').dataset.downloadMenu;
+        if (storeId) downloadStoreMenuCsv(storeId);
+      }
       if (e.target.closest('[data-upload-menu]')) {
         const storeId = e.target.closest('[data-upload-menu]').dataset.uploadMenu;
         const csvInput = document.getElementById('adminMenuCsvInput');
@@ -3443,7 +3487,7 @@ async function init() {
         }
         const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean);
         if (lines.length < 2) {
-          alert('CSV 파일은 1행 제목(메뉴명, 가격), 2행부터 데이터가 필요합니다.');
+          alert('CSV 파일은 1행 제목(메뉴명, 메뉴설명, 가격), 2행부터 데이터가 필요합니다.');
           input.value = '';
           return;
         }
@@ -3453,8 +3497,9 @@ async function init() {
           const parts = lines[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
           const name = (parts[0] || '').trim();
           if (!name) continue;
-          const price = parseInt(parts[1], 10) || 0;
-          const newItem = { id: generateId(storeId), name, description: '', price, imageUrl: '', isSoldOut: false };
+          const description = parts.length >= 3 ? (parts[1] || '').trim() : '';
+          const price = parseInt(parts.length >= 3 ? parts[2] : parts[1], 10) || 0;
+          const newItem = { id: generateId(storeId), name, description, price, imageUrl: '', isSoldOut: false };
           const div = document.createElement('div');
           div.innerHTML = renderMenuItem(storeId, newItem, startIndex + added);
           const itemEl = div.firstElementChild;
