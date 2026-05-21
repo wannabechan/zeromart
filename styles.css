@@ -905,6 +905,21 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.menu-card-desc {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* 데스크톱: 메뉴명 옆 설명 (메뉴명 대비 85%) */
+.menu-card-desc--name {
+  display: inline;
+  font-size: 0.796875rem;
+}
+
+.menu-card-desc--price {
+  display: none;
+}
+
 .menu-card-cell-price {
   flex: 2;
   font-size: 1rem;
@@ -1169,6 +1184,16 @@ body {
     flex: none;
     justify-content: flex-start;
     font-size: 0.7rem;
+    white-space: normal;
+    line-height: 1.35;
+  }
+  .menu-card-desc--name {
+    display: none;
+  }
+  .menu-card-desc--price {
+    display: inline;
+    font-size: inherit;
+    font-weight: 400;
   }
   .menu-card-cell-actions {
     flex: 0 0 40%;

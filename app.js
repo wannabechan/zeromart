@@ -452,6 +452,48 @@ function renderCategoryTabs(initialSlug) {
   categoryTabs.innerHTML = tabButtons.join('');
 }
 
+/** 메뉴설명: 데스크톱은 메뉴명 옆, 모바일은 가격 옆 (CSS로 전환) */
+function menuDescriptionHtml(description, placement) {
+  const text = String(description || '').trim();
+  if (!text) return '';
+  const esc = escapeHtml(text);
+  if (placement === 'name') {
+    return `&nbsp;&nbsp;<span class="menu-card-desc menu-card-desc--name">${esc}</span>`;
+  }
+  return `&nbsp;&nbsp;<span class="menu-card-desc menu-card-desc--price">${esc}</span>`;
+}
+
+function buildMenuCardRowHtml(item, options = {}) {
+  const qty = options.qty ?? pendingQty[item.id] ?? 0;
+  const addDisabled = options.addDisabled ?? qty === 0;
+  const idEsc = escapeHtml(item.id);
+  const nameEsc = escapeHtml(item.name);
+  const descByName = menuDescriptionHtml(item.description, 'name');
+  const descByPrice = menuDescriptionHtml(item.description, 'price');
+  return `
+        <article class="menu-card menu-card-row" data-id="${idEsc}">
+          <div class="menu-card-left">
+            <div class="menu-card-cell menu-card-cell-name">${nameEsc}${descByName}</div>
+            <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}${descByPrice}</div>
+          </div>
+          <div class="menu-card-cell menu-card-cell-actions">
+            <div class="menu-qty-controls">
+              <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
+              <span class="menu-qty-value">${qty}</span>
+              <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
+            </div>
+            <button class="menu-add-btn" data-id="${idEsc}" ${addDisabled ? 'disabled' : ''} aria-label="장바구니 담기">
+              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+            </button>
+          </div>
+        </article>
+      `;
+}
+
 // 메뉴 카드 렌더
 function renderMenuCards() {
   if (isSearchMode) return;
@@ -494,32 +536,7 @@ function renderMenuCards() {
     .map((item) => {
       const qty = pendingQty[item.id] || 0;
       const notInMenu = category === '_recent' && !findItemById(item.id);
-      const addDisabled = notInMenu || qty === 0;
-      const qtyDisabled = false;
-      const idEsc = escapeHtml(item.id);
-      const nameEsc = escapeHtml(item.name);
-      return `
-        <article class="menu-card menu-card-row" data-id="${idEsc}">
-          <div class="menu-card-left">
-            <div class="menu-card-cell menu-card-cell-name">${nameEsc}</div>
-            <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}</div>
-          </div>
-          <div class="menu-card-cell menu-card-cell-actions">
-            <div class="menu-qty-controls">
-              <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
-              <span class="menu-qty-value">${qty}</span>
-              <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
-            </div>
-            <button class="menu-add-btn" data-id="${idEsc}" ${addDisabled ? 'disabled' : ''} aria-label="장바구니 담기">
-              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
-            </button>
-          </div>
-        </article>
-      `;
+      return buildMenuCardRowHtml(item, { qty, addDisabled: notInMenu || qty === 0 });
     })
     .join('');
 }
@@ -542,30 +559,7 @@ function renderSearchResults(query) {
   menuGrid.innerHTML = items
     .map((item) => {
       const qty = pendingQty[item.id] || 0;
-      const idEsc = escapeHtml(item.id);
-      const nameEsc = escapeHtml(item.name);
-      return `
-        <article class="menu-card menu-card-row" data-id="${idEsc}">
-          <div class="menu-card-left">
-            <div class="menu-card-cell menu-card-cell-name">${nameEsc}</div>
-            <div class="menu-card-cell menu-card-cell-price">${formatPrice(item.price)}</div>
-          </div>
-          <div class="menu-card-cell menu-card-cell-actions">
-            <div class="menu-qty-controls">
-              <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
-              <span class="menu-qty-value">${qty}</span>
-              <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
-            </div>
-            <button class="menu-add-btn" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''} aria-label="장바구니 담기">
-              <svg class="menu-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
-            </button>
-          </div>
-        </article>
-      `;
+      return buildMenuCardRowHtml(item, { qty, addDisabled: qty === 0 });
     })
     .join('');
 }
