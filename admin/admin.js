@@ -2927,7 +2927,7 @@ function renderStats(container, data) {
     const v = e[1];
     html += '<div class="admin-stats-card"><span class="admin-stats-card-label">' + escapeHtml((v && v.label) || e[0]) + '</span><span class="admin-stats-card-value">' + ((v && v.count) ?? 0) + '</span></div>';
   });
-  html += '</div><br><h4 class="admin-stats-brand-heading">브랜드별 주문</h4><ul class="admin-stats-list">';
+  html += '</div><br><h4 class="admin-stats-brand-heading">브랜드별 주문</h4><ul class="admin-stats-list admin-stats-list--brand-orders">';
   const byStore = orderSummary.byStore || {};
   Object.entries(byStore).forEach(function (e) {
     const v = e[1];
@@ -2946,7 +2946,7 @@ function renderStats(container, data) {
     html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + formatMoney(amt) + '</li>';
   });
   html += '</ul></div>';
-  html += '<div class="admin-stats-section"><h3 class="admin-stats-section-title-with-hint">일 매출</h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section admin-stats-section--daily-sales"><h3 class="admin-stats-section-title-with-hint">일 매출</h3><table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   timeSeries.slice(-14).reverse().forEach(function (d) {
     html += '<tr><td>' + escapeHtml(d.date) + '</td><td>' + d.orders + '</td><td>' + formatMoney(d.revenue) + '</td></tr>';
   });
@@ -2954,7 +2954,7 @@ function renderStats(container, data) {
   const menuFilterLimit = adminStatsMenuFilter === 'top10' ? 10 : (topMenus.length || 20);
   const menuList = topMenus.slice(0, menuFilterLimit);
   const menuFilterLabel = adminStatsMenuFilter === 'top10' ? 'top10' : 'all';
-  html += '<div class="admin-stats-section"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출</h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section admin-stats-section--menu-sales"><div class="admin-stats-section-title-row"><h3 class="admin-stats-section-title">메뉴 매출</h3><span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' + menuFilterLabel + '</button></span></div><table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
   menuList.forEach(function (m) {
     html += '<tr><td>' + escapeHtml(m.name) + '</td><td>' + m.orderCount + '</td><td>' + formatMoney(m.revenue) + '</td></tr>';
   });
