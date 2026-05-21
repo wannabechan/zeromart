@@ -1,6 +1,5 @@
 /**
- * 브랜드관리 페이지 - 주문관리(1탭) + 정산관리(2탭). 어드민 주문관리와 동일 UI, 권한 있는 데이터만 조회.
- * 모바일에서는 이 페이지 접근 시 주문 페이지(/)로 자동 이동.
+ * 브랜드관리 페이지 - 주문관리 / 통계관리 / 정산관리. 담당 브랜드 데이터만 조회.
  */
 
 const TOKEN_KEY = 'bzcat_token_session';
@@ -19,6 +18,8 @@ let brandManagerPeriod = 'this_month';
 /** GET /api/config settlementFeeRate (SETTLEMENT_FEE_RATE, %) */
 let brandManagerSettlementFeeRatePercent = 4.8;
 const BRAND_MANAGER_SETTLEMENT_FEE_VAT_RATE_PERCENT = 10;
+let brandManagerStatsLastData = null;
+let brandManagerStatsMenuFilter = 'top10';
 
 function getBrandManagerLoadingHtml() {
   return '<div class="admin-loading" role="status" aria-label="로딩 중" data-loading-start="' + Date.now() + '"><div class="admin-loading-progress"><div class="admin-loading-progress-bar"></div></div><span class="admin-loading-progress-pct">0%</span></div>';
@@ -190,6 +191,58 @@ function toDateKeyKST(ms) {
   const d = new Date(ms);
   const kst = new Date(d.getTime() + (d.getTimezoneOffset() * 60000) + (9 * 3600000));
   return kst.toISOString().slice(0, 10);
+}
+
+function getThisWeekMondayKST(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00+09:00');
+  const day = d.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const monday = new Date(d.getTime() - diff * 86400000);
+  return monday.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+function getDefaultStatsRange() {
+  const end = getTodayKST();
+  const start = getThisWeekMondayKST(end);
+  return { start, end };
+}
+
+function getPresetStatsRange(preset) {
+  const today = getTodayKST();
+  if (preset === 'today') return { start: today, end: today };
+  if (preset === 'this_week') {
+    return { start: getThisWeekMondayKST(today), end: today };
+  }
+  if (preset === 'last_week') {
+    const thisMonD = new Date(getThisWeekMondayKST(today) + 'T12:00:00+09:00');
+    const lastSun = new Date(thisMonD.getTime() - 86400000);
+    const lastMon = new Date(thisMonD.getTime() - 7 * 86400000);
+    return { start: toDateKeyKST(lastMon.getTime()), end: toDateKeyKST(lastSun.getTime()) };
+  }
+  if (preset === 'this_month') {
+    const d = new Date(today + 'T12:00:00+09:00');
+    const first = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    return { start: toDateKeyKST(first.getTime() + 9 * 3600000), end: today };
+  }
+  if (preset === 'last_month') {
+    const [y, m] = today.split('-').map(Number);
+    const lastMonthYear = m === 1 ? y - 1 : y;
+    const lastMonthNum = m === 1 ? 12 : m - 1;
+    const lastDayNum = new Date(lastMonthYear, lastMonthNum, 0).getDate();
+    const start = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-01`;
+    const end = `${lastMonthYear}-${String(lastMonthNum).padStart(2, '0')}-${String(lastDayNum).padStart(2, '0')}`;
+    return { start, end };
+  }
+  return null;
+}
+
+function getActiveStatsPreset(startVal, endVal) {
+  const presets = ['today', 'this_week', 'last_week', 'this_month', 'last_month'];
+  for (const p of presets) {
+    const r = getPresetStatsRange(p);
+    if (r && r.start === startVal && r.end === endVal) return p;
+  }
+  return null;
 }
 
 function getSettlementDateOptions() {
@@ -758,9 +811,175 @@ async function loadOrdersView() {
   }
 }
 
+async function loadBrandManagerStats() {
+  const content = document.getElementById('brandManagerStatsContent');
+  if (!content) return;
+  const startInput = document.getElementById('brandManagerStatsStartDate');
+  const endInput = document.getElementById('brandManagerStatsEndDate');
+  let startDate = startInput?.value?.trim() || '';
+  let endDate = endInput?.value?.trim() || '';
+  const defaultRange = getDefaultStatsRange();
+  if (!startDate) startDate = defaultRange.start;
+  if (!endDate) endDate = defaultRange.end;
+
+  content.innerHTML = getBrandManagerLoadingHtml();
+  try {
+    const token = getToken();
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const res = await fetchWithTimeout(`${API_BASE}/api/brand-manager/stats?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      content.innerHTML = '<div class="admin-stats-error">' + escapeHtml(err.error || '통계를 불러올 수 없습니다.') + '</div>';
+      return;
+    }
+    const data = await res.json();
+    brandManagerStatsLastData = data;
+    renderBrandManagerStats(content, data);
+  } catch (e) {
+    content.innerHTML = '<div class="admin-stats-error">' + escapeHtml(e.message || '통계를 불러올 수 없습니다.') + '</div>';
+  }
+}
+
+function renderBrandManagerStats(container, data) {
+  const orderSummary = data.orderSummary || {};
+  const revenue = data.revenue || {};
+  const conversion = data.conversion || {};
+  const topMenus = data.topMenus || [];
+  const timeSeries = data.timeSeries || [];
+  const dateRange = data.dateRange || {};
+  const defaultRange = getDefaultStatsRange();
+  const startVal = dateRange.startDate || defaultRange.start;
+  const endVal = dateRange.endDate || defaultRange.end;
+  const formatMoney = (n) => Number(n || 0).toLocaleString() + '원';
+  let html =
+    '<div class="admin-stats-toolbar"><div class="admin-stats-daterange">' +
+    '<input type="date" id="brandManagerStatsStartDate" value="' + escapeHtml(startVal) + '">' +
+    '<span>~</span><input type="date" id="brandManagerStatsEndDate" value="' + escapeHtml(endVal) + '">' +
+    '<button type="button" class="admin-stats-search-btn" id="brandManagerStatsApplyBtn" title="조회" aria-label="조회">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button></div>';
+  const activePreset = getActiveStatsPreset(startVal, endVal);
+  const presetClass = (key) => 'admin-stats-preset-btn' + (activePreset === key ? ' active' : '');
+  html += '<div class="admin-stats-presets"><div class="admin-stats-preset-row">';
+  html +=
+    '<button type="button" class="' + presetClass('today') + '" data-preset="today">오늘</button>' +
+    '<button type="button" class="' + presetClass('this_week') + '" data-preset="this_week">이번주</button>' +
+    '<button type="button" class="' + presetClass('last_week') + '" data-preset="last_week">지난1주일</button>' +
+    '<button type="button" class="' + presetClass('this_month') + '" data-preset="this_month">이번달</button>' +
+    '<button type="button" class="' + presetClass('last_month') + '" data-preset="last_month">지난1개월</button>';
+  html += '</div></div></div>';
+  html +=
+    '<div class="admin-stats-section"><h3>주문 현황<span class="admin-stats-scope-hint">(담당 브랜드)</span></h3>' +
+    '<p class="admin-stats-big">총 주문 <strong>' + (orderSummary.total ?? 0) + '</strong>건</p><div class="admin-stats-grid">';
+  const byStatus = orderSummary.byStatus || {};
+  Object.entries(byStatus).forEach(function (e) {
+    const v = e[1];
+    html +=
+      '<div class="admin-stats-card"><span class="admin-stats-card-label">' +
+      escapeHtml((v && v.label) || e[0]) +
+      '</span><span class="admin-stats-card-value">' +
+      ((v && v.count) ?? 0) +
+      '</span></div>';
+  });
+  html += '</div><br><h4 class="admin-stats-brand-heading">브랜드별 주문</h4><ul class="admin-stats-list admin-stats-list--brand-orders">';
+  const byStore = orderSummary.byStore || {};
+  Object.entries(byStore).forEach(function (e) {
+    const v = e[1];
+    const paymentCompleted = (v && v.paymentCompletedCount) ?? 0;
+    const deliveryCompleted = (v && v.deliveryCompletedCount) ?? 0;
+    html +=
+      '<li>' +
+      escapeHtml((v && v.title) || e[0]) +
+      ' : 주문완료 <strong>' +
+      paymentCompleted +
+      '</strong>건, 발송완료 <strong>' +
+      deliveryCompleted +
+      '</strong>건</li>';
+  });
+  html += '</ul></div>';
+  html +=
+    '<div class="admin-stats-section"><h3>매출<span class="admin-stats-scope-hint">(담당 브랜드)</span></h3>' +
+    '<p class="admin-stats-big">총 매출 <strong>' +
+    formatMoney(Number(revenue.total) || 0) +
+    '</strong></p><br><h4 class="admin-stats-brand-heading">브랜드별 매출</h4><ul class="admin-stats-list">';
+  const revByStore = revenue.byStore || {};
+  Object.entries(revByStore).forEach(function (e) {
+    const v = e[1];
+    html += '<li>' + escapeHtml((v && v.title) || e[0]) + ' : ' + formatMoney(Number(v && v.amount) || 0) + '</li>';
+  });
+  html += '</ul></div>';
+  html +=
+    '<div class="admin-stats-section admin-stats-section--daily-sales"><h3>일 매출</h3>' +
+    '<table class="admin-stats-table admin-stats-table-cols3"><thead><tr><th>날짜</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  timeSeries
+    .slice(-14)
+    .reverse()
+    .forEach(function (d) {
+      html += '<tr><td>' + escapeHtml(d.date) + '</td><td>' + d.orders + '</td><td>' + formatMoney(d.revenue) + '</td></tr>';
+    });
+  html += '</tbody></table></div>';
+  const menuFilterLimit = brandManagerStatsMenuFilter === 'top10' ? 10 : topMenus.length || 20;
+  const menuList = topMenus.slice(0, menuFilterLimit);
+  const menuFilterLabel = brandManagerStatsMenuFilter === 'top10' ? 'top10' : 'all';
+  html +=
+    '<div class="admin-stats-section admin-stats-section--menu-sales"><div class="admin-stats-section-title-row">' +
+    '<h3 class="admin-stats-section-title">메뉴 매출</h3>' +
+    '<span class="admin-stats-menu-filter"><button type="button" class="admin-stats-menu-filter-btn active" data-menu-filter-toggle>' +
+    menuFilterLabel +
+    '</button></span></div>' +
+    '<table class="admin-stats-table admin-stats-table-cols3 admin-stats-table-menu"><thead><tr><th>메뉴</th><th>진행주문</th><th>매출</th></tr></thead><tbody>';
+  menuList.forEach(function (m) {
+    html += '<tr><td>' + escapeHtml(m.name) + '</td><td>' + m.orderCount + '</td><td>' + formatMoney(m.revenue) + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+  const totalOrders = Number(orderSummary.total) || 0;
+  const n2 = Number(conversion.paymentCompleted) || 0;
+  const n3 = Number(conversion.cancelledBeforePayment) || 0;
+  const n4 = Number(conversion.cancelledAfterPayment) || 0;
+  const n5 = Number(conversion.deliveryCompleted) || 0;
+  const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : '0.0');
+  html += '<div class="admin-stats-section"><h3>전환율</h3><ul class="admin-stats-list">';
+  html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제완료 <strong>' + n2 + '</strong> (' + pct(n2, totalOrders) + '%)</li>';
+  html += '<li>전체 주문 <strong>' + totalOrders + '</strong> → 결제전취소 <strong>' + n3 + '</strong> (' + pct(n3, totalOrders) + '%)</li>';
+  html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
+  html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
+  html += '</ul></div>';
+  container.innerHTML = html;
+  document.getElementById('brandManagerStatsApplyBtn')?.addEventListener('click', loadBrandManagerStats);
+  container.querySelectorAll('.admin-stats-preset-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const range = getPresetStatsRange(btn.getAttribute('data-preset'));
+      if (!range) return;
+      const startEl = document.getElementById('brandManagerStatsStartDate');
+      const endEl = document.getElementById('brandManagerStatsEndDate');
+      if (startEl) startEl.value = range.start;
+      if (endEl) endEl.value = range.end;
+      loadBrandManagerStats();
+    });
+  });
+  container.querySelectorAll('[data-menu-filter-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      brandManagerStatsMenuFilter = brandManagerStatsMenuFilter === 'top10' ? 'all' : 'top10';
+      if (brandManagerStatsLastData) renderBrandManagerStats(container, brandManagerStatsLastData);
+    });
+  });
+}
+
+function loadStatsView() {
+  const content = document.getElementById('brandManagerStatsContent');
+  if (!content) return;
+  content.innerHTML = getBrandManagerLoadingHtml();
+  loadBrandManagerStats();
+}
+
 function setupBrandTabs() {
   const tabs = document.querySelectorAll('.store-orders-tab[data-brand-tab]');
   const ordersView = document.getElementById('brandManagerOrdersView');
+  const statsView = document.getElementById('brandManagerStatsView');
   const settlementView = document.getElementById('brandManagerSettlementView');
 
   function activateTab(targetTab) {
@@ -769,6 +988,7 @@ function setupBrandTabs() {
       t.setAttribute('aria-selected', 'false');
     });
     if (ordersView) ordersView.classList.remove('active');
+    if (statsView) statsView.classList.remove('active');
     if (settlementView) settlementView.classList.remove('active');
 
     const tabEl = document.querySelector(`.store-orders-tab[data-brand-tab="${targetTab}"]`);
@@ -779,6 +999,9 @@ function setupBrandTabs() {
     if (targetTab === 'orders') {
       if (ordersView) ordersView.classList.add('active');
       loadOrdersView();
+    } else if (targetTab === 'stats') {
+      if (statsView) statsView.classList.add('active');
+      loadStatsView();
     } else if (targetTab === 'settlement') {
       if (settlementView) settlementView.classList.add('active');
       loadSettlementView();

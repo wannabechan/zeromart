@@ -106,6 +106,32 @@
     .admin-payment-period-gap { user-select: none; }
     .admin-payment-period-range { font-size: 0.8125rem; color: #8C8C8C; margin-top: 12px; }
     .brand-manager-loading-wrap { margin-top: 12px; }
+    .admin-stats-toolbar { margin-bottom: 20px; }
+    .admin-stats-daterange input[type="date"] { width: 140px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.875rem; box-sizing: border-box; }
+    .admin-stats-search-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; background: none; border: none; border-radius: var(--radius); cursor: pointer; color: var(--color-text-secondary); }
+    .admin-stats-search-btn svg { width: 20px; height: 20px; }
+    .admin-stats-presets { margin-top: 13px; }
+    .admin-stats-preset-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-stats-preset-btn { font-size: 0.8125rem; padding: 0; background: none; border: none; cursor: pointer; color: #8C8C8C; font-family: inherit; }
+    .admin-stats-preset-btn.active { color: var(--color-primary); font-weight: 500; }
+    .admin-stats-big { font-size: 1rem; margin: 0 0 12px; }
+    .admin-stats-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+    .admin-stats-card { padding: 10px 14px; background: var(--color-bg); border-radius: var(--radius); font-size: 0.8125rem; display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
+    .admin-stats-card-label { color: var(--color-text-secondary); }
+    .admin-stats-card-value { font-weight: 600; font-size: 1rem; }
+    .admin-stats-list { margin: 0; padding-left: 20px; font-size: 0.875rem; }
+    .admin-stats-list li { margin-bottom: 4px; }
+    .admin-stats-brand-heading { margin-top: 10px; font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); }
+    .admin-stats-section-title-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .admin-stats-section-title { margin: 0; font-size: 1rem; font-weight: 600; }
+    .admin-stats-menu-filter-btn { font-size: 0.75rem; padding: 4px 8px; min-width: 52px; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; color: var(--color-text-secondary); font-family: inherit; }
+    .admin-stats-table-cols3 { table-layout: fixed; }
+    .admin-stats-table-cols3 th:nth-child(1), .admin-stats-table-cols3 td:nth-child(1) { width: 40%; }
+    .admin-stats-table-cols3 th:nth-child(2), .admin-stats-table-cols3 td:nth-child(2) { width: 30%; }
+    .admin-stats-table-cols3 th:nth-child(3), .admin-stats-table-cols3 td:nth-child(3) { width: 30%; }
+    .admin-stats-table-menu tbody tr { height: 3em; }
+    .admin-stats-table-menu tbody td { height: 3em; vertical-align: middle; }
+    .admin-stats-scope-hint { font-size: 0.75rem; color: #8C8C8C; font-weight: normal; margin-left: 6px; }
     .admin-payment-sort-btn { padding: 8px 16px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg); cursor: pointer; }
     .admin-payment-sort-btn.active { border-color: var(--color-primary); background: rgba(44, 44, 44, 0.12); color: var(--color-primary); }
     .admin-payment-subfilter { margin-bottom: 16px; }
@@ -121,6 +147,18 @@
     .admin-order-detail-cancelled .cart-category-subtotal-text { text-decoration: line-through; color: var(--color-text-secondary); }
     @media (max-width: 768px) {
       .store-orders-tabs .store-orders-tab { flex: 1; min-width: 0; padding: 12px 6px; font-size: 0.8125rem; text-align: center; }
+      .admin-stats-daterange { width: 100%; }
+      .admin-stats-daterange input[type="date"] { flex: 1; min-width: 0; font-size: 0.8125rem; }
+      .admin-stats-search-btn { margin-left: auto; flex-shrink: 0; }
+      .admin-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .admin-stats-card { min-width: 0; }
+      .admin-stats-list--brand-orders { font-size: calc(0.875rem * 0.85); }
+      .admin-stats-section--daily-sales .admin-stats-table tbody td,
+      .admin-stats-section--menu-sales .admin-stats-table tbody td {
+        font-size: calc(0.8125rem * 0.85);
+      }
+      .admin-stats-table-menu tbody tr { height: 5em; }
+      .admin-stats-table-menu tbody td { height: 5em; }
     }
   </style>
 </head>
@@ -133,11 +171,16 @@
 
     <div class="store-orders-tabs">
       <button type="button" class="store-orders-tab active" data-brand-tab="orders" aria-selected="true">주문관리</button>
+      <button type="button" class="store-orders-tab" data-brand-tab="stats" aria-selected="false">통계관리</button>
       <button type="button" class="store-orders-tab" data-brand-tab="settlement" aria-selected="false">정산관리</button>
     </div>
 
     <div id="brandManagerOrdersView" class="store-orders-view active">
       <div id="brandManagerOrdersContent"></div>
+    </div>
+
+    <div id="brandManagerStatsView" class="store-orders-view">
+      <div id="brandManagerStatsContent"></div>
     </div>
 
     <div id="brandManagerSettlementView" class="store-orders-view">
