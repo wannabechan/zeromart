@@ -1548,9 +1548,15 @@ function renderMenuItem(storeId, item, index) {
   return `
     <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
       <div class="admin-menu-fields">
-        <div class="admin-form-field">
-          <label>메뉴명</label>
-          <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명" required>
+        <div class="admin-form-row admin-form-row--menu-name-desc">
+          <div class="admin-form-field admin-form-field--menu-name">
+            <label>메뉴명</label>
+            <input type="text" data-field="name" value="${escapeHtml(item.name || '')}" placeholder="메뉴명" required>
+          </div>
+          <div class="admin-form-field admin-form-field--menu-description">
+            <label>메뉴설명</label>
+            <input type="text" data-field="description" value="${escapeHtml(item.description || '')}" placeholder="메뉴설명">
+          </div>
         </div>
         <div class="admin-form-row">
           <div class="admin-form-field">
@@ -1630,6 +1636,7 @@ function collectData() {
     const items = [];
     menuList?.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
       const nameInput = itemEl.querySelector('input[data-field="name"]');
+      const descriptionInput = itemEl.querySelector('input[data-field="description"]');
       const priceInput = itemEl.querySelector('input[data-field="price"]');
       const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
       const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
@@ -1639,7 +1646,7 @@ function collectData() {
         id: itemEl.dataset.menuId || generateId(storeId),
         name,
         price: parseInt(priceInput?.value || '0', 10) || 0,
-        description: '',
+        description: descriptionInput?.value?.trim() || '',
         imageUrl: imageInput?.value?.trim() || '',
         isSoldOut: soldOutInput?.checked === true,
       });
@@ -3289,6 +3296,7 @@ async function init() {
           const items = [];
           list.querySelectorAll('.admin-menu-item').forEach((itemEl) => {
             const nameInput = itemEl.querySelector('input[data-field="name"]');
+            const descriptionInput = itemEl.querySelector('input[data-field="description"]');
             const priceInput = itemEl.querySelector('input[data-field="price"]');
             const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
             const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
@@ -3296,7 +3304,7 @@ async function init() {
               id: itemEl.dataset.menuId || generateId(storeId),
               name: nameInput?.value?.trim() || '',
               price: parseInt(priceInput?.value || '0', 10) || 0,
-              description: '',
+              description: descriptionInput?.value?.trim() || '',
               imageUrl: imageInput?.value?.trim() || '',
               isSoldOut: soldOutInput?.checked === true,
             });
@@ -3320,7 +3328,7 @@ async function init() {
       if (e.target.closest('[data-add-menu]')) {
         const storeId = e.target.closest('[data-add-menu]').dataset.addMenu;
         const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
-        const newItem = { id: generateId(storeId), name: '', price: 0, imageUrl: '', isSoldOut: false };
+        const newItem = { id: generateId(storeId), name: '', description: '', price: 0, imageUrl: '', isSoldOut: false };
         const div = document.createElement('div');
         div.innerHTML = renderMenuItem(storeId, newItem, list.children.length);
         const itemEl = div.firstElementChild;
@@ -3446,7 +3454,7 @@ async function init() {
           const name = (parts[0] || '').trim();
           if (!name) continue;
           const price = parseInt(parts[1], 10) || 0;
-          const newItem = { id: generateId(storeId), name, price, imageUrl: '', isSoldOut: false };
+          const newItem = { id: generateId(storeId), name, description: '', price, imageUrl: '', isSoldOut: false };
           const div = document.createElement('div');
           div.innerHTML = renderMenuItem(storeId, newItem, startIndex + added);
           const itemEl = div.firstElementChild;
