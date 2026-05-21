@@ -1664,6 +1664,37 @@ function csvEscapeMenuCell(value) {
   return t;
 }
 
+/** download/upload 공통: 따옴표·쉼표가 포함된 CSV 한 줄 파싱 */
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      out.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
 /** 매장 메뉴 목록을 upload/download 공통 형식(메뉴명, 메뉴설명, 가격) CSV로 다운로드 */
 function downloadStoreMenuCsv(storeId) {
   const content = document.getElementById('adminContent');
@@ -3494,7 +3525,7 @@ async function init() {
         const startIndex = list.children.length;
         let added = 0;
         for (let i = 1; i < lines.length; i++) {
-          const parts = lines[i].split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
+          const parts = parseCsvLine(lines[i]);
           const name = (parts[0] || '').trim();
           if (!name) continue;
           const description = parts.length >= 3 ? (parts[1] || '').trim() : '';

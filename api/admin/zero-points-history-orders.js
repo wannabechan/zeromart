@@ -105,6 +105,7 @@ module.exports = async (req, res) => {
     const rows = [];
     for (const o of orders) {
       if ((o.status || '') !== 'delivery_completed') continue;
+      if (Math.max(0, Math.floor(Number(o.zero_point_used) || 0)) <= 0) continue;
       const orderDate = toKSTDateKey(o.created_at);
       if (!orderDate || orderDate < startDate || orderDate > endDate) continue;
       rows.push(...expandOrderToZpHistoryRows(o, stores));

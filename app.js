@@ -458,7 +458,7 @@ function menuDescriptionHtml(description, placement) {
   if (!text) return '';
   const esc = escapeHtml(text);
   if (placement === 'name') {
-    return `&nbsp;&nbsp;<span class="menu-card-desc menu-card-desc--name">${esc}</span>`;
+    return `&nbsp;&nbsp;&nbsp;<span class="menu-card-desc menu-card-desc--name">${esc}</span>`;
   }
   return `&nbsp;&nbsp;<span class="menu-card-desc menu-card-desc--price">${esc}</span>`;
 }
@@ -555,7 +555,14 @@ function renderSearchResults(query) {
   menuSectionTitle.style.display = 'none';
   const q = (query || '').trim().toLowerCase();
   const all = getAllMenuItems();
-  const items = q === '' ? all : all.filter((item) => (item.name || '').toLowerCase().includes(q));
+  const items =
+    q === ''
+      ? all
+      : all.filter((item) => {
+          const name = (item.name || '').toLowerCase();
+          const desc = (item.description || '').toLowerCase();
+          return name.includes(q) || desc.includes(q);
+        });
   menuGrid.innerHTML = items
     .map((item) => {
       const qty = pendingQty[item.id] || 0;
