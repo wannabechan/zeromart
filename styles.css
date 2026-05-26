@@ -1210,6 +1210,11 @@ body {
     min-width: 24px;
     font-size: 0.8125rem;
   }
+  .menu-qty-value.menu-qty-input {
+    min-width: calc(24px * 1.05);
+    width: calc(2.5em * 1.05);
+    max-width: calc(56px * 1.05);
+  }
   .menu-add-btn {
     width: 32px;
     height: 32px;
