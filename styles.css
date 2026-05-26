@@ -1108,6 +1108,31 @@ body {
   font-weight: 500;
 }
 
+.menu-qty-input {
+  width: 2.5em;
+  max-width: 56px;
+  height: 36px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border: none;
+  background: var(--color-bg);
+  font-family: inherit;
+  color: var(--color-text);
+  -moz-appearance: textfield;
+}
+
+.menu-qty-input::-webkit-outer-spin-button,
+.menu-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.menu-qty-input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-surface);
+}
+
 @keyframes menu-add-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
@@ -1214,6 +1239,7 @@ body {
     min-width: calc(24px * 1.05);
     width: calc(2.5em * 1.05);
     max-width: calc(56px * 1.05);
+    height: 32px;
   }
   .menu-add-btn {
     width: 32px;

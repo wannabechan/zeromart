@@ -393,10 +393,32 @@ function updateCartCount() {
 function setPendingQty(itemId, delta) {
   const current = pendingQty[itemId] || 0;
   const next = Math.max(0, current + delta);
+  setPendingQtyAbsolute(itemId, next);
+}
+
+function setPendingQtyAbsolute(itemId, value) {
+  const n = Math.floor(Number(value));
+  const next = Number.isFinite(n) && n > 0 ? n : 0;
   if (next === 0) delete pendingQty[itemId];
   else pendingQty[itemId] = next;
   if (isSearchMode && searchInput) renderSearchResults(searchInput.value);
   else renderMenuCards();
+}
+
+function sanitizeMenuQtyInputDigits(raw) {
+  return String(raw ?? '').replace(/\D/g, '');
+}
+
+function blurActiveMenuQtyInput() {
+  const el = menuGrid?.querySelector('.menu-qty-input:focus');
+  if (el) el.blur();
+}
+
+function commitMenuQtyInput(input) {
+  if (!input?.dataset?.id) return;
+  const digits = sanitizeMenuQtyInputDigits(input.value);
+  const next = digits === '' ? 0 : parseInt(digits, 10);
+  setPendingQtyAbsolute(input.dataset.id, next);
 }
 
 // 장바구니 수량 변경 (장바구니 내 +/- 버튼용)
@@ -479,7 +501,7 @@ function buildMenuCardRowHtml(item, options = {}) {
           <div class="menu-card-cell menu-card-cell-actions">
             <div class="menu-qty-controls">
               <button type="button" class="menu-qty-btn" data-action="decrease" data-id="${idEsc}" ${qty === 0 ? 'disabled' : ''}>−</button>
-              <span class="menu-qty-value">${qty}</span>
+              <input type="text" class="menu-qty-value menu-qty-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-id="${idEsc}" value="${qty}" aria-label="수량">
               <button type="button" class="menu-qty-btn" data-action="increase" data-id="${idEsc}">+</button>
             </div>
             <button class="menu-add-btn" data-id="${idEsc}" ${addDisabled ? 'disabled' : ''} aria-label="장바구니 담기">
@@ -1478,12 +1500,14 @@ function closeChatIntroModal() {
 
 // 메뉴 그리드 클릭 위임 (이벤트 리스너 최소화)
 function handleMenuGridClick(e) {
+  if (e.target.closest('.menu-qty-input')) return;
   const qtyBtn = e.target.closest('.menu-qty-btn');
   if (qtyBtn) {
     if (!window.BzCatAuth?.getToken()) {
       openLoginRequiredModal();
       return;
     }
+    blurActiveMenuQtyInput();
     const id = qtyBtn.dataset.id;
     const action = qtyBtn.dataset.action;
     setPendingQty(id, action === 'increase' ? 1 : -1);
@@ -1538,6 +1562,44 @@ function init() {
     if (isSearchMode) renderSearchResults(searchInput.value);
   });
   menuGrid.addEventListener('click', handleMenuGridClick);
+  menuGrid.addEventListener('focusin', (e) => {
+    const input = e.target.closest('.menu-qty-input');
+    if (!input) return;
+    if (!window.BzCatAuth?.getToken()) {
+      input.blur();
+      openLoginRequiredModal();
+      return;
+    }
+    requestAnimationFrame(() => input.select());
+  });
+  menuGrid.addEventListener('input', (e) => {
+    const input = e.target.closest('.menu-qty-input');
+    if (!input) return;
+    const cleaned = sanitizeMenuQtyInputDigits(input.value);
+    if (input.value !== cleaned) input.value = cleaned;
+  });
+  menuGrid.addEventListener(
+    'blur',
+    (e) => {
+      const input = e.target.closest('.menu-qty-input');
+      if (!input) return;
+      commitMenuQtyInput(input);
+    },
+    true
+  );
+  menuGrid.addEventListener('keydown', (e) => {
+    const input = e.target.closest('.menu-qty-input');
+    if (!input) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+      return;
+    }
+    const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+    if (/^\d$/.test(e.key)) return;
+    e.preventDefault();
+  });
   cartItems.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (btn) {
