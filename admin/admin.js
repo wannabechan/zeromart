@@ -1299,7 +1299,7 @@ function setupAdminZpHistoryModal() {
   }
 
   function renderRows(rows) {
-    const heading = '<br><h4 class="admin-settlement-list-heading">발송 완료 목록</h4>';
+    const heading = '<br><h4 class="admin-settlement-list-heading">ZP 사용 목록</h4>';
     if (!rows || rows.length === 0) {
       contentEl.innerHTML = heading + '<p class="admin-zp-history-empty">해당 기간 발송 완료 주문 중 ZP 사용 내역이 없습니다.</p>';
       return;
