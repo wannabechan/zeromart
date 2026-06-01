@@ -253,7 +253,9 @@ async function initAuth() {
       startCodeCountdown();
       history.pushState({ loginStep: 'code' }, '', window.location.pathname + (window.location.search || ''));
 
-      loginCodeHint.textContent = '이메일로 발송된 인증 코드를 입력하세요.';
+      loginCodeHint.textContent = data.testAccount
+        ? '테스트 계정 고정 인증 코드를 입력하세요.'
+        : '이메일로 발송된 인증 코드를 입력하세요.';
 
     } catch (error) {
       console.error('Send code error:', error);

@@ -84,6 +84,37 @@ function getUserLevel(email) {
   return isAdminEmail(email) ? 'admin' : 'user';
 }
 
+function normalizeEnvEmail(value) {
+  let v = (value || '').trim();
+  if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
+  if (v.startsWith("'") && v.endsWith("'")) v = v.slice(1, -1);
+  return v.toLowerCase().trim();
+}
+
+/** 환경 변수 EMAIL_TESTACCOUNT (로그인 테스트 계정) */
+function getNormalizedTestAccountEmail() {
+  return normalizeEnvEmail(process.env.EMAIL_TESTACCOUNT);
+}
+
+function getTestAccountPasswordDigits() {
+  return String(process.env.PW_TESTACCOUNT || '').trim().replace(/\D/g, '');
+}
+
+function isTestAccountEmail(email) {
+  const testEmail = getNormalizedTestAccountEmail();
+  if (!testEmail) return false;
+  return normalizeEnvEmail(email) === testEmail;
+}
+
+/** 테스트 계정: 이메일 일치 + PW_TESTACCOUNT 6자리와 코드 일치 */
+function isValidTestAccountCode(email, code) {
+  if (!isTestAccountEmail(email)) return false;
+  const pw = getTestAccountPasswordDigits();
+  if (pw.length !== 6) return false;
+  const codeDigits = String(code || '').replace(/\D/g, '');
+  return codeDigits.length === 6 && codeDigits === pw;
+}
+
 /**
  * 6자리 랜덤 코드 생성
  */
@@ -189,6 +220,8 @@ module.exports = {
   getUserLevel,
   getNormalizedAdminEmail,
   isAdminEmail,
+  isTestAccountEmail,
+  isValidTestAccountCode,
   isAdmin,
   requireAuthCron,
   generateCode,

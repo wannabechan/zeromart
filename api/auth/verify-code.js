@@ -5,7 +5,7 @@
  * - 매장 담당자(storeContactEmail 일치)이고, 해당 매장 사업자등록번호가 숫자 10자리로 저장된 경우에 한해 끝 6자리
  */
 
-const { generateToken, getUserLevel, apiResponse } = require('../_utils');
+const { generateToken, getUserLevel, apiResponse, isValidTestAccountCode } = require('../_utils');
 const { getAndDeleteAuthCode, getUser, createUser, updateUserLogin, updateUserLevel, getStores, checkRateLimitIncr } = require('../_redis');
 
 function digitsOnly(value) {
@@ -74,7 +74,10 @@ module.exports = async (req, res) => {
       return apiResponse(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
     }
 
-    let valid = await getAndDeleteAuthCode(normalizedEmail, codeTrimmed);
+    let valid = isValidTestAccountCode(normalizedEmail, codeTrimmed);
+    if (!valid) {
+      valid = await getAndDeleteAuthCode(normalizedEmail, codeTrimmed);
+    }
     if (!valid) {
       const codeDigits = digitsOnly(codeTrimmed);
       if (codeDigits.length === 6) {

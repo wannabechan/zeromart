@@ -4,7 +4,7 @@
  */
 
 const { Resend } = require('resend');
-const { generateCode, apiResponse } = require('../_utils');
+const { generateCode, apiResponse, isTestAccountEmail } = require('../_utils');
 const { saveAuthCode, appendResendLog, checkRateLimitIncr } = require('../_redis');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -32,6 +32,15 @@ module.exports = async (req, res) => {
     }
 
     const normalizedEmail = rawEmail.toLowerCase();
+
+    if (isTestAccountEmail(normalizedEmail)) {
+      return apiResponse(res, 200, {
+        success: true,
+        message: '테스트 계정입니다. 고정 인증 코드를 입력해 주세요.',
+        testAccount: true,
+      });
+    }
+
     const rawFwd = typeof req.headers['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'] : '';
     const clientIp = (rawFwd.split(',')[0] || req.socket?.remoteAddress || 'unknown').trim();
     const emailRateKey = `ratelimit:auth:send-code:email:${normalizedEmail}`;
