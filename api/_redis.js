@@ -983,12 +983,19 @@ async function getMenuDataForApp(userEmail) {
   if (userEmail && typeof userEmail === 'string') {
     if (getUserLevel(userEmail) !== 'admin') {
       const normalized = userEmail.trim().toLowerCase();
-      stores = stores.filter((s) => {
+      const hasEmailAccess = (s) => {
         const list = (s.allowedEmails || []).map((e) =>
           e && typeof e === 'object' && e.email != null ? String(e.email).trim().toLowerCase() : String(e).trim().toLowerCase()
         ).filter(Boolean);
         return list.includes(normalized);
-      });
+      };
+      const hasAnyStoreAccess = stores.some((s) => hasEmailAccess(s));
+      if (hasAnyStoreAccess) {
+        stores = stores.filter((s) => hasEmailAccess(s));
+      } else {
+        // 권한관리의 어떤 매장에도 등록되지 않은 계정은 테스트매장만 노출
+        stores = stores.filter((s) => String(s.title || '').trim() === '테스트매장');
+      }
     }
   }
   const redis = getRedis();
