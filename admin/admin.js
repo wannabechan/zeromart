@@ -2442,6 +2442,81 @@ function renderSettlementPendingList(pendingShipment) {
   return html;
 }
 
+/** 정산 탭 현재 화면 데이터 캐시 (CSV 다운로드용) */
+let adminSettlementLastView = null;
+
+function downloadSettlementCsv() {
+  const data = adminSettlementLastView;
+  if (!data) {
+    alert('다운로드할 정산 데이터가 없습니다. 기준 정산일을 선택해 조회해 주세요.');
+    return;
+  }
+  const groupLabel = data.groupLabel || '전체';
+  const baseDate = data.baseDate || '';
+  const startDate = data.startDate || '';
+  const endDate = data.endDate || '';
+  const byBrand = Array.isArray(data.byBrand) ? data.byBrand : [];
+  const pendingShipment = Array.isArray(data.pendingShipment) ? data.pendingShipment : [];
+
+  const rows = [];
+  rows.push(['브랜드', groupLabel]);
+  rows.push(['기준 정산일', baseDate]);
+  rows.push(['정산구간', startDate + ' ~ ' + endDate]);
+  rows.push([]);
+  rows.push(['발송 완료 목록']);
+  rows.push(['브랜드', '주문 수', '판매금액', '수수료', '정산금액']);
+  let totalSales = 0;
+  let totalFee = 0;
+  let totalSettlement = 0;
+  byBrand.forEach((b) => {
+    const sales = Number(b.totalAmount) || 0;
+    const fee = calculateSettlementFeeAmount(sales);
+    const settlement = sales - fee;
+    totalSales += sales;
+    totalFee += fee;
+    totalSettlement += settlement;
+    rows.push([
+      b.brandTitle || b.slug || '',
+      String(b.orderCount || 0),
+      String(sales),
+      String(fee),
+      String(settlement),
+    ]);
+  });
+  rows.push(['합계', '', String(totalSales), String(totalFee), String(totalSettlement)]);
+  rows.push([]);
+  rows.push(['주문 완료 (발송 완료 미처리) 목록']);
+  rows.push(['주문일', '브랜드', '주문번호', '금액', '상태']);
+  let pendingTotal = 0;
+  const statusLabel = (s) => (s === 'shipping' ? '배송중' : '결제완료');
+  pendingShipment.forEach((o) => {
+    const amt = Number(o.total_amount) || 0;
+    pendingTotal += amt;
+    rows.push([
+      o.orderDate || '',
+      o.brandTitle || o.slug || '',
+      String(o.id || ''),
+      String(amt),
+      statusLabel(o.status),
+    ]);
+  });
+  rows.push(['합계', '', '', String(pendingTotal), '']);
+
+  const csv = rows.map((r) => r.map(csvEscapeMenuCell).join(',')).join('\n') + '\n';
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeGroup = String(groupLabel || 'all').replace(/[^\w가-힣.-]+/g, '_');
+  const safeDate = String(baseDate || 'date').replace(/[^\w.-]+/g, '_');
+  a.href = url;
+  a.download = `settlement-${safeGroup}-${safeDate}.csv`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 let settlementClockIntervalId = null;
 
 /** 정산일(10일·20일·말일) 목록. 2026-01-01부터 오늘(KST) 이전까지, 최신순 */
@@ -2784,9 +2859,10 @@ async function loadSettlement() {
     '</div>' +
     '</div>' +
     '<section class="admin-stats-section">' +
-    '<div class="admin-stats-daterange" style="margin-bottom:8px;">' +
+    '<div class="admin-stats-daterange admin-settlement-date-row" style="margin-bottom:8px;">' +
     '<label for="adminSettlementDateSelect" class="admin-settlement-date-label">기준 정산일</label>' +
     '<select id="adminSettlementDateSelect" class="admin-settlement-date-select">' + dateSelectOptions + '</select>' +
+    '<button type="button" class="admin-settlement-download-btn" id="adminSettlementDownloadBtn">download</button>' +
     '</div>' +
     '<p class="admin-settlement-caption">&gt;&gt; 정산구간 : ' + escapeHtml(defaultPeriod.startDate) + ' ~ ' + escapeHtml(defaultPeriod.endDate) + '</p>' +
     '<div id="adminSettlementByDate"></div>' +
@@ -2853,11 +2929,26 @@ async function loadSettlement() {
     const caption = document.querySelector('.admin-settlement-caption');
     const groupSelect = document.getElementById('adminSettlementGroupSelect');
     const selectedGroup = (groupSelect && groupSelect.value) ? groupSelect.value : '';
+    const groupLabel = selectedGroup || '전체';
     if (caption) caption.textContent = '>> 정산구간 : ' + period.startDate + ' ~ ' + period.endDate;
     if (box) box.innerHTML = getAdminLoadingHtml();
     if (pendingBox) pendingBox.innerHTML = '';
+
+    function cacheSettlementView(byBrand, pendingShipment) {
+      adminSettlementLastView = {
+        groupLabel,
+        baseDate: baseDateStr || '',
+        startDate: period.startDate,
+        endDate: period.endDate,
+        byBrand: byBrand || [],
+        pendingShipment: pendingShipment || [],
+      };
+    }
+
     if (SETTLEMENT_MOCK_FOR_TEST) {
-      if (box) box.innerHTML = renderSettlementTable([{ brandTitle: 'Brand1', orderCount: 1, totalAmount: 500000 }]);
+      const byBrand = [{ brandTitle: 'Brand1', orderCount: 1, totalAmount: 500000 }];
+      cacheSettlementView(byBrand, []);
+      if (box) box.innerHTML = renderSettlementTable(byBrand);
       if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList([]);
       return;
     }
@@ -2866,6 +2957,7 @@ async function loadSettlement() {
       const sampleStores = (storesRes && storesRes.stores) || [];
       const data = getSettlementSampleData(period.startDate, period.endDate, sampleStores);
       const filtered = slugToSuburl && selectedGroup ? filterSettlementByGroup(data, selectedGroup, slugToSuburl) : data;
+      cacheSettlementView(filtered.byBrand || [], filtered.pendingShipment || []);
       if (box) box.innerHTML = '<p class="admin-settlement-sample-hint">&nbsp;</p>' + renderSettlementTable(filtered.byBrand || []);
       if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(filtered.pendingShipment || []);
       return;
@@ -2875,9 +2967,11 @@ async function loadSettlement() {
       const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
       let data = res.ok ? await res.json() : { byBrand: [], pendingShipment: [] };
       if (slugToSuburl && selectedGroup) data = filterSettlementByGroup(data, selectedGroup, slugToSuburl);
+      cacheSettlementView(data.byBrand || [], data.pendingShipment || []);
       if (box) box.innerHTML = renderSettlementTable(data.byBrand || []);
       if (pendingBox) pendingBox.innerHTML = renderSettlementPendingList(data.pendingShipment || []);
     } catch (e) {
+      adminSettlementLastView = null;
       if (box) box.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
       if (pendingBox) pendingBox.innerHTML = '';
     }
@@ -2894,6 +2988,7 @@ async function loadSettlement() {
     if (brandSelect) brandSelect.selectedIndex = 0;
   });
 
+  document.getElementById('adminSettlementDownloadBtn')?.addEventListener('click', downloadSettlementCsv);
   document.getElementById('adminSettlementBrandSelect')?.addEventListener('change', runSettlementStatementSearch);
   document.getElementById('adminSettlementPdfBtn')?.addEventListener('click', printSettlementStatement);
 
