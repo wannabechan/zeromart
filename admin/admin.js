@@ -3074,7 +3074,7 @@ function renderDocumentsTable(rows) {
   html += '<th>신용카드 매출전표</th>';
   html += '<th>현금영수증(소득공제)</th>';
   html += '<th>현금영수증(지출증빙)</th>';
-  html += '<th>현금영수증(발행 제외)</th>';
+  html += '<th>현금영수증(자동발행) 등</th>';
   html += '<th>기타</th>';
   html += '</tr></thead><tbody>';
   (rows || []).forEach((r) => {
@@ -3110,7 +3110,7 @@ function downloadDocumentsCsv() {
     '신용카드 매출전표',
     '현금영수증(소득공제)',
     '현금영수증(지출증빙)',
-    '현금영수증(발행 제외)',
+    '현금영수증(자동발행) 등',
     '기타',
   ]);
   view.rows.forEach((r) => {
