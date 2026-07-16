@@ -1543,8 +1543,13 @@ function renderStore(store, menus, groupNames) {
   `;
 }
 
+function normalizeMenuTaxType(value) {
+  return value === 'nontaxable' ? 'nontaxable' : 'taxable';
+}
+
 function renderMenuItem(storeId, item, index) {
   const isSoldOut = item.isSoldOut === true;
+  const taxType = normalizeMenuTaxType(item.taxType);
   return `
     <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
       <div class="admin-menu-fields">
@@ -1563,7 +1568,7 @@ function renderMenuItem(storeId, item, index) {
             <label>가격 (원)</label>
             <input type="number" data-field="price" value="${item.price || 0}" placeholder="0" min="0">
           </div>
-          <div class="admin-form-field admin-form-field-image" style="flex: 2;">
+          <div class="admin-form-field admin-form-field-image admin-form-field--menu-image">
             <label>이미지</label>
             <div class="admin-image-input-row">
               <input type="url" data-field="imageUrl" value="${escapeHtml(item.imageUrl || '')}" placeholder="URL 또는 업로드">
@@ -1571,6 +1576,13 @@ function renderMenuItem(storeId, item, index) {
               <button type="button" class="admin-btn admin-btn-upload" data-upload-btn title="파일 업로드">📤 업로드</button>
             </div>
             <div class="admin-image-rule">${IMAGE_RULE}</div>
+          </div>
+          <div class="admin-form-field admin-form-field--menu-tax">
+            <label>과세/비과세</label>
+            <select data-field="taxType">
+              <option value="taxable"${taxType === 'taxable' ? ' selected' : ''}>과세</option>
+              <option value="nontaxable"${taxType === 'nontaxable' ? ' selected' : ''}>비과세</option>
+            </select>
           </div>
         </div>
         <div class="admin-form-row">
@@ -1639,6 +1651,7 @@ function collectData() {
       const descriptionInput = itemEl.querySelector('input[data-field="description"]');
       const priceInput = itemEl.querySelector('input[data-field="price"]');
       const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
+      const taxTypeSelect = itemEl.querySelector('select[data-field="taxType"]');
       const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
       const name = nameInput?.value?.trim();
       if (!name) return;
@@ -1648,6 +1661,7 @@ function collectData() {
         price: parseInt(priceInput?.value || '0', 10) || 0,
         description: descriptionInput?.value?.trim() || '',
         imageUrl: imageInput?.value?.trim() || '',
+        taxType: normalizeMenuTaxType(taxTypeSelect?.value),
         isSoldOut: soldOutInput?.checked === true,
       });
     });
@@ -3370,6 +3384,7 @@ async function init() {
             const descriptionInput = itemEl.querySelector('input[data-field="description"]');
             const priceInput = itemEl.querySelector('input[data-field="price"]');
             const imageInput = itemEl.querySelector('input[data-field="imageUrl"]');
+            const taxTypeSelect = itemEl.querySelector('select[data-field="taxType"]');
             const soldOutInput = itemEl.querySelector('input[data-field="isSoldOut"]');
             items.push({
               id: itemEl.dataset.menuId || generateId(storeId),
@@ -3377,6 +3392,7 @@ async function init() {
               price: parseInt(priceInput?.value || '0', 10) || 0,
               description: descriptionInput?.value?.trim() || '',
               imageUrl: imageInput?.value?.trim() || '',
+              taxType: normalizeMenuTaxType(taxTypeSelect?.value),
               isSoldOut: soldOutInput?.checked === true,
             });
           });
@@ -3403,7 +3419,7 @@ async function init() {
       if (e.target.closest('[data-add-menu]')) {
         const storeId = e.target.closest('[data-add-menu]').dataset.addMenu;
         const list = content.querySelector(`.admin-menu-list[data-store-id="${storeId}"]`);
-        const newItem = { id: generateId(storeId), name: '', description: '', price: 0, imageUrl: '', isSoldOut: false };
+        const newItem = { id: generateId(storeId), name: '', description: '', price: 0, imageUrl: '', taxType: 'taxable', isSoldOut: false };
         const div = document.createElement('div');
         div.innerHTML = renderMenuItem(storeId, newItem, list.children.length);
         const itemEl = div.firstElementChild;
@@ -3530,7 +3546,7 @@ async function init() {
           if (!name) continue;
           const description = parts.length >= 3 ? (parts[1] || '').trim() : '';
           const price = parseInt(parts.length >= 3 ? parts[2] : parts[1], 10) || 0;
-          const newItem = { id: generateId(storeId), name, description, price, imageUrl: '', isSoldOut: false };
+          const newItem = { id: generateId(storeId), name, description, price, imageUrl: '', taxType: 'taxable', isSoldOut: false };
           const div = document.createElement('div');
           div.innerHTML = renderMenuItem(storeId, newItem, startIndex + added);
           const itemEl = div.firstElementChild;

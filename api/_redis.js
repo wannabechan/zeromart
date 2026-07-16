@@ -80,7 +80,8 @@ function getRedis() {
 
 function normalizeMenuItem(item) {
   if (!item || typeof item !== 'object') return item;
-  return { ...item, isSoldOut: item.isSoldOut === true };
+  const taxType = item.taxType === 'nontaxable' ? 'nontaxable' : 'taxable';
+  return { ...item, isSoldOut: item.isSoldOut === true, taxType };
 }
 
 /**
