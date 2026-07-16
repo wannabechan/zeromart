@@ -3162,7 +3162,7 @@ async function loadDocuments() {
 
   container.innerHTML =
     '<div class="admin-settlement-statement-area" style="margin-top:0; padding-top:0; border-top:none;">' +
-    '<h3 class="admin-settlement-statement-heading">자료관리</h3>' +
+    '<h3 class="admin-settlement-statement-heading">자료</h3>' +
     '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
     '<select id="adminDocumentsGroupSelect" class="admin-settlement-brand-select" style="min-width:160px;"></select>' +
     '</div>' +
@@ -3178,6 +3178,7 @@ async function loadDocuments() {
     '<select id="adminDocumentsEndMonth" class="admin-documents-month-select">' +
     monthOpts +
     '</select>' +
+    '<button type="button" class="admin-stats-search-btn" id="adminDocumentsSearchBtn" title="조회" aria-label="조회"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>' +
     '<button type="button" class="admin-settlement-download-btn" id="adminDocumentsDownloadBtn">download</button>' +
     '</div>' +
     '<div id="adminDocumentsTable"></div>' +
@@ -3191,7 +3192,9 @@ async function loadDocuments() {
     '</section>';
 
   const tableBox = document.getElementById('adminDocumentsTable');
-  if (tableBox) tableBox.innerHTML = getAdminLoadingHtml();
+  if (tableBox) {
+    tableBox.innerHTML = '<p class="admin-settlement-empty">시작월·끝월을 선택한 뒤 조회 버튼을 눌러 주세요.</p>';
+  }
 
   const token = getToken();
 
@@ -3252,8 +3255,7 @@ async function loadDocuments() {
   }
 
   document.getElementById('adminDocumentsDownloadBtn')?.addEventListener('click', downloadDocumentsCsv);
-  document.getElementById('adminDocumentsStartMonth')?.addEventListener('change', fetchAndRenderDocuments);
-  document.getElementById('adminDocumentsEndMonth')?.addEventListener('change', fetchAndRenderDocuments);
+  document.getElementById('adminDocumentsSearchBtn')?.addEventListener('click', fetchAndRenderDocuments);
 
   try {
     const storesData = await fetchStores();
@@ -3266,11 +3268,9 @@ async function loadDocuments() {
       );
       groupNames.forEach((g) => groupSelectEl.appendChild(new Option(g, g)));
       groupSelectEl.selectedIndex = 0;
-      groupSelectEl.addEventListener('change', fetchAndRenderDocuments);
     }
-    await fetchAndRenderDocuments();
   } catch (e) {
-    if (tableBox) tableBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '자료를 불러올 수 없습니다.') + '</p>';
+    if (tableBox) tableBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '브랜드 목록을 불러올 수 없습니다.') + '</p>';
   }
 }
 
