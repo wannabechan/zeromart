@@ -2506,10 +2506,14 @@ function downloadSettlementCsv() {
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const safeGroup = String(groupLabel || 'all').replace(/[^\w가-힣.-]+/g, '_');
-  const safeDate = String(baseDate || 'date').replace(/[^\w.-]+/g, '_');
+  const brandPart = String(groupLabel || 'all')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[^\w가-힣.-]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'all';
+  const datePart = String(baseDate || '').replace(/\D/g, '') || '00000000';
   a.href = url;
-  a.download = `settlement-${safeGroup}-${safeDate}.csv`;
+  a.download = `zeromart_${brandPart}_${datePart}.csv`;
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
