@@ -1547,9 +1547,21 @@ function normalizeMenuTaxType(value) {
   return value === 'nontaxable' ? 'nontaxable' : 'taxable';
 }
 
+function syncMenuTaxTypeSelectColor(selectEl) {
+  if (!selectEl) return;
+  const taxType = normalizeMenuTaxType(selectEl.value);
+  selectEl.classList.remove('admin-menu-tax--taxable', 'admin-menu-tax--nontaxable');
+  selectEl.classList.add(taxType === 'nontaxable' ? 'admin-menu-tax--nontaxable' : 'admin-menu-tax--taxable');
+}
+
+function syncAllMenuTaxTypeSelectColors(root) {
+  (root || document).querySelectorAll('select[data-field="taxType"]').forEach(syncMenuTaxTypeSelectColor);
+}
+
 function renderMenuItem(storeId, item, index) {
   const isSoldOut = item.isSoldOut === true;
   const taxType = normalizeMenuTaxType(item.taxType);
+  const taxClass = taxType === 'nontaxable' ? 'admin-menu-tax--nontaxable' : 'admin-menu-tax--taxable';
   return `
     <div class="admin-menu-item" data-menu-index="${index}" data-menu-id="${escapeHtml(item.id || '')}">
       <div class="admin-menu-fields">
@@ -1579,9 +1591,9 @@ function renderMenuItem(storeId, item, index) {
           </div>
           <div class="admin-form-field admin-form-field--menu-tax">
             <label>과세/비과세</label>
-            <select data-field="taxType">
-              <option value="taxable"${taxType === 'taxable' ? ' selected' : ''}>과세</option>
-              <option value="nontaxable"${taxType === 'nontaxable' ? ' selected' : ''}>비과세</option>
+            <select data-field="taxType" class="${taxClass}">
+              <option value="taxable"${taxType === 'taxable' ? ' selected' : ''} style="color:#2563eb;">과세</option>
+              <option value="nontaxable"${taxType === 'nontaxable' ? ' selected' : ''} style="color:#c5221f;">비과세</option>
             </select>
           </div>
         </div>
@@ -3254,6 +3266,12 @@ async function init() {
         <button type="button" class="admin-btn admin-btn-reorder-stores" data-reorder-stores aria-label="카테고리 순서 변경" title="카테고리 순서 변경"><span class="admin-reorder-icon" aria-hidden="true">↕</span></button>
       </div>
     `;
+    syncAllMenuTaxTypeSelectColors(content);
+
+    content.addEventListener('change', (e) => {
+      const taxSelect = e.target.closest('select[data-field="taxType"]');
+      if (taxSelect) syncMenuTaxTypeSelectColor(taxSelect);
+    });
 
     content.addEventListener('click', async (e) => {
       if (e.target.closest('[data-scroll-top]')) {
@@ -3401,6 +3419,7 @@ async function init() {
           list.querySelectorAll('.admin-menu-item').forEach((el, i) => {
             el.dataset.menuId = items[i].id;
           });
+          syncAllMenuTaxTypeSelectColors(list);
         }
       }
       if (e.target.closest('[data-download-menu]')) {
@@ -3425,6 +3444,7 @@ async function init() {
         const itemEl = div.firstElementChild;
         itemEl.dataset.menuId = newItem.id;
         list.appendChild(itemEl);
+        syncMenuTaxTypeSelectColor(itemEl.querySelector('select[data-field="taxType"]'));
         const menuTitle = list.closest('.admin-store')?.querySelector('.admin-section-title-row--menu .admin-section-title');
         if (menuTitle) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
       }
@@ -3557,6 +3577,7 @@ async function init() {
         input.value = '';
         input.removeAttribute('data-upload-for-store');
         if (added > 0) {
+          syncAllMenuTaxTypeSelectColors(list);
           const menuTitle = list.closest('.admin-store')?.querySelector('.admin-section-title-row--menu .admin-section-title');
           if (menuTitle) menuTitle.textContent = '메뉴 (' + list.children.length + ')';
           alert(`${added}개 메뉴가 목록에 추가되었습니다. 저장 버튼을 눌러 반영해 주세요.`);
