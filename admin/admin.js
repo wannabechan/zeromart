@@ -3343,10 +3343,15 @@ function renderStats(container, data) {
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 결제후취소 <strong>' + n4 + '</strong> (' + pct(n4, n2) + '%)</li>';
   html += '<li>결제완료 <strong>' + n2 + '</strong> → 발송완료 <strong>' + n5 + '</strong> (' + pct(n5, n2) + '%)</li>';
   html += '</ul></div>';
-  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>이메일</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
+  html += '<div class="admin-stats-section admin-stats-section-crm"><h3>고객 분석</h3><table class="admin-stats-table"><thead><tr><th>고객</th><th>진행주문</th><th>매출</th><th>마지막 주문일</th><th>고객 클러스터</th></tr></thead><tbody>';
   (crm.byCustomer || []).forEach(function (c) {
     const lastDate = c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '—';
-    html += '<tr><td>' + escapeHtml(c.email) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
+    const storeName = (c.storeName || '').trim() || '—';
+    const email = String(c.email || '').trim();
+    const atIdx = email.indexOf('@');
+    const emailPrefix = atIdx >= 0 ? email.slice(0, atIdx + 1) : (email ? email + '@' : '—@');
+    const customerLabel = storeName + '(' + emailPrefix + ')';
+    html += '<tr><td>' + escapeHtml(customerLabel) + '</td><td>' + c.orderCount + '</td><td>' + formatMoney(c.totalAmount) + '</td><td>' + lastDate + '</td><td>n/a</td></tr>';
   });
   html += '</tbody></table></div>';
   container.innerHTML = html;

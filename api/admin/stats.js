@@ -4,7 +4,7 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrdersForAdmin, getStores } = require('../_redis');
+const { getOrdersForAdmin, getStores, getProfileSettingsBatch } = require('../_redis');
 const { toKSTDateKey, getKSTDayRange } = require('../_kst');
 const { getOrderItemStoreKey } = require('../orders/_order-email');
 
@@ -328,8 +328,10 @@ module.exports = async (req, res) => {
       if (now - last <= ms90) repeatWithin90++;
     });
 
-    const byCustomer = Object.entries(customerOrders)
-      .map(([email]) => {
+    const byCustomerEmails = Object.keys(customerOrders);
+    const profilesByEmail = await getProfileSettingsBatch(byCustomerEmails);
+    const byCustomer = byCustomerEmails
+      .map((email) => {
         const customerOrdersList = orders.filter((o) => (o.user_email || '').trim().toLowerCase() === email);
         let orderCount = 0;
         let totalAmount = 0;
@@ -339,8 +341,11 @@ module.exports = async (req, res) => {
             totalAmount += Number(o.total_amount) || 0;
           }
         });
+        const profile = profilesByEmail[email] || null;
+        const storeName = (profile?.storeName || '').trim() || '';
         return {
           email,
+          storeName,
           orderCount,
           totalAmount,
           lastOrderAt: customerLastOrder[email] ? new Date(customerLastOrder[email]).toISOString() : null,
