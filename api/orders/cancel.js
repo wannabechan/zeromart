@@ -7,10 +7,11 @@
  */
 
 const { verifyToken, apiResponse } = require('../_utils');
-const { getOrderById, getStores } = require('../_redis');
+const { getOrderById, getStores, saveOrder } = require('../_redis');
 const { cancelOrderAndRegeneratePdf } = require('../_orderCancel');
 const { withHydratedSlips, anySlipDelivered, isWithinPaymentCancelWindow } = require('./_orderSlips');
 const { getTossSecretKeyForOrder } = require('../payment/_helpers');
+const { buildVatPaymentSnapshotFromToss } = require('../payment/_vatPayment');
 
 const CANCELABLE_BEFORE_PAYMENT = ['submitted', 'pending', 'order_accepted', 'payment_link_issued'];
 const TOSS_CANCEL_API = 'https://api.tosspayments.com/v1/payments';
@@ -110,6 +111,16 @@ module.exports = async (req, res) => {
         });
       }
       await cancelOrderAndRegeneratePdf(id, '결제취소');
+      try {
+        const after = await getOrderById(id);
+        if (after) {
+          after.cancelled_at = new Date().toISOString();
+          after.vat_payment = buildVatPaymentSnapshotFromToss(cancelData);
+          await saveOrder(after);
+        }
+      } catch (vatErr) {
+        console.error('Cancel order: vat_payment snapshot', vatErr.message);
+      }
       return apiResponse(res, 200, {
         success: true,
         message: '주문이 취소되었습니다.',

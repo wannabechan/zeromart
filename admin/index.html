@@ -293,6 +293,16 @@
     .admin-settlement-date-row { width: 100%; }
     .admin-settlement-download-btn { margin-left: auto; padding: 0; font-size: 0.8125rem; font-weight: 500; border: none; background: none; color: var(--color-primary); cursor: pointer; font-family: inherit; text-decoration: underline; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
     .admin-settlement-download-btn:hover { color: var(--color-text); }
+    .admin-documents-month-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .admin-documents-month-row label { font-size: 0.875rem; color: var(--color-text-secondary); white-space: nowrap; }
+    .admin-documents-month-select { min-width: 120px; padding: 6px 10px; font-size: 0.875rem; border: 1px solid var(--color-border); border-radius: 6px; background: #fff; font-family: inherit; }
+    .admin-documents-table-wrap { overflow-x: auto; margin-top: 12px; }
+    .admin-documents-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; min-width: 920px; }
+    .admin-documents-table th, .admin-documents-table td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+    .admin-documents-table th { font-weight: 600; background: #f3f0f8; color: var(--color-text); text-align: center; }
+    .admin-documents-table td:first-child, .admin-documents-table th:first-child { text-align: center; }
+    .admin-documents-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border); font-size: 0.8125rem; color: var(--color-text-secondary); line-height: 1.55; }
+    .admin-documents-footer p { margin: 0 0 6px; }
     .admin-settlement-caption { font-size: 0.8125rem; color: var(--color-text-secondary); margin: 0 0 12px; }
     .admin-settlement-empty { margin: 0; font-size: 0.875rem; color: var(--color-text-secondary); }
     .admin-settlement-list-heading { font-size: 0.875rem; font-weight: 600; margin: 0 0 12px; color: var(--color-text); }
@@ -425,6 +435,7 @@
     @media (max-width: 768px) {
       .admin-tab[data-tab="stores"] { display: none; }
       .admin-tab[data-tab="settlement"] { display: none; }
+      .admin-tab[data-tab="documents"] { display: none; }
       .admin-tab[data-tab="permissions"] { display: none; }
       .admin-tab[data-tab="logs"] { display: none; }
       .admin-tab[data-tab="resend"] { display: none; }
@@ -432,6 +443,7 @@
       .admin-tab[data-tab="storage"] { display: none; }
       #storesView { display: none !important; }
       #settlementView { display: none !important; }
+      #documentsView { display: none !important; }
       #permissionsView { display: none !important; }
       #logsView { display: none !important; }
       #resendView { display: none !important; }
@@ -471,6 +483,7 @@
       <button class="admin-tab active" data-tab="payments">주문관리</button>
       <button class="admin-tab" data-tab="stats">통계관리</button>
       <button class="admin-tab" data-tab="settlement">정산관리</button>
+      <button class="admin-tab" data-tab="documents">자료관리</button>
       <button class="admin-tab" data-tab="permissions">권한관리</button>
       <button class="admin-tab" data-tab="logs">로그관리</button>
       <button class="admin-tab" data-tab="resend">Resend관리</button>
@@ -501,6 +514,10 @@
 
     <div id="settlementView" class="admin-view">
       <div id="adminSettlementContent"></div>
+    </div>
+
+    <div id="documentsView" class="admin-view">
+      <div id="adminDocumentsContent"></div>
     </div>
 
     <div id="permissionsView" class="admin-view">

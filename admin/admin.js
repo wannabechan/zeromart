@@ -1813,6 +1813,9 @@ function setupTabs() {
       } else if (targetTab === 'settlement') {
         document.getElementById('settlementView').classList.add('active');
         loadSettlement();
+      } else if (targetTab === 'documents') {
+        document.getElementById('documentsView').classList.add('active');
+        loadDocuments();
       } else if (targetTab === 'permissions') {
         document.getElementById('permissionsView').classList.add('active');
         loadPermissionsView();
@@ -1847,7 +1850,7 @@ function setupTabs() {
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
   const tabToActivate = isMobile()
     ? (saved && ['payments', 'stats', 'permissions'].includes(saved) ? saved : 'payments')
-    : (saved && ['stores', 'payments', 'stats', 'settlement', 'permissions', 'logs', 'resend', 'points', 'storage'].includes(saved) ? saved : 'stores');
+    : (saved && ['stores', 'payments', 'stats', 'settlement', 'documents', 'permissions', 'logs', 'resend', 'points', 'storage'].includes(saved) ? saved : 'stores');
   if (isReload && saved) {
     activateTab(tabToActivate);
   }
@@ -3023,6 +3026,251 @@ async function loadSettlement() {
     await fetchAndRenderSettlement(defaultDate, stores, slugToSuburl);
   } catch (e) {
     if (contentBox) contentBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '정산 내역을 불러올 수 없습니다.') + '</p>';
+  }
+}
+
+/** 자료관리 탭: 마지막 조회 결과 (CSV용) */
+let adminDocumentsLastView = null;
+
+function getCurrentYearMonthKST() {
+  const key = getTodayKST();
+  return key && key.length >= 7 ? key.slice(0, 7) : '';
+}
+
+function buildYearMonthOptions(selectedYm) {
+  const cur = getCurrentYearMonthKST();
+  if (!cur) return '';
+  const [cy, cm] = cur.split('-').map(Number);
+  const options = [];
+  // 최근 36개월 + 현재
+  for (let i = 0; i < 36; i++) {
+    let y = cy;
+    let m = cm - i;
+    while (m <= 0) {
+      m += 12;
+      y -= 1;
+    }
+    const val = y + '-' + String(m).padStart(2, '0');
+    options.push(val);
+  }
+  options.sort();
+  return options
+    .map((ym) => {
+      const label = ym.replace('-', '.');
+      return '<option value="' + escapeHtml(ym) + '"' + (ym === selectedYm ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+    })
+    .join('');
+}
+
+function formatDocumentsMoney(n) {
+  return Number(n || 0).toLocaleString('ko-KR');
+}
+
+function renderDocumentsTable(rows) {
+  let html = '<div class="admin-documents-table-wrap"><table class="admin-documents-table"><thead><tr>';
+  html += '<th>부가세 신고기간</th>';
+  html += '<th>과세매출금액</th>';
+  html += '<th>면세매출금액</th>';
+  html += '<th>신용카드 매출전표</th>';
+  html += '<th>현금영수증(소득공제)</th>';
+  html += '<th>현금영수증(지출증빙)</th>';
+  html += '<th>현금영수증(발행 제외)</th>';
+  html += '<th>기타</th>';
+  html += '</tr></thead><tbody>';
+  (rows || []).forEach((r) => {
+    html += '<tr>';
+    html += '<td>' + escapeHtml(r.period || '') + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.taxable) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.nontaxable) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.card) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.cashIncome) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.cashExpense) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.cashExcluded) + '</td>';
+    html += '<td>' + formatDocumentsMoney(r.other) + '</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function downloadDocumentsCsv() {
+  const view = adminDocumentsLastView;
+  if (!view || !Array.isArray(view.rows)) {
+    alert('다운로드할 자료가 없습니다. 조회 후 다시 시도해 주세요.');
+    return;
+  }
+  const rows = [];
+  rows.push(['브랜드(그룹)', view.groupLabel || '전체']);
+  rows.push(['조회구간', (view.startMonth || '') + ' ~ ' + (view.endMonth || '')]);
+  rows.push([]);
+  rows.push([
+    '부가세 신고기간',
+    '과세매출금액',
+    '면세매출금액',
+    '신용카드 매출전표',
+    '현금영수증(소득공제)',
+    '현금영수증(지출증빙)',
+    '현금영수증(발행 제외)',
+    '기타',
+  ]);
+  view.rows.forEach((r) => {
+    rows.push([
+      r.period || '',
+      String(r.taxable || 0),
+      String(r.nontaxable || 0),
+      String(r.card || 0),
+      String(r.cashIncome || 0),
+      String(r.cashExpense || 0),
+      String(r.cashExcluded || 0),
+      String(r.other || 0),
+    ]);
+  });
+  const csv = rows
+    .map((line) =>
+      line
+        .map((cell) => {
+          const s = String(cell ?? '');
+          if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+          return s;
+        })
+        .join(',')
+    )
+    .join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const groupPart = String(view.groupLabel || 'all')
+    .replace(/[^\w가-힣\-]+/g, '_')
+    .slice(0, 40);
+  const start = String(view.startMonth || '').replace(/-/g, '');
+  const end = String(view.endMonth || '').replace(/-/g, '');
+  a.href = url;
+  a.download = `zeromart_vat_${groupPart}_${start}_${end}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function loadDocuments() {
+  const container = document.getElementById('adminDocumentsContent');
+  if (!container) return;
+
+  const curYm = getCurrentYearMonthKST();
+  const monthOpts = buildYearMonthOptions(curYm);
+
+  container.innerHTML =
+    '<div class="admin-settlement-statement-area" style="margin-top:0; padding-top:0; border-top:none;">' +
+    '<h3 class="admin-settlement-statement-heading">자료관리</h3>' +
+    '<div class="admin-stats-daterange" style="margin-bottom:16px;">' +
+    '<select id="adminDocumentsGroupSelect" class="admin-settlement-brand-select" style="min-width:160px;"></select>' +
+    '</div>' +
+    '</div>' +
+    '<section class="admin-stats-section">' +
+    '<div class="admin-documents-month-row">' +
+    '<label for="adminDocumentsStartMonth">시작월</label>' +
+    '<select id="adminDocumentsStartMonth" class="admin-documents-month-select">' +
+    monthOpts +
+    '</select>' +
+    '<span>~</span>' +
+    '<label for="adminDocumentsEndMonth">끝월</label>' +
+    '<select id="adminDocumentsEndMonth" class="admin-documents-month-select">' +
+    monthOpts +
+    '</select>' +
+    '<button type="button" class="admin-settlement-download-btn" id="adminDocumentsDownloadBtn">download</button>' +
+    '</div>' +
+    '<div id="adminDocumentsTable"></div>' +
+    '<div class="admin-documents-footer" id="adminDocumentsFooter">' +
+    '<p><strong>세무신고용 아님 · 내부 참고용</strong>입니다. 국세청·세무 신고에는 토스페이먼츠·세무 대리인 자료를 사용하세요.</p>' +
+    '<p>* 과세/면세는 주문 메뉴의 과세 구분과 제로포인트 비율 안분을 기준으로 집계합니다.</p>' +
+    '<p>* 신용카드·현금영수증·기타는 토스 결제 상세(카드/충전식/적립식·현금영수증 유형)를 기준으로 분류합니다.</p>' +
+    '<p>* 월 귀속은 결제 승인일(취소는 취소 확정월) 기준이며, ZP 할인액은 매출(과세·면세)에만 반영되고 결제수단 열에는 실결제액만 포함됩니다.</p>' +
+    '<p>* 과거 주문은 메뉴 마스터의 과세 구분으로 추정·보정하며, 결제 상세는 최초 조회 시 토스에서 가져와 주문에 저장합니다.</p>' +
+    '</div>' +
+    '</section>';
+
+  const tableBox = document.getElementById('adminDocumentsTable');
+  if (tableBox) tableBox.innerHTML = getAdminLoadingHtml();
+
+  const token = getToken();
+
+  async function fetchAndRenderDocuments() {
+    const groupSelect = document.getElementById('adminDocumentsGroupSelect');
+    const startEl = document.getElementById('adminDocumentsStartMonth');
+    const endEl = document.getElementById('adminDocumentsEndMonth');
+    const box = document.getElementById('adminDocumentsTable');
+    if (!box || !startEl || !endEl) return;
+
+    let startMonth = (startEl.value || '').trim();
+    let endMonth = (endEl.value || '').trim();
+    if (startMonth && endMonth && startMonth > endMonth) {
+      const tmp = startMonth;
+      startMonth = endMonth;
+      endMonth = tmp;
+      startEl.value = startMonth;
+      endEl.value = endMonth;
+    }
+    const group = (groupSelect && groupSelect.value) ? groupSelect.value : '';
+    const groupLabel = group || '전체';
+    box.innerHTML = getAdminLoadingHtml();
+
+    try {
+      const url =
+        `${API_BASE}/api/admin/vat-documents?startMonth=${encodeURIComponent(startMonth)}` +
+        `&endMonth=${encodeURIComponent(endMonth)}` +
+        `&group=${encodeURIComponent(group)}`;
+      const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } }, 120000);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        adminDocumentsLastView = null;
+        box.innerHTML = '<p class="admin-stats-error">' + escapeHtml(err.error || '자료를 불러올 수 없습니다.') + '</p>';
+        return;
+      }
+      const data = await res.json();
+      const rows = data.rows || [];
+      adminDocumentsLastView = {
+        groupLabel,
+        startMonth: data.startMonth || startMonth,
+        endMonth: data.endMonth || endMonth,
+        rows,
+      };
+      box.innerHTML = renderDocumentsTable(rows);
+      const meta = data.meta || {};
+      if (meta.backfillPending > 0 && box) {
+        box.insertAdjacentHTML(
+          'beforeend',
+          '<p class="admin-settlement-empty" style="margin-top:8px;">과거 결제 상세 보정 대기 ' +
+            meta.backfillPending +
+            '건이 남아 있습니다. 다시 조회하면 이어서 반영됩니다.</p>'
+        );
+      }
+    } catch (e) {
+      adminDocumentsLastView = null;
+      box.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '자료를 불러올 수 없습니다.') + '</p>';
+    }
+  }
+
+  document.getElementById('adminDocumentsDownloadBtn')?.addEventListener('click', downloadDocumentsCsv);
+  document.getElementById('adminDocumentsStartMonth')?.addEventListener('change', fetchAndRenderDocuments);
+  document.getElementById('adminDocumentsEndMonth')?.addEventListener('change', fetchAndRenderDocuments);
+
+  try {
+    const storesData = await fetchStores();
+    const stores = (storesData && storesData.stores) || [];
+    const groupSelectEl = document.getElementById('adminDocumentsGroupSelect');
+    if (groupSelectEl) {
+      groupSelectEl.appendChild(new Option('전체', ''));
+      const groupNames = [...new Set(stores.map((s) => (s.suburl || '').toString().trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, 'ko')
+      );
+      groupNames.forEach((g) => groupSelectEl.appendChild(new Option(g, g)));
+      groupSelectEl.selectedIndex = 0;
+      groupSelectEl.addEventListener('change', fetchAndRenderDocuments);
+    }
+    await fetchAndRenderDocuments();
+  } catch (e) {
+    if (tableBox) tableBox.innerHTML = '<p class="admin-stats-error">' + escapeHtml(e.message || '자료를 불러올 수 없습니다.') + '</p>';
   }
 }
 

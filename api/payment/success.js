@@ -15,6 +15,7 @@ const {
 const { persistSlipsIfMissing } = require('../orders/_orderSlips');
 const { getAppOrigin, getTossSecretKeyForOrder } = require('./_helpers');
 const { isTossPureCreditOrCheckCard, hasMeaningfulEasyPay } = require('./_tossPaymentMethod');
+const { buildVatPaymentSnapshotFromToss } = require('./_vatPayment');
 const { appendOrderRawLog } = require('../_orderRawLog');
 
 const TOSS_CONFIRM = 'https://api.tosspayments.com/v1/payments/confirm';
@@ -133,6 +134,11 @@ module.exports = async (req, res) => {
           }
         } else {
           orderAfter.zero_point_reward_ready_at = null;
+        }
+        try {
+          orderAfter.vat_payment = buildVatPaymentSnapshotFromToss(payment);
+        } catch (vatErr) {
+          console.error('Payment success: vat_payment snapshot', vatErr.message);
         }
         await saveOrder(orderAfter);
       }

@@ -9,6 +9,7 @@ const {
   createOrder,
   updateOrderPdfUrl,
   getStores,
+  getMenus,
   checkRateLimitIncr,
   getUser,
   deductUserZeroPoints,
@@ -18,6 +19,7 @@ const {
 const { persistSlipsIfMissing } = require('./_orderSlips');
 const { generateOrderPdf } = require('../_pdf');
 const { appendOrderRawLog } = require('../_orderRawLog');
+const { buildMenuTaxTypeMap, normalizeTaxType } = require('../payment/_vatPayment');
 
 const MIN_PAYABLE_KRW = 10000;
 
@@ -163,6 +165,32 @@ module.exports = async (req, res) => {
       deductedPoints = pointsToUse;
     }
 
+    let storesForTax = [];
+    try {
+      const baseStores = (await getStores()) || [];
+      storesForTax = await Promise.all(
+        baseStores.map(async (s) => {
+          const sid = s.id || s.slug;
+          let items = [];
+          try {
+            items = (await getMenus(sid)) || [];
+          } catch (_) {
+            items = [];
+          }
+          return { ...s, items };
+        })
+      );
+    } catch (e) {
+      console.error('Create order: getStores for taxType', e.message);
+    }
+    const menuTaxMap = buildMenuTaxTypeMap(storesForTax);
+    const orderItemsWithTax = orderItems.map((it) => {
+      const id = it && it.id != null ? String(it.id) : '';
+      const fromClient = it && (it.taxType === 'nontaxable' || it.taxType === 'taxable') ? it.taxType : null;
+      const taxType = fromClient || (id && menuTaxMap.has(id) ? menuTaxMap.get(id) : 'taxable');
+      return { ...it, taxType: normalizeTaxType(taxType) };
+    });
+
     let order;
     try {
       order = await createOrder({
@@ -173,7 +201,7 @@ module.exports = async (req, res) => {
         expense_doc: expenseDoc || null,
         delivery_address: deliveryAddress,
         detail_address: detailAddress || null,
-        order_items: orderItems,
+        order_items: orderItemsWithTax,
         total_amount: totalNum,
         zero_point_used: pointsToUse,
       });
@@ -202,9 +230,9 @@ module.exports = async (req, res) => {
     }
 
     // 주문서 PDF 생성 및 Vercel Blob 저장
-    let stores = [];
+    let stores = storesForTax;
     try {
-      stores = await getStores();
+      if (!stores.length) stores = await getStores();
       const pdfBuffer = await generateOrderPdf(order, stores);
       const pathname = `orders/order-${order.id}.pdf`;
       const blob = await put(pathname, pdfBuffer, {

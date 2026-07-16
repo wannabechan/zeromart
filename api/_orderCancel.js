@@ -58,8 +58,13 @@ async function cancelOrderAndRegeneratePdf(orderId, cancelReason) {
 
   await updateOrderStatus(orderId, 'cancelled');
   await updateOrderCancelReason(orderId, cancelReason || null);
+  order = (await getOrderById(orderId)) || order;
   order.status = 'cancelled';
   order.cancel_reason = cancelReason || null;
+  if (!order.cancelled_at) {
+    order.cancelled_at = new Date().toISOString();
+    await saveOrder(order);
+  }
 
   appendOrderRawLog(order, {
     eventType: 'order_cancelled',
