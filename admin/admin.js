@@ -3475,17 +3475,31 @@ function renderAdminOrderDetailHtml(order) {
 
 function openAdminOrderDetail(order) {
   const content = document.getElementById('adminOrderDetailContent');
+  const orderAmountEl = document.getElementById('adminOrderDetailOrderAmount');
+  const zpUsedEl = document.getElementById('adminOrderDetailZpUsed');
   const totalEl = document.getElementById('adminOrderDetailTotal');
   const overlay = document.getElementById('adminOrderDetailOverlay');
   const panel = overlay?.querySelector('.admin-order-detail-panel');
   if (!content || !overlay) return;
   const html = renderAdminOrderDetailHtml(order);
   content.innerHTML = `<div class="order-detail-list order-detail-cart-style">${html}</div>`;
-  if (totalEl) totalEl.textContent = formatAdminPrice(order.total_amount || 0);
+
+  const items = order.order_items || order.orderItems || [];
+  let orderAmount = 0;
+  for (const oi of items) {
+    const price = Math.floor(Number(oi.price) || 0);
+    const qty = Math.floor(Number(oi.quantity) || 0);
+    if (price > 0 && qty > 0) orderAmount += price * qty;
+  }
+  const zpUsed = Math.max(0, Math.floor(Number(order.zero_point_used) || 0));
+  const finalAmount = Math.floor(Number(order.total_amount) || 0);
+  if (orderAmountEl) orderAmountEl.textContent = formatAdminPrice(orderAmount);
+  if (zpUsedEl) zpUsedEl.textContent = formatAdminPrice(zpUsed);
+  if (totalEl) totalEl.textContent = formatAdminPrice(finalAmount);
+
   if (panel) panel.classList.toggle('admin-order-detail-cancelled', order.status === 'cancelled');
   const pdfWrap = document.getElementById('adminOrderDetailPdfWrap');
   if (pdfWrap) {
-    const items = order.order_items || order.orderItems || [];
     const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))].sort();
     pdfWrap.innerHTML = '';
     pdfWrap.style.display = slugs.length ? '' : 'none';
