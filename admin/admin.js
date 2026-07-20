@@ -2577,7 +2577,15 @@ function getSettlementSampleData(startDate, endDate, stores) {
       const slug = (store.slug || store.id || '').toString().toLowerCase();
       const brandTitle = (store.brand || store.title || store.id || slug).toString().trim() || slug;
       const amount = 50000;
-      const order = { id: 'sample-' + dateStr + '-' + slug, orderDate: dateStr, created_at: dateStr + 'T00:00:00.000Z', slug, brandTitle, total_amount: amount, status };
+      const order = {
+        id: 'sample-' + dateStr + '-' + slug,
+        orderDate: dateStr,
+        created_at: dateStr + 'T00:00:00.000Z',
+        slug,
+        brandTitle: brandTitle + '(X)',
+        total_amount: amount,
+        status,
+      };
       if (isMonday) {
         pendingShipment.push(order);
       } else {

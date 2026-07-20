@@ -8,6 +8,7 @@
 const { verifyToken, apiResponse } = require('../_utils');
 const { getOrdersForAdmin, getStores } = require('../_redis');
 const { getStoreForOrder } = require('../orders/_order-email');
+const { withHydratedSlips } = require('../orders/_orderSlips');
 const { toKSTDateKey } = require('../_kst');
 
 /** 날짜 문자열을 YYYY-MM-DD로 정규화 */
@@ -17,6 +18,35 @@ function normalizeDate(str) {
   if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   if (s.length >= 10) return String(str).slice(0, 10);
   return '';
+}
+
+function buildStoreMap(stores) {
+  const map = {};
+  for (const s of stores || []) {
+    const slug = (s.slug || s.id || '').toString().toLowerCase();
+    if (slug) map[slug] = s;
+  }
+  return map;
+}
+
+/** 미발송 목록 브랜드란: 브랜드명(O/X), … — O=해당 매장 발송완료 */
+function formatPendingBrandMarks(order, stores, storeMap) {
+  const hydrated = withHydratedSlips(order, stores);
+  const slips = Array.isArray(hydrated.order_slips) ? hydrated.order_slips : [];
+  if (slips.length === 0) {
+    const store = getStoreForOrder(order, stores);
+    const name = (store?.brand || store?.title || store?.id || 'unknown').toString().trim() || 'unknown';
+    return `${name}(X)`;
+  }
+  return slips
+    .map((slip) => {
+      const slug = (slip.slug || '').toString().toLowerCase();
+      const store = storeMap[slug];
+      const name = (store?.brand || store?.title || store?.id || slug || 'unknown').toString().trim() || slug || 'unknown';
+      const done = (slip.delivery_status || '') === 'delivery_completed';
+      return `${name}(${done ? 'O' : 'X'})`;
+    })
+    .join(', ');
 }
 
 module.exports = async (req, res) => {
@@ -48,6 +78,7 @@ module.exports = async (req, res) => {
 
     const orders = await getOrdersForAdmin() || [];
     const stores = await getStores() || [];
+    const storeMap = buildStoreMap(stores);
 
     const deliveryCompleted = orders.filter((o) => {
       if ((o.status || '') !== 'delivery_completed') return false;
@@ -84,7 +115,7 @@ module.exports = async (req, res) => {
     }).map((o) => {
       const store = getStoreForOrder(o, stores);
       const slug = (store?.slug || store?.id || 'unknown').toString().toLowerCase();
-      const brandTitle = (store?.brand || store?.title || store?.id || slug).toString().trim() || slug;
+      const brandTitle = formatPendingBrandMarks(o, stores, storeMap);
       return {
         id: o.id,
         created_at: o.created_at,
