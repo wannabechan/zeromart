@@ -61,7 +61,11 @@ async function refreshMenuAndRender() {
   const currentCategory = document.querySelector('.category-tab.active')?.dataset.category || '_all';
   const ok = await loadMenuData();
   if (!ok) return;
-  const slugStillExists = currentCategory === '_all' || currentCategory === '_recent' || Object.prototype.hasOwnProperty.call(MENU_DATA, currentCategory);
+  const orderableSlugs = getOrderableStoreSlugs();
+  const slugStillExists =
+    currentCategory === '_all' ||
+    currentCategory === '_recent' ||
+    orderableSlugs.includes(currentCategory);
   renderCategoryTabs(slugStillExists ? currentCategory : undefined);
   if (document.querySelector('.category-tab.active')?.dataset.category === '_recent') {
     await fetchRecentOrderItems();
@@ -445,8 +449,16 @@ function addToCartFromPending(itemId) {
 }
 
 // 카테고리 탭 렌더 (API 데이터 기반). initialSlug: suburl 접근 시 먼저 보여줄 카테고리 slug
+/** 주문 가능 메뉴가 1개 이상 있는 매장 slug (품절만 있거나 메뉴 0건은 제외) */
+function getOrderableStoreSlugs() {
+  return Object.keys(MENU_DATA).filter((slug) => {
+    const items = MENU_DATA[slug]?.items;
+    return Array.isArray(items) && items.length > 0;
+  });
+}
+
 function renderCategoryTabs(initialSlug) {
-  const slugs = Object.keys(MENU_DATA);
+  const slugs = getOrderableStoreSlugs();
   const specialTabs = [
     { slug: '_all', title: '전체보기' },
     { slug: '_recent', title: '최근주문' },
@@ -2164,9 +2176,10 @@ function init() {
     const pathSeg = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || '';
     let initialSlug = null;
     if (pathSeg) {
-      if (MENU_DATA[pathSeg]) initialSlug = pathSeg;
+      const orderableSlugs = getOrderableStoreSlugs();
+      if (orderableSlugs.includes(pathSeg)) initialSlug = pathSeg;
       else {
-        const bySuburl = Object.keys(MENU_DATA).find((slug) => (MENU_DATA[slug].suburl || '') === pathSeg);
+        const bySuburl = orderableSlugs.find((slug) => (MENU_DATA[slug].suburl || '') === pathSeg);
         if (bySuburl) initialSlug = bySuburl;
       }
     }
