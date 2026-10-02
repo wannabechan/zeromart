@@ -2002,6 +2002,7 @@ function renderPaymentList() {
           ${effectiveFilter === 'delivery_wait' && !hideDeliveryBtn && !showSlipLinesInDoneTab && (order.status === 'payment_completed' || order.status === 'shipping') ? `<button type="button" class="admin-payment-delivery-row-btn" data-open-delivery-modal="${orderIdEsc}">발송 처리</button>` : ''}
           ${order.status !== 'cancelled' && (order.status === 'submitted' || order.status === 'order_accepted' || order.status === 'payment_link_issued') ? `<button type="button" class="admin-payment-cancel-btn" data-cancel-order="${orderIdEsc}">취소</button>` : ''}
           <button type="button" class="admin-payment-delete-btn" data-delete-order="${orderIdEsc}">삭제</button>
+          ${effectiveFilter === 'delivery_wait' && (order.status === 'payment_completed' || order.status === 'shipping') && !isWithinPaymentCancelWindow(order) ? `<button type="button" class="admin-payment-emergency-cancel-btn" data-emergency-cancel-order="${orderIdEsc}">긴급 취소</button>` : ''}
         </div>
       </div>
     `;
@@ -2140,6 +2141,128 @@ function renderPaymentList() {
         alert(err.message || '삭제에 실패했습니다.');
       }
     });
+  });
+
+  content.querySelectorAll('[data-emergency-cancel-order]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openAdminEmergencyCancelModal(btn.dataset.emergencyCancelOrder);
+    });
+  });
+}
+
+let adminEmergencyCancelTargetOrderId = null;
+
+function closeAdminEmergencyCancelModal() {
+  const overlay = document.getElementById('adminEmergencyCancelModal');
+  const input = document.getElementById('adminEmergencyCancelOrderIdInput');
+  const hint = document.getElementById('adminEmergencyCancelHint');
+  const confirmBtn = document.getElementById('adminEmergencyCancelConfirmBtn');
+  adminEmergencyCancelTargetOrderId = null;
+  if (input) input.value = '';
+  if (hint) hint.textContent = '';
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '긴급 취소';
+  }
+  if (overlay) {
+    overlay.classList.remove('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function openAdminEmergencyCancelModal(orderId) {
+  const id = orderId != null ? String(orderId).trim() : '';
+  if (!id) return;
+  adminEmergencyCancelTargetOrderId = id;
+  const overlay = document.getElementById('adminEmergencyCancelModal');
+  const input = document.getElementById('adminEmergencyCancelOrderIdInput');
+  const hint = document.getElementById('adminEmergencyCancelHint');
+  if (hint) hint.textContent = `대상 주문: ${id}`;
+  if (input) {
+    input.value = '';
+    setTimeout(() => input.focus(), 50);
+  }
+  if (overlay) {
+    overlay.classList.add('admin-modal-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function matchesEmergencyCancelOrderId(inputValue, orderId) {
+  const raw = String(inputValue || '').trim();
+  if (!raw || !orderId) return false;
+  const id = String(orderId).trim();
+  if (raw === id || raw === `주문 #${id}` || raw === `#${id}`) return true;
+  const norm = raw.replace(/^주문\s*#?/i, '').replace(/^#/, '').trim();
+  if (norm === id) return true;
+  const base = norm.split('-')[0] || '';
+  return base === id;
+}
+
+async function confirmAdminEmergencyCancel() {
+  const orderId = adminEmergencyCancelTargetOrderId;
+  const input = document.getElementById('adminEmergencyCancelOrderIdInput');
+  const confirmBtn = document.getElementById('adminEmergencyCancelConfirmBtn');
+  if (!orderId) return;
+  const typed = input ? input.value : '';
+  if (!matchesEmergencyCancelOrderId(typed, orderId)) {
+    alert('주문서 번호가 일치하지 않습니다.');
+    input?.focus();
+    return;
+  }
+  try {
+    const token = getToken();
+    if (!token) return;
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = '처리 중...';
+    }
+    const res = await fetch(`${API_BASE}/api/admin/emergency-cancel-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ orderId, confirmOrderId: String(typed).trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || '긴급 취소에 실패했습니다.');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '긴급 취소';
+      }
+      return;
+    }
+    const order = findAdminPaymentOrderById(orderId);
+    if (order) {
+      order.status = 'cancelled';
+      order.cancel_reason = '결제취소';
+    }
+    closeAdminEmergencyCancelModal();
+    alert('주문이 긴급 취소되었습니다.');
+    renderPaymentList();
+  } catch (err) {
+    alert(err.message || '긴급 취소에 실패했습니다.');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = '긴급 취소';
+    }
+  }
+}
+
+function setupAdminEmergencyCancelModal() {
+  const overlay = document.getElementById('adminEmergencyCancelModal');
+  if (!overlay || overlay.dataset.bound === '1') return;
+  overlay.dataset.bound = '1';
+  document.getElementById('adminEmergencyCancelModalClose')?.addEventListener('click', closeAdminEmergencyCancelModal);
+  document.getElementById('adminEmergencyCancelModalCancel')?.addEventListener('click', closeAdminEmergencyCancelModal);
+  document.getElementById('adminEmergencyCancelConfirmBtn')?.addEventListener('click', confirmAdminEmergencyCancel);
+  document.getElementById('adminEmergencyCancelOrderIdInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmAdminEmergencyCancel();
+    }
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeAdminEmergencyCancelModal();
   });
 }
 
@@ -3555,6 +3678,7 @@ async function init() {
   setupAdminZeroPointsResetAllModal();
   setupAdminZeroPointsBonusAllModal();
   setupAdminZpHistoryModal();
+  setupAdminEmergencyCancelModal();
   document.getElementById('adminStorageRefreshBtn')?.addEventListener('click', () => {
     loadAdminStorageView();
   });

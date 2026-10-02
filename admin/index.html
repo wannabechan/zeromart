@@ -39,10 +39,14 @@
     .admin-payment-order-delete-row { margin-top: 12px; text-align: left; }
     .admin-payment-order-delete-row .admin-payment-cancel-btn,
     .admin-payment-order-delete-row .admin-payment-delete-btn,
-    .admin-payment-order-delete-row .admin-payment-delivery-row-btn { background: none; border: none; padding: 0; font-size: 0.75rem; color: #999; cursor: pointer; margin-right: 8px; }
+    .admin-payment-order-delete-row .admin-payment-delivery-row-btn,
+    .admin-payment-order-delete-row .admin-payment-emergency-cancel-btn { background: none; border: none; padding: 0; font-size: 0.75rem; color: #999; cursor: pointer; margin-right: 8px; }
     .admin-payment-order-delete-row .admin-payment-cancel-btn:hover,
     .admin-payment-order-delete-row .admin-payment-delete-btn:hover,
-    .admin-payment-order-delete-row .admin-payment-delivery-row-btn:hover { color: #666; }
+    .admin-payment-order-delete-row .admin-payment-delivery-row-btn:hover,
+    .admin-payment-order-delete-row .admin-payment-emergency-cancel-btn:hover { color: #666; }
+    .admin-payment-order-delete-row .admin-payment-emergency-cancel-btn { color: #c5221f; }
+    .admin-payment-order-delete-row .admin-payment-emergency-cancel-btn:hover { color: #a11b18; }
     .admin-payment-link-input { width: 70%; flex: 0 0 70%; max-width: 70%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.875rem; box-sizing: border-box; }
     .admin-payment-link-btn { flex: 1; min-width: 0; max-width: 100px; white-space: nowrap; }
     .admin-payment-link-input.urgent { border-color: #c5221f; border-width: 2px; }
@@ -785,6 +789,25 @@
         <div class="admin-modal-footer">
           <button type="button" class="admin-btn admin-btn-secondary" id="adminReorderStoresCancel">취소</button>
           <button type="button" class="admin-btn admin-btn-primary" id="adminReorderStoresConfirm">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="adminEmergencyCancelModal" aria-hidden="true">
+      <div class="admin-modal">
+        <div class="admin-modal-header">
+          <h3>긴급 취소</h3>
+          <button type="button" class="admin-modal-close" id="adminEmergencyCancelModalClose" aria-label="닫기">&times;</button>
+        </div>
+        <div class="admin-modal-body">
+          <p class="admin-modal-hint">결제 취소 및 주문 취소가 즉시 진행됩니다.<br>공급업체에는 본사에서 별도로 안내해 주세요.</p>
+          <p class="admin-modal-hint" style="margin-bottom:8px;">취소할 주문서 번호를 입력하세요.</p>
+          <input type="text" id="adminEmergencyCancelOrderIdInput" class="admin-form-input" placeholder="주문서 번호" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.875rem;">
+          <p class="admin-modal-hint" id="adminEmergencyCancelHint" style="margin-top:8px;margin-bottom:0;"></p>
+        </div>
+        <div class="admin-modal-footer">
+          <button type="button" class="admin-btn admin-btn-secondary" id="adminEmergencyCancelModalCancel">닫기</button>
+          <button type="button" class="admin-btn admin-btn-danger" id="adminEmergencyCancelConfirmBtn">긴급 취소</button>
         </div>
       </div>
     </div>
