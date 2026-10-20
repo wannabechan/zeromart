@@ -27,7 +27,7 @@ function isPastPaymentDeadline(order) {
 }
 
 function cancelReasonToActor(reason) {
-  if (reason === '관리자취소') return 'admin';
+  if (reason === '관리자취소' || reason === '긴급취소') return 'admin';
   if (reason === '고객취소' || reason === '결제취소') return 'user';
   return 'system';
 }

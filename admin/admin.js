@@ -25,6 +25,7 @@ let adminPaymentSubFilter = 'delivery_wait'; // 'new' | 'delivery_wait' | 'deliv
 /** 주문관리 기간: 'this_month' | '1_month' | '3_months'. API에 startDate(YYYY-MM-DD)로 전달 */
 let adminPaymentPeriod = 'this_month';
 let adminStoresMap = {};
+let adminStoreContactBySlug = {};
 let adminStoreOrder = []; // slug order for order detail
 let adminStatsLastData = null;
 let adminStatsMenuFilter = 'top10'; // 'top10' | 'all'
@@ -1874,6 +1875,38 @@ function isWithinPaymentCancelWindow(order) {
   return !Number.isNaN(ts) && Date.now() - ts < PAYMENT_CANCEL_WINDOW_MS;
 }
 
+function shouldShowOrderNoticeMonitor(order) {
+  if (!order) return false;
+  if ((order.status || '') === 'cancelled') return (order.cancel_reason || '') === '긴급취소';
+  if ((order.status || '') === 'delivery_completed' || (order.status || '') === 'shipping') return true;
+  return (order.status || '') === 'payment_completed' && !isWithinPaymentCancelWindow(order);
+}
+
+function getOrderNoticeMonitor(order) {
+  const results = Array.isArray(order.order_notification_results) ? order.order_notification_results : null;
+  if (results && results.length > 0) {
+    const fail = results.filter((r) => !r || r.ok !== true).length;
+    const ok = results.length - fail;
+    if (fail === 0) return { text: '주문서발송전부성공', tone: 'muted' };
+    if (ok === 0) return { text: '주문서발송전부실패', tone: 'bad' };
+    return { text: '주문서발송부분성공(실패' + fail + '건)', tone: 'bad' };
+  }
+  if (order.order_notification_checked === true && results && results.length === 0) {
+    return { text: '대상 없음', tone: 'none' };
+  }
+  const items = order.order_items || order.orderItems || [];
+  const slugs = [...new Set(items.map((i) => getOrderItemStoreKey(i.id)).filter((s) => s && s !== 'unknown'))];
+  if (slugs.length > 0 && Object.keys(adminStoreContactBySlug).length > 0) {
+    const targets = slugs.filter((slug) => String(adminStoreContactBySlug[slug] || '').trim());
+    const known = slugs.filter((slug) => Object.prototype.hasOwnProperty.call(adminStoreContactBySlug, slug));
+    if (known.length === slugs.length && targets.length === 0) {
+      return { text: '대상 없음', tone: 'none' };
+    }
+  }
+  if (order.order_notification_sent) return { text: '주문서발송전부성공', tone: 'muted' };
+  return { text: '주문서발송전', tone: 'muted' };
+}
+
 /** 결제 완료 후 45분 이내인 경우 취소 가능 남은 시간 "mm:ss" 반환, 그 외 null */
 function getPaymentCompletedRemainingMmSs(order) {
   if (order.status !== 'payment_completed') return null;
@@ -1978,7 +2011,13 @@ function renderPaymentList() {
       <div class="admin-payment-order ${isCancelled ? 'admin-payment-order-cancelled' : ''}" data-order-id="${orderIdEsc}">
         <div class="admin-payment-order-header">
           ${orderIdEl}
-          <span class="admin-payment-order-status ${order.status}"${statusCountdownAttr}>${statusLabelEsc}</span>
+          <div class="admin-payment-order-status-wrap">
+            ${shouldShowOrderNoticeMonitor(order) ? (() => {
+              const monitor = getOrderNoticeMonitor(order);
+              return '<span class="admin-order-notice-monitor admin-order-notice-monitor--' + monitor.tone + '">' + escapeHtml(monitor.text) + '</span>';
+            })() : ''}
+            <span class="admin-payment-order-status ${order.status}"${statusCountdownAttr}>${statusLabelEsc}</span>
+          </div>
         </div>
         <div class="admin-payment-order-info">
           <div>주문시간: ${formatAdminOrderDate(order.created_at)}</div>
@@ -2234,7 +2273,7 @@ async function confirmAdminEmergencyCancel() {
     const order = findAdminPaymentOrderById(orderId);
     if (order) {
       order.status = 'cancelled';
-      order.cancel_reason = '결제취소';
+      order.cancel_reason = '긴급취소';
     }
     closeAdminEmergencyCancelModal();
     alert('주문이 긴급 취소되었습니다.');
@@ -2297,16 +2336,22 @@ async function loadPaymentManagement() {
         const { stores } = await storesRes.json();
         adminStoresMap = {};
         adminStoreOrder = [];
+        adminStoreContactBySlug = {};
         (stores || []).forEach(s => {
           const slug = (s.slug || s.id || '').toString();
           const slugKey = slug.toLowerCase();
           const idKey = (s.id || '').toString().toLowerCase();
           const label = formatStoreSectionLabel(s.title, s.brand, slug);
+          const contact = (s.storeContactEmail || '').toString().trim();
           if (slugKey) {
             adminStoresMap[slugKey] = label;
             adminStoreOrder.push(slugKey);
+            adminStoreContactBySlug[slugKey] = contact;
           }
-          if (idKey && idKey !== slugKey) adminStoresMap[idKey] = label;
+          if (idKey && idKey !== slugKey) {
+            adminStoresMap[idKey] = label;
+            adminStoreContactBySlug[idKey] = contact;
+          }
         });
       }
     } catch (_) {}

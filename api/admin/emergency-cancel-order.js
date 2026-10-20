@@ -101,7 +101,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    await cancelOrderAndRegeneratePdf(id, '결제취소');
+    await cancelOrderAndRegeneratePdf(id, '긴급취소');
     try {
       const after = await getOrderById(id);
       if (after) {

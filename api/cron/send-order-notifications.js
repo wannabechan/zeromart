@@ -9,7 +9,8 @@ const {
   getAllOrders,
   getStores,
   getProfileSettings,
-  setOrderNotificationSent,
+  getOrderById,
+  saveOrder,
   appendResendLog,
 } = require('../_redis');
 const { requireAuthCron, generateOrderPdfAccessToken } = require('../_utils');
@@ -65,6 +66,7 @@ module.exports = async (req, res) => {
       });
 
       let anySent = false;
+      const noticeResults = [];
       for (const { store, slug, items, orderNumberDisplay } of storeEntries) {
         const toEmail = (store?.storeContactEmail || '').trim();
         if (!toEmail) continue;
@@ -81,6 +83,7 @@ module.exports = async (req, res) => {
           orderNumberDisplay,
         });
         const storeBrand = getStoreDisplayName(store);
+        const attemptedAt = new Date().toISOString();
         try {
           const sendResult = await resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
@@ -90,6 +93,7 @@ module.exports = async (req, res) => {
           });
           if (sendResult.error) {
             const errMsg = sendResult.error.message || JSON.stringify(sendResult.error);
+            noticeResults.push({ slug, ok: false, at: attemptedAt, error: String(errMsg).slice(0, 300) });
             await appendResendLog({
               ok: false,
               kind: 'order_notification',
@@ -97,6 +101,7 @@ module.exports = async (req, res) => {
               errorMessage: errMsg,
             });
           } else {
+            noticeResults.push({ slug, ok: true, at: attemptedAt, error: null });
             await appendResendLog({
               ok: true,
               kind: 'order_notification',
@@ -107,17 +112,41 @@ module.exports = async (req, res) => {
             sent += 1;
           }
         } catch (sendErr) {
+          const errMsg = sendErr?.message || String(sendErr);
+          noticeResults.push({ slug, ok: false, at: attemptedAt, error: String(errMsg).slice(0, 300) });
           await appendResendLog({
             ok: false,
             kind: 'order_notification',
             toEmail: toEmail,
-            errorMessage: sendErr?.message || String(sendErr),
+            errorMessage: errMsg,
           });
         }
       }
 
-      if (anySent) {
-        await setOrderNotificationSent(orderIdStr);
+      // 대상 매장 0곳(담당 이메일 없음)이거나 1곳 이상 성공하면 재시도 대상에서 제외.
+      // 대상이 있는데 전부 실패하면 order_notification_sent는 그대로 false → 기존처럼 재시도.
+      const doneForRetry = anySent || noticeResults.length === 0;
+      try {
+        const fresh = (await getOrderById(orderIdStr)) || order;
+        fresh.order_notification_results = noticeResults;
+        fresh.order_notification_checked = true;
+        if (doneForRetry) fresh.order_notification_sent = true;
+        await saveOrder(fresh);
+      } catch (saveErr) {
+        console.error('Send order notifications: save results', orderIdStr, saveErr.message);
+        if (doneForRetry) {
+          try {
+            const fresh = await getOrderById(orderIdStr);
+            if (fresh) {
+              fresh.order_notification_sent = true;
+              fresh.order_notification_results = noticeResults;
+              fresh.order_notification_checked = true;
+              await saveOrder(fresh);
+            }
+          } catch (flagErr) {
+            console.error('Send order notifications: mark sent', orderIdStr, flagErr.message);
+          }
+        }
       }
     }
 
