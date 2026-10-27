@@ -234,10 +234,10 @@ body {
   background: none;
   font-family: inherit;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.4;
-  color: var(--color-text-secondary);
-  text-decoration: underline;
+  color: #BCBCBC;
+  text-decoration: none;
   cursor: pointer;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
