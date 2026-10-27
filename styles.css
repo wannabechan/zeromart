@@ -236,7 +236,7 @@ body {
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.4;
-  color: #BCBCBC;
+  color: var(--color-text-muted);
   text-decoration: none;
   cursor: pointer;
   flex-shrink: 0;
