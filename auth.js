@@ -15,6 +15,7 @@ let pendingEmail = null;
 let codeCountdownInterval = null;
 let setPasswordCountdownInterval = null;
 let setPasswordReason = null;
+let loginSubmitLock = false;
 
 function getToken() {
   let current = localStorage.getItem(TOKEN_KEY);
@@ -128,6 +129,19 @@ function hideInitialLoadOverlay() {
     overlay.setAttribute('aria-hidden', 'true');
     overlay.style.display = 'none';
   }
+}
+
+function showInitialLoadOverlay() {
+  const overlay = document.getElementById('initialLoadOverlay');
+  if (!overlay) return;
+  const spinner = overlay.querySelector('.initial-load-spinner');
+  if (spinner) spinner.setAttribute('data-loading-start', String(Date.now()));
+  const bar = overlay.querySelector('.loading-progress-bar');
+  const pct = overlay.querySelector('.loading-progress-pct');
+  if (bar) bar.style.width = '0%';
+  if (pct) pct.textContent = '0%';
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.style.display = 'flex';
 }
 
 async function initAuth() {
@@ -320,11 +334,20 @@ async function initAuth() {
   async function finishLogin(data) {
     setToken(data.token);
     pendingEmail = null;
+    if (loginScreen) loginScreen.style.display = 'none';
+    showInitialLoadOverlay();
+    let entered = false;
+    try {
+      resetToStep1();
+      const sessionUser = await checkSession();
+      showApp(sessionUser);
+      if (loginForm) loginForm.reset();
+      entered = true;
+    } finally {
+      hideInitialLoadOverlay();
+      if (!entered && loginScreen) showLogin();
+    }
     if (data.isFirstLogin) alert('만나서 반갑습니다!');
-    resetToStep1();
-    const sessionUser = await checkSession();
-    showApp(sessionUser);
-    loginForm.reset();
   }
 
   async function requestAuthCode(email) {
@@ -564,6 +587,7 @@ async function initAuth() {
   });
 
   setPasswordSubmit.addEventListener('click', async () => {
+    if (loginSubmitLock) return;
     const code = setPasswordCode.value || '';
     const password = setPasswordNew.value || '';
     const passwordConfirm = setPasswordConfirm.value || '';
@@ -577,6 +601,7 @@ async function initAuth() {
       return;
     }
 
+    loginSubmitLock = true;
     setPasswordSubmit.disabled = true;
     setPasswordSubmit.textContent = '저장 중...';
     try {
@@ -604,10 +629,13 @@ async function initAuth() {
       setPasswordFieldError(setPasswordCode, '네트워크 오류입니다.');
       setPasswordSubmit.disabled = false;
       setPasswordSubmit.textContent = '확인';
+    } finally {
+      loginSubmitLock = false;
     }
   });
 
   async function submitPasswordLogin() {
+    if (loginSubmitLock) return;
     const password = loginPassword.value || '';
     if (passwordRuleError(password)) {
       setPasswordFieldError(loginPassword, '틀린 비밀번호입니다.');
@@ -617,6 +645,7 @@ async function initAuth() {
       alert('이메일을 입력해 주세요.');
       return;
     }
+    loginSubmitLock = true;
     try {
       const response = await fetch(`${API_BASE}/api/auth/login-password`, {
         method: 'POST',
@@ -636,10 +665,13 @@ async function initAuth() {
     } catch (error) {
       console.error('Password login error:', error);
       alert('네트워크 오류가 발생했습니다.');
+    } finally {
+      loginSubmitLock = false;
     }
   }
 
   async function submitCodeLogin() {
+    if (loginSubmitLock) return;
     const code = (loginCode.value || '').trim();
     const codeDigits = code.replace(/\D/g, '');
     if (!code || codeDigits.length !== 6 || codeDigits !== code) {
@@ -651,6 +683,7 @@ async function initAuth() {
       return;
     }
 
+    loginSubmitLock = true;
     try {
       const response = await fetch(`${API_BASE}/api/auth/verify-code`, {
         method: 'POST',
@@ -670,6 +703,8 @@ async function initAuth() {
     } catch (error) {
       console.error('Verify code error:', error);
       alert('네트워크 오류가 발생했습니다.');
+    } finally {
+      loginSubmitLock = false;
     }
   }
 
