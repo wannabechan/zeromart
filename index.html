@@ -35,7 +35,10 @@
       <form class="login-form" id="loginForm" novalidate>
         <div class="login-field">
           <label class="login-label" for="loginEmail">이메일</label>
-          <input type="email" id="loginEmail" class="login-input" placeholder="example@email.com" autocomplete="email" required>
+          <div class="login-input-shell">
+            <input type="email" id="loginEmail" class="login-input" placeholder="example@email.com" autocomplete="email" required>
+            <span class="login-input-inline-error" id="loginEmailError"></span>
+          </div>
         </div>
         <div class="login-method-row" id="loginMethodRow">
           <button type="button" class="login-btn login-btn-primary login-btn-half" id="btnSendCode">로그인 코드</button>
@@ -44,7 +47,10 @@
         <div class="login-code-section" id="loginCodeSection" style="display: none;">
           <div class="login-field">
             <label class="login-label" for="loginCode">6자리 인증 코드</label>
-            <input type="text" id="loginCode" class="login-input" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+            <div class="login-input-shell">
+              <input type="text" id="loginCode" class="login-input" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+              <span class="login-input-inline-error" id="loginCodeError"></span>
+            </div>
           </div>
           <div class="login-code-hint-row">
             <span class="login-code-hint" id="loginCodeHint">이메일 발송 인증 코드를 입력하세요.</span>

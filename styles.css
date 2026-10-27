@@ -307,7 +307,6 @@ body {
 
 .login-input-shell.has-error {
   border-color: var(--color-error);
-  padding-top: 8px;
 }
 
 .login-input-shell.has-error:focus-within {
@@ -315,12 +314,9 @@ body {
   box-shadow: 0 0 0 2px rgba(197, 34, 31, 0.15);
 }
 
-.login-input-shell.has-error .login-input {
-  height: 24px;
-}
-
-.login-input-shell.has-error .login-input-inline-error {
-  display: block;
+.login-input-shell.has-error .login-input::placeholder {
+  color: var(--color-error);
+  opacity: 1;
 }
 
 .login-set-password-note {

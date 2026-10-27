@@ -249,7 +249,10 @@ async function initAuth() {
     closeSetPasswordModal();
     if (loginCodeSection) loginCodeSection.style.display = 'none';
     if (loginPasswordSection) loginPasswordSection.style.display = 'none';
-    if (loginCode) loginCode.value = '';
+    if (loginCode) {
+      setPasswordFieldError(loginCode, '');
+      loginCode.value = '';
+    }
     if (loginPassword) loginPassword.value = '';
     if (loginCodeTimer) {
       loginCodeTimer.textContent = '';
@@ -335,12 +338,20 @@ async function initAuth() {
     return data;
   }
 
+  function showLoginEmailRequired() {
+    setPasswordFieldError(loginEmail, '로그인 이메일을 입력하세요');
+  }
+
+  loginEmail.addEventListener('input', () => setPasswordFieldError(loginEmail, ''));
+  loginCode.addEventListener('input', () => setPasswordFieldError(loginCode, ''));
+
   btnSendCode.addEventListener('click', async () => {
     const email = loginEmail.value.trim();
     if (!validateEmail(email)) {
-      alert('올바른 이메일 주소를 입력해 주세요.');
+      showLoginEmailRequired();
       return;
     }
+    setPasswordFieldError(loginEmail, '');
 
     btnPasswordMode.style.display = 'none';
     btnSendCode.disabled = true;
@@ -357,6 +368,7 @@ async function initAuth() {
       loginMethodRow.style.display = 'none';
       loginPasswordSection.style.display = 'none';
       loginCodeSection.style.display = '';
+      setPasswordFieldError(loginCode, '');
       loginCode.value = '';
       loginCode.focus();
       startCodeCountdown();
@@ -408,9 +420,10 @@ async function initAuth() {
   btnPasswordMode.addEventListener('click', async () => {
     const email = loginEmail.value.trim();
     if (!validateEmail(email)) {
-      alert('올바른 이메일 주소를 입력해 주세요.');
+      showLoginEmailRequired();
       return;
     }
+    setPasswordFieldError(loginEmail, '');
 
     btnSendCode.style.display = 'none';
     btnPasswordMode.disabled = true;
@@ -471,10 +484,18 @@ async function initAuth() {
       shell.classList.remove('has-error');
       err.textContent = '';
       input.removeAttribute('aria-invalid');
+      if (Object.prototype.hasOwnProperty.call(input.dataset, 'defaultPlaceholder')) {
+        input.placeholder = input.dataset.defaultPlaceholder;
+      }
       return;
     }
+    if (!Object.prototype.hasOwnProperty.call(input.dataset, 'defaultPlaceholder')) {
+      input.dataset.defaultPlaceholder = input.placeholder || '';
+    }
+    input.value = '';
+    input.placeholder = message;
     shell.classList.add('has-error');
-    err.textContent = message;
+    err.textContent = '';
     input.setAttribute('aria-invalid', 'true');
   }
 
@@ -612,8 +633,9 @@ async function initAuth() {
 
   async function submitCodeLogin() {
     const code = (loginCode.value || '').trim();
-    if (!code || code.length !== 6) {
-      alert('6자리 인증 코드를 입력해 주세요.');
+    const codeDigits = code.replace(/\D/g, '');
+    if (!code || codeDigits.length !== 6 || codeDigits !== code) {
+      setPasswordFieldError(loginCode, '틀린 코드입니다.');
       return;
     }
     if (!pendingEmail) {
@@ -629,7 +651,11 @@ async function initAuth() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        alert(data.error || '인증에 실패했습니다.');
+        if (response.status === 401 || String(data.error || '').includes('코드') || String(data.error || '').includes('만료')) {
+          setPasswordFieldError(loginCode, '틀린 코드입니다.');
+        } else {
+          alert(data.error || '인증에 실패했습니다.');
+        }
         return;
       }
       await finishLogin(data);
