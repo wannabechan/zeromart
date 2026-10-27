@@ -61,7 +61,10 @@
         <div class="login-code-section" id="loginPasswordSection" style="display: none;">
           <div class="login-field">
             <label class="login-label" for="loginPassword">비밀번호 입력</label>
-            <input type="password" id="loginPassword" class="login-input" placeholder="password" maxlength="64" autocomplete="current-password">
+            <div class="login-input-shell">
+              <input type="password" id="loginPassword" class="login-input" placeholder="password" maxlength="64" autocomplete="current-password">
+              <span class="login-input-inline-error" id="loginPasswordError"></span>
+            </div>
           </div>
           <div class="login-code-hint-row">
             <span class="login-code-hint" id="loginPasswordHint">비밀번호를 입력하세요.</span>

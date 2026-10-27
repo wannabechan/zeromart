@@ -253,7 +253,10 @@ async function initAuth() {
       setPasswordFieldError(loginCode, '');
       loginCode.value = '';
     }
-    if (loginPassword) loginPassword.value = '';
+    if (loginPassword) {
+      setPasswordFieldError(loginPassword, '');
+      loginPassword.value = '';
+    }
     if (loginCodeTimer) {
       loginCodeTimer.textContent = '';
       loginCodeTimer.classList.remove('expiring');
@@ -344,6 +347,7 @@ async function initAuth() {
 
   loginEmail.addEventListener('input', () => setPasswordFieldError(loginEmail, ''));
   loginCode.addEventListener('input', () => setPasswordFieldError(loginCode, ''));
+  loginPassword.addEventListener('input', () => setPasswordFieldError(loginPassword, ''));
 
   btnSendCode.addEventListener('click', async () => {
     const email = loginEmail.value.trim();
@@ -447,6 +451,7 @@ async function initAuth() {
       history.pushState({ loginStep: 'password' }, '', window.location.pathname + (window.location.search || ''));
       if (data.hasPassword) {
         loginPasswordSection.style.display = '';
+        setPasswordFieldError(loginPassword, '');
         loginPassword.value = '';
         loginPassword.focus();
       } else {
@@ -604,9 +609,8 @@ async function initAuth() {
 
   async function submitPasswordLogin() {
     const password = loginPassword.value || '';
-    const rule = passwordRuleError(password);
-    if (rule) {
-      alert(rule);
+    if (passwordRuleError(password)) {
+      setPasswordFieldError(loginPassword, '틀린 비밀번호입니다.');
       return;
     }
     if (!pendingEmail) {
@@ -621,7 +625,11 @@ async function initAuth() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        alert(data.error || '로그인에 실패했습니다.');
+        if (response.status === 401 || String(data.error || '').includes('비밀번호')) {
+          setPasswordFieldError(loginPassword, '틀린 비밀번호입니다.');
+        } else {
+          alert(data.error || '로그인에 실패했습니다.');
+        }
         return;
       }
       await finishLogin(data);
