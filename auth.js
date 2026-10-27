@@ -219,6 +219,7 @@ async function initAuth() {
     if (setPasswordCode) setPasswordCode.value = '';
     if (setPasswordNew) setPasswordNew.value = '';
     if (setPasswordConfirm) setPasswordConfirm.value = '';
+    clearSetPasswordFieldErrors();
     if (setPasswordTimer) {
       setPasswordTimer.textContent = '';
       setPasswordTimer.classList.remove('expiring');
@@ -462,25 +463,91 @@ async function initAuth() {
     if (reason === 'setup') resetToStep1();
   });
 
+  function setPasswordFieldError(input, message) {
+    const shell = input && input.closest('.login-input-shell');
+    const err = shell && shell.querySelector('.login-input-inline-error');
+    if (!shell || !err) return;
+    if (!message) {
+      shell.classList.remove('has-error');
+      err.textContent = '';
+      input.removeAttribute('aria-invalid');
+      return;
+    }
+    shell.classList.add('has-error');
+    err.textContent = message;
+    input.setAttribute('aria-invalid', 'true');
+  }
+
+  function clearSetPasswordFieldErrors() {
+    setPasswordFieldError(setPasswordCode, '');
+    setPasswordFieldError(setPasswordNew, '');
+    setPasswordFieldError(setPasswordConfirm, '');
+  }
+
+  function collectSetPasswordFieldErrors(code, password, passwordConfirm) {
+    const errors = { code: '', password: '', confirm: '' };
+    const codeTrim = (code || '').trim();
+    const codeDigits = codeTrim.replace(/\D/g, '');
+    if (!codeTrim) errors.code = '필수 입력 사항입니다.';
+    else if (codeDigits.length !== 6 || codeDigits !== codeTrim) errors.code = '틀린 코드입니다.';
+
+    if (!password || !String(password).trim()) errors.password = '필수 입력 사항입니다.';
+    else if (password.length < PASSWORD_MIN_LENGTH) errors.password = '8자리 이상 입력하세요.';
+    else if (password.length > PASSWORD_MAX_LENGTH) errors.password = '64자 이하로 입력하세요.';
+
+    if (!passwordConfirm || !String(passwordConfirm).trim()) errors.confirm = '필수 입력 사항입니다.';
+    else if (password !== passwordConfirm) errors.confirm = '입력 내용이 다릅니다.';
+    return errors;
+  }
+
+  function showSetPasswordFieldErrors(errors) {
+    setPasswordFieldError(setPasswordCode, errors.code);
+    setPasswordFieldError(setPasswordNew, errors.password);
+    setPasswordFieldError(setPasswordConfirm, errors.confirm);
+  }
+
+  function setPasswordServerFieldError(status, message) {
+    const msg = String(message || '');
+    clearSetPasswordFieldErrors();
+    if (status === 429 || msg.includes('너무 많')) {
+      setPasswordFieldError(setPasswordCode, '잠시 후 다시 하세요.');
+      return;
+    }
+    if (msg.includes('일치')) {
+      setPasswordFieldError(setPasswordConfirm, '입력 내용이 다릅니다.');
+      return;
+    }
+    if (msg.includes('코드') || msg.includes('만료')) {
+      setPasswordFieldError(setPasswordCode, '틀린 코드입니다.');
+      return;
+    }
+    if (msg.includes('이메일')) {
+      setPasswordFieldError(setPasswordCode, '이메일을 확인하세요.');
+      return;
+    }
+    if (msg.includes('8자') || msg.includes('64자') || msg.includes('이상')) {
+      const tooLong = (setPasswordNew.value || '').length > PASSWORD_MAX_LENGTH;
+      setPasswordFieldError(setPasswordNew, tooLong ? '64자 이하로 입력하세요.' : '8자리 이상 입력하세요.');
+      return;
+    }
+    setPasswordFieldError(setPasswordCode, status >= 500 ? '서버 오류입니다.' : '저장에 실패했습니다.');
+  }
+
+  [setPasswordCode, setPasswordNew, setPasswordConfirm].forEach((input) => {
+    input.addEventListener('input', () => setPasswordFieldError(input, ''));
+  });
+
   setPasswordSubmit.addEventListener('click', async () => {
-    const code = (setPasswordCode.value || '').trim();
+    const code = setPasswordCode.value || '';
     const password = setPasswordNew.value || '';
     const passwordConfirm = setPasswordConfirm.value || '';
-    if (!code || code.replace(/\D/g, '').length !== 6) {
-      alert('이메일로 받은 6자리 코드를 입력해 주세요.');
-      return;
-    }
-    const rule = passwordRuleError(password);
-    if (rule) {
-      alert(rule);
-      return;
-    }
-    if (password !== passwordConfirm) {
-      alert('비밀번호 확인이 일치하지 않습니다.');
+    const errors = collectSetPasswordFieldErrors(code, password, passwordConfirm);
+    if (errors.code || errors.password || errors.confirm) {
+      showSetPasswordFieldErrors(errors);
       return;
     }
     if (!pendingEmail) {
-      alert('이메일을 입력해 주세요.');
+      setPasswordFieldError(setPasswordCode, '이메일을 확인하세요.');
       return;
     }
 
@@ -490,11 +557,16 @@ async function initAuth() {
       const response = await fetch(`${API_BASE}/api/auth/set-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, code, password, passwordConfirm }),
+        body: JSON.stringify({
+          email: pendingEmail,
+          code: code.trim(),
+          password,
+          passwordConfirm,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        alert(data.error || '비밀번호를 저장하지 못했습니다.');
+        setPasswordServerFieldError(response.status, data.error);
         setPasswordSubmit.disabled = false;
         setPasswordSubmit.textContent = '확인';
         return;
@@ -502,7 +574,8 @@ async function initAuth() {
       await finishLogin(data);
     } catch (error) {
       console.error('Set password error:', error);
-      alert('네트워크 오류가 발생했습니다.');
+      clearSetPasswordFieldErrors();
+      setPasswordFieldError(setPasswordCode, '네트워크 오류입니다.');
       setPasswordSubmit.disabled = false;
       setPasswordSubmit.textContent = '확인';
     }

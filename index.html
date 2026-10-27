@@ -87,12 +87,21 @@
       <button type="button" class="login-required-close" id="setPasswordClose" aria-label="닫기">&times;</button>
       <h3 class="login-set-password-title" id="setPasswordTitle">새 비밀번호 입력</h3>
       <div class="login-set-password-code-row">
-        <input type="text" id="setPasswordCode" class="login-input" placeholder="이메일 발송 6자리 코드" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        <div class="login-input-shell">
+          <input type="text" id="setPasswordCode" class="login-input" placeholder="이메일 발송 6자리 코드" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+          <span class="login-input-inline-error" id="setPasswordCodeError"></span>
+        </div>
         <span class="login-code-timer" id="setPasswordTimer"></span>
       </div>
       <p class="login-set-password-note" id="setPasswordCodeNote"></p>
-      <input type="password" id="setPasswordNew" class="login-input" placeholder="새 비밀번호 입력" maxlength="64" autocomplete="new-password">
-      <input type="password" id="setPasswordConfirm" class="login-input" placeholder="비밀번호 확인" maxlength="64" autocomplete="new-password">
+      <div class="login-input-shell">
+        <input type="password" id="setPasswordNew" class="login-input" placeholder="새 비밀번호 입력" maxlength="64" autocomplete="new-password">
+        <span class="login-input-inline-error" id="setPasswordNewError"></span>
+      </div>
+      <div class="login-input-shell">
+        <input type="password" id="setPasswordConfirm" class="login-input" placeholder="비밀번호 확인" maxlength="64" autocomplete="new-password">
+        <span class="login-input-inline-error" id="setPasswordConfirmError"></span>
+      </div>
       <button type="button" class="login-btn login-btn-primary" id="setPasswordSubmit">확인</button>
     </div>
   </div>
