@@ -164,6 +164,18 @@ async function updateUserLevel(email, level) {
   return user;
 }
 
+async function setUserPassword(email, passwordHash, passwordSalt) {
+  const redis = getRedis();
+  const raw = await redis.get(`user:${email}`);
+  if (!raw) return null;
+  const user = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  user.password_hash = passwordHash;
+  user.password_salt = passwordSalt;
+  user.password_set_at = new Date().toISOString();
+  await redis.set(`user:${email}`, JSON.stringify(user));
+  return user;
+}
+
 function recomputeZeroPointBalanceFromGrants(user) {
   const arr = Array.isArray(user.zero_point_grants) ? user.zero_point_grants : [];
   let s = 0;
@@ -1078,6 +1090,7 @@ module.exports = {
   createUser,
   updateUserLogin,
   updateUserLevel,
+  setUserPassword,
   addUserZeroPoints,
   deductUserZeroPoints,
   refundUserZeroPoints,

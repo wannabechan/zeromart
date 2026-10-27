@@ -37,17 +37,31 @@
           <label class="login-label" for="loginEmail">이메일</label>
           <input type="email" id="loginEmail" class="login-input" placeholder="example@email.com" autocomplete="email" required>
         </div>
-        <button type="button" class="login-btn login-btn-primary" id="btnSendCode">로그인 코드 생성</button>
+        <div class="login-method-row" id="loginMethodRow">
+          <button type="button" class="login-btn login-btn-primary login-btn-half" id="btnSendCode">로그인 코드</button>
+          <button type="button" class="login-btn login-btn-primary login-btn-half" id="btnPasswordMode">비밀번호</button>
+        </div>
         <div class="login-code-section" id="loginCodeSection" style="display: none;">
           <div class="login-field">
             <label class="login-label" for="loginCode">6자리 인증 코드</label>
             <input type="text" id="loginCode" class="login-input" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
           </div>
           <div class="login-code-hint-row">
-            <span class="login-code-hint" id="loginCodeHint">이메일로 발송된 인증 코드를 입력하세요.</span>
+            <span class="login-code-hint" id="loginCodeHint">이메일 발송 인증 코드를 입력하세요.</span>
             <span class="login-code-timer" id="loginCodeTimer"></span>
           </div>
           <button type="submit" class="login-btn login-btn-primary" id="btnLogin">로그인</button>
+        </div>
+        <div class="login-code-section" id="loginPasswordSection" style="display: none;">
+          <div class="login-field">
+            <label class="login-label" for="loginPassword">비밀번호 입력</label>
+            <input type="password" id="loginPassword" class="login-input" placeholder="password" maxlength="64" autocomplete="current-password">
+          </div>
+          <div class="login-code-hint-row">
+            <span class="login-code-hint" id="loginPasswordHint">비밀번호를 입력하세요.</span>
+            <button type="button" class="login-forgot-password" id="btnForgotPassword">기억이 안나요</button>
+          </div>
+          <button type="submit" class="login-btn login-btn-primary" id="btnPasswordLogin">로그인</button>
         </div>
       </form>
       <p class="login-notice">※ 이메일로 로그인하세요.</p>
@@ -65,6 +79,21 @@
         <br>
         <p class="login-footer-beta">본 서비스는 베타 테스트 단계로 운영되고 있습니다.</p>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay login-required-modal" id="setPasswordModal" aria-hidden="true">
+    <div class="modal login-required-modal-inner login-set-password-inner" role="dialog" aria-labelledby="setPasswordTitle">
+      <button type="button" class="login-required-close" id="setPasswordClose" aria-label="닫기">&times;</button>
+      <h3 class="login-set-password-title" id="setPasswordTitle">새 비밀번호 입력</h3>
+      <div class="login-set-password-code-row">
+        <input type="text" id="setPasswordCode" class="login-input" placeholder="이메일 발송 6자리 코드" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        <span class="login-code-timer" id="setPasswordTimer"></span>
+      </div>
+      <p class="login-set-password-note" id="setPasswordCodeNote"></p>
+      <input type="password" id="setPasswordNew" class="login-input" placeholder="새 비밀번호 입력" maxlength="64" autocomplete="new-password">
+      <input type="password" id="setPasswordConfirm" class="login-input" placeholder="비밀번호 확인" maxlength="64" autocomplete="new-password">
+      <button type="button" class="login-btn login-btn-primary" id="setPasswordSubmit">확인</button>
     </div>
   </div>
 

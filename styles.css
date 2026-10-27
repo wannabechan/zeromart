@@ -216,6 +216,69 @@ body {
   background: var(--color-primary-hover);
 }
 
+.login-method-row {
+  display: flex;
+  gap: 8px;
+}
+
+.login-btn-half {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.login-forgot-password {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.login-set-password-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+}
+
+.login-set-password-title {
+  margin: 0 28px 4px 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.login-set-password-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-set-password-code-row .login-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.login-set-password-note {
+  margin: -4px 0 0;
+  min-height: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.login-set-password-note:empty {
+  display: none;
+}
+
 .login-code-section {
   margin-top: 20px;
   padding-top: 20px;
