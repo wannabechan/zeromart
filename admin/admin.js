@@ -2716,6 +2716,36 @@ function getSettlementDateOptions() {
   return list;
 }
 
+/** 정산 탭 콤보: 아직 도래하지 않은 다음 기준 정산일 미리보기 */
+const NEXT_SETTLEMENT_FORECAST_VALUE = '__next_settlement__';
+
+/** dateStr 다음으로 오는 정산일(10일·20일·말일) */
+function getNextSettlementDateAfter(dateStr) {
+  const [y, m, d] = String(dateStr || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const lastDay = new Date(y, m, 0).getDate();
+  if (d < 10) return `${y}-${pad(m)}-10`;
+  if (d < 20) return `${y}-${pad(m)}-20`;
+  if (d < lastDay) return `${y}-${pad(m)}-${pad(lastDay)}`;
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${pad(nm)}-10`;
+}
+
+/** 목록에 있는 마지막 기준 정산일 바로 다음 정산일 */
+function getUpcomingSettlementBaseDate() {
+  const last = getSettlementDateOptions()[0];
+  if (last) return getNextSettlementDateAfter(last);
+  return getNextSettlementDateAfter(getTodayKST());
+}
+
+function resolveSettlementBaseDate(value) {
+  const v = (value || '').trim();
+  if (v === NEXT_SETTLEMENT_FORECAST_VALUE) return getUpcomingSettlementBaseDate();
+  return v;
+}
+
 /**
  * 정산관리 탭 전용 샘플 데이터 생성 (DB 미반영, 화면 확인용).
  * 2026-02-01부터 매일 09:00 KST 기준, 현재 등록 브랜드별 1건씩 주문·결제완료.
@@ -2899,7 +2929,7 @@ async function runSettlementStatementSearch() {
   const slugEl = document.getElementById('adminSettlementBrandSelect');
   const resultBox = document.getElementById('adminSettlementStatementResult');
   if (!dateSelectEl || !slugEl || !resultBox) return;
-  const baseDate = (dateSelectEl.value || '').trim();
+  const baseDate = resolveSettlementBaseDate(dateSelectEl.value);
   if (!baseDate) {
     resultBox.innerHTML = '<p class="admin-stats-error">기준 정산일을 선택해 주세요.</p>';
     return;
@@ -3021,7 +3051,9 @@ async function loadSettlement() {
   const settlementDates = getSettlementDateOptions();
   const defaultDate = settlementDates[0] || getTodayKST();
 
-  const dateSelectOptions = settlementDates.map((d) => '<option value="' + escapeHtml(d) + '"' + (d === defaultDate ? ' selected' : '') + '>' + escapeHtml(d) + '</option>').join('');
+  const dateSelectOptions =
+    '<option value="' + NEXT_SETTLEMENT_FORECAST_VALUE + '">*다음 정산 구간 예상</option>' +
+    settlementDates.map((d) => '<option value="' + escapeHtml(d) + '"' + (d === defaultDate ? ' selected' : '') + '>' + escapeHtml(d) + '</option>').join('');
 
   const statementBlock =
     '<div class="admin-settlement-statement-area">' +
@@ -3106,7 +3138,8 @@ async function loadSettlement() {
   }
 
   async function fetchAndRenderSettlement(baseDateStr, stores, slugToSuburl) {
-    const period = getSettlementPeriodFromBaseDate(baseDateStr);
+    const resolvedBaseDate = resolveSettlementBaseDate(baseDateStr);
+    const period = getSettlementPeriodFromBaseDate(resolvedBaseDate);
     const box = document.getElementById('adminSettlementByDate');
     const pendingBox = document.getElementById('adminSettlementPending');
     const caption = document.querySelector('.admin-settlement-caption');
@@ -3120,7 +3153,7 @@ async function loadSettlement() {
     function cacheSettlementView(byBrand, pendingShipment) {
       adminSettlementLastView = {
         groupLabel,
-        baseDate: baseDateStr || '',
+        baseDate: resolvedBaseDate || '',
         startDate: period.startDate,
         endDate: period.endDate,
         byBrand: byBrand || [],
